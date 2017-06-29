@@ -10,6 +10,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  *
  */
+#include <shared_opt.h>
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -764,6 +765,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
     bool is_importvia_poppler = false;
     if (dlg) {
         page_num = dlg->getSelectedPage();
+
 #ifdef HAVE_POPPLER_CAIRO
         is_importvia_poppler = dlg->getImportMethod();
         // printf("PDF import via %s.\n", is_importvia_poppler ? "poppler" : "native");
@@ -789,8 +791,17 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         // Get preferences
         Inkscape::XML::Node *prefs = builder->getPreferences();
+
+        // If UI - get preferences from dialog class
         if (dlg)
             dlg->getImportSettings(prefs);
+        else {
+        	if (sp_embed_images_sh)
+        		prefs->setAttribute("embedImages", "1");
+        	else
+        		prefs->setAttribute("embedImages", "0");
+        }
+
 
         // Apply crop settings
         PDFRectangle *clipToBox = NULL;

@@ -34,6 +34,8 @@
 
 #include "path-prefix.h"
 
+#include "shared_opt.h"
+
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
 #endif
@@ -156,6 +158,7 @@ enum {
     SP_ARG_EXPORT_USE_HINTS,
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
+	SP_ARG_LINK_IMAGES,
     SP_ARG_EXPORT_SVG,
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
@@ -219,6 +222,7 @@ static gchar *sp_export_svg = NULL;
 static gchar *sp_export_ps = NULL;
 static gchar *sp_export_eps = NULL;
 static gint sp_export_ps_level = 3;
+static gboolean sp_embed_images = FALSE;
 static gchar *sp_export_pdf = NULL;
 static gchar *sp_export_pdf_version = NULL;
 static gchar *sp_export_emf = NULL;
@@ -266,6 +270,7 @@ static void resetCommandlineGlobals() {
         sp_export_ps = NULL;
         sp_export_eps = NULL;
         sp_export_ps_level = 3;
+        sp_embed_images = FALSE;
         sp_export_pdf = NULL;
         sp_export_pdf_version = NULL;
         sp_export_emf = NULL;
@@ -413,6 +418,11 @@ struct poptOption options[] = {
      N_("Choose the PostScript Level used to export. Possible choices are"
         " 2 and 3 (the default)"),
      N_("PS Level")},
+
+	{"link", 'T',
+	 POPT_ARG_NONE, &sp_embed_images, SP_ARG_LINK_IMAGES,
+	 N_("embeded images from PDF --query-id"),
+	 NULL},
 
     {"export-pdf", 'A',
      POPT_ARG_STRING, &sp_export_pdf, SP_ARG_EXPORT_PDF,
@@ -2274,6 +2284,10 @@ sp_process_args(poptContext ctx)
                     new Inkscape::CmdLineAction((a == SP_ARG_VERB), arg);
                 }
                 break;
+            }
+            case SP_ARG_LINK_IMAGES: {
+            	sp_embed_images_sh = FALSE;
+            	break;
             }
             case POPT_ERROR_BADOPT: {
                 g_warning ("Invalid option %s", poptBadOption(ctx, 0));
