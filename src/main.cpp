@@ -2294,8 +2294,13 @@ sp_process_args(poptContext ctx)
             case SP_ARG_EXPORT_SVG: {
             	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);
             	sp_export_svg_path_sh = dirname(sp_export_svg_path_sh);
-            	if (strlen(sp_export_svg_path_sh) > 0) {
+            	if (strlen(sp_export_svg_path_sh) > 1 or
+            	   (strlen(sp_export_svg_path_sh) == 1 && (sp_export_svg_path_sh[0] != '.') )) {
             	  strcat(sp_export_svg_path_sh, "/") ;
+            	}
+            	else { // if it local dir we not need any patch
+            	  sp_export_svg_path_sh = (char*)alloca(2);
+            	  sp_export_svg_path_sh = (char*)"";
             	}
             	break;
             }
