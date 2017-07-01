@@ -10,7 +10,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  *
  */
-#include <shared_opt.h>
+#include "shared_opt.cpp"
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

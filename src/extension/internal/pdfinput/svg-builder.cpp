@@ -21,6 +21,7 @@
 
 #include "svg-builder.h"
 #include "pdf-parser.h"
+#include "shared_opt.h"
 
 #include <png.h>
 
@@ -1520,8 +1521,11 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         png_set_write_fn(png_ptr, &base64_stream, png_write_base64stream, png_flush_base64stream);
     } else {
         static int counter = 0;
-        file_name = g_strdup_printf("%s_img%d.png", _docname, counter++);
+        // build path of file for linking image
+        file_name = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter++);
         fp = fopen(file_name, "wb");
+        // build link value for image
+        file_name = g_strdup_printf("%s_img%d.png", _docname, counter-1);
         if ( fp == NULL ) {
             png_destroy_write_struct(&png_ptr, &info_ptr);
             g_free(file_name);

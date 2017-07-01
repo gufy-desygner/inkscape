@@ -29,18 +29,20 @@
 
 // This has to be included prior to anything that includes setjmp.h, it croaks otherwise
 #include <png.h>
+#include <libgen.h>
 
 #include "ui/widget/panel.h" // This has to be the first to include <glib.h> because of Glibmm's dependence on a deprecated feature...
 
 #include "path-prefix.h"
 
-#include "shared_opt.h"
+#include "shared_opt.cpp"
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
 #endif
 #include <cstring>
 #include <string>
+#include <string.h>
 #include <locale.h>
 #include <stdlib.h>
 
@@ -2287,6 +2289,14 @@ sp_process_args(poptContext ctx)
             }
             case SP_ARG_LINK_IMAGES: {
             	sp_embed_images_sh = FALSE;
+            	break;
+            }
+            case SP_ARG_EXPORT_SVG: {
+            	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);
+            	sp_export_svg_path_sh = dirname(sp_export_svg_path_sh);
+            	if (strlen(sp_export_svg_path_sh) > 0) {
+            	  strcat(sp_export_svg_path_sh, "/") ;
+            	}
             	break;
             }
             case POPT_ERROR_BADOPT: {
