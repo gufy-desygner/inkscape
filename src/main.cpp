@@ -807,7 +807,7 @@ main(int argc, char **argv)
 #endif // WIN32
 
     int retcode;
-
+    sp_export_svg_path_sh = "";
     if (use_gui) {
         retcode = sp_main_gui(argc, (const char **) argv);
     } else {

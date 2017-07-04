@@ -798,8 +798,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         else {
         	if (sp_embed_images_sh)
         		prefs->setAttribute("embedImages", "1");
-        	else
+        	else {
         		prefs->setAttribute("embedImages", "0");
+        		sp_repr_set_svg_double(prefs, "approximationPrecision", 2);
+        	}
         }
 
 
