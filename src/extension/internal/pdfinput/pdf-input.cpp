@@ -800,7 +800,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         		prefs->setAttribute("embedImages", "1");
         	else {
         		prefs->setAttribute("embedImages", "0");
-        		sp_repr_set_svg_double(prefs, "approximationPrecision", 2);
+        		sp_repr_set_svg_double(prefs, "approximationPrecision", sp_gradient_precision_sh);
         	}
         }
 

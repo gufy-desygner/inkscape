@@ -161,6 +161,7 @@ enum {
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
+	SP_ARG_GRADIENT_PRECISION,
     SP_ARG_EXPORT_SVG,
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
@@ -225,6 +226,7 @@ static gchar *sp_export_ps = NULL;
 static gchar *sp_export_eps = NULL;
 static gint sp_export_ps_level = 3;
 static gboolean sp_embed_images = FALSE;
+static gint sp_gradient_precision = 2;
 static gchar *sp_export_pdf = NULL;
 static gchar *sp_export_pdf_version = NULL;
 static gchar *sp_export_emf = NULL;
@@ -421,10 +423,15 @@ struct poptOption options[] = {
         " 2 and 3 (the default)"),
      N_("PS Level")},
 
-	{"link", 'T',
+	{"link", 0,
 	 POPT_ARG_NONE, &sp_embed_images, SP_ARG_LINK_IMAGES,
-	 N_("embeded images from PDF --query-id"),
+	 N_("embeded images from PDF"),
 	 NULL},
+
+	{"gradientPrecision", 0,
+	 POPT_ARG_INT, &sp_gradient_precision, SP_ARG_GRADIENT_PRECISION,
+	 N_("Pricision of approximation gradient mesh"),
+	 N_("PRECISION")},
 
     {"export-pdf", 'A',
      POPT_ARG_STRING, &sp_export_pdf, SP_ARG_EXPORT_PDF,
@@ -2289,6 +2296,13 @@ sp_process_args(poptContext ctx)
             }
             case SP_ARG_LINK_IMAGES: {
             	sp_embed_images_sh = FALSE;
+            	break;
+            }
+            case SP_ARG_GRADIENT_PRECISION: {
+            	if (sp_gradient_precision < 2 || sp_gradient_precision > 246) {
+            	  g_warning("Gradient precision must be between 2 - 246");
+            	}
+            	sp_gradient_precision_sh = sp_gradient_precision;
             	break;
             }
             case SP_ARG_EXPORT_SVG: {

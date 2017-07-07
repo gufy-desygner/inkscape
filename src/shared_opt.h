@@ -3,5 +3,6 @@
 #include <gtk/gtk.h>
 extern gboolean sp_embed_images_sh;
 extern char* sp_export_svg_path_sh;
+extern gint sp_gradient_precision_sh;
 #endif
 
