@@ -1366,6 +1366,10 @@ void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
     if (_need_font_update) {
         updateFont(state);
     }
+
+    //_in_text_object = true;
+    _invalidated_style = true;
+
     IFTRACE(double *m = state->getTextMat());
     TRACE(("tm: %f %f %f %f %f %f\n",m[0], m[1],m[2], m[3], m[4], m[5]));
     IFTRACE(m = state->getCTM());
@@ -1449,6 +1453,8 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
 }
 
 void SvgBuilder::endString(GfxState * /*state*/) {
+	_flushText();
+	//_in_text_object = false;
 }
 
 void SvgBuilder::beginTextObject(GfxState *state) {

@@ -1205,6 +1205,8 @@ static int sp_process_file_list(GSList *fl)
             doc = NULL;
         }
 
+       	doc->setBase(sp_export_svg_path_sh);
+
         if (doc == NULL) {
             try {
                 doc = Inkscape::Extension::open(Inkscape::Extension::db.get(SP_MODULE_KEY_INPUT_SVG), filename);
