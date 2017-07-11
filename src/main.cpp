@@ -162,6 +162,8 @@ enum {
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
 	SP_ARG_GRADIENT_PRECISION,
+	SP_ARG_EXPORT_FONTS,
+	SP_ARG_ORIGINAL_FONTS,
     SP_ARG_EXPORT_SVG,
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
@@ -227,6 +229,8 @@ static gchar *sp_export_eps = NULL;
 static gint sp_export_ps_level = 3;
 static gboolean sp_embed_images = FALSE;
 static gint sp_gradient_precision = 2;
+static gboolean sp_export_fonts = FALSE;
+static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
 static gchar *sp_export_pdf_version = NULL;
 static gchar *sp_export_emf = NULL;
@@ -425,13 +429,23 @@ struct poptOption options[] = {
 
 	{"link", 0,
 	 POPT_ARG_NONE, &sp_embed_images, SP_ARG_LINK_IMAGES,
-	 N_("embeded images from PDF"),
+	 N_("embed images from PDF"),
 	 NULL},
 
 	{"gradientPrecision", 0,
 	 POPT_ARG_INT, &sp_gradient_precision, SP_ARG_GRADIENT_PRECISION,
-	 N_("Pricision of approximation gradient mesh"),
+	 N_("Precision of approximation gradient mesh"),
 	 N_("PRECISION")},
+
+	{"exportFonts", 0,
+	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
+	 N_("export embed fonts from PDF"),
+	 NULL},
+
+	{"originalFonts", 0,
+	 POPT_ARG_NONE, &sp_original_fonts, SP_ARG_ORIGINAL_FONTS,
+	 N_("if parameter used - will set original fonts to styles of SVG file"),
+	 NULL},
 
     {"export-pdf", 'A',
      POPT_ARG_STRING, &sp_export_pdf, SP_ARG_EXPORT_PDF,
@@ -2299,6 +2313,14 @@ sp_process_args(poptContext ctx)
             case SP_ARG_LINK_IMAGES: {
             	sp_embed_images_sh = FALSE;
             	break;
+            }
+            case SP_ARG_EXPORT_FONTS: {
+              	sp_export_fonts_sh = TRUE;
+              	break;
+            }
+            case SP_ARG_ORIGINAL_FONTS: {
+              	sp_original_fonts_sh = TRUE;
+              	break;
             }
             case SP_ARG_GRADIENT_PRECISION: {
             	if (sp_gradient_precision < 2 || sp_gradient_precision > 246) {

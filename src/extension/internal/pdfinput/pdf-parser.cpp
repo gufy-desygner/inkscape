@@ -53,7 +53,7 @@ extern "C" {
 #include "Page.h"
 #include "Annot.h"
 #include "Error.h"
-
+#include "shared_opt.h"
 // the MSVC math.h doesn't define this
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -2190,6 +2190,9 @@ void PdfParser::opSetCharSpacing(Object args[], int /*numArgs*/)
 // TODO not good that numArgs is ignored but args[] is used:
 void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 {
+  int len;
+  char *fname;
+
   GfxFont *font = res->lookupFont(args[0].getName());
 
   if (!font) {
@@ -2209,6 +2212,19 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 
   font->incRefCnt();
   state->setFont(font, args[1].getNum());
+
+  // Save font file
+  if (sp_export_fonts_sh) {
+	  fname = (char*)malloc(1024);
+	  sprintf(fname, "%s%s.ttf", sp_export_svg_path_sh, state->getFont()->getName()->getCString());
+	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
+
+	  FILE *fl = fopen(fname, "w");
+	  fwrite(buf, 1, len, fl);
+	  fclose(fl);
+	  free(fname);
+	  free(buf);
+  }
   fontChanged = gTrue;
 }
 

@@ -802,6 +802,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         		prefs->setAttribute("embedImages", "0");
         		sp_repr_set_svg_double(prefs, "approximationPrecision", sp_gradient_precision_sh);
         	}
+        	if (sp_original_fonts_sh)
+        	  prefs->setAttribute("localFonts", "0"); // used font from PDF.
+        	else
+        	  prefs->setAttribute("localFonts", "1"); // used "the best" system font.
         }
 
 
