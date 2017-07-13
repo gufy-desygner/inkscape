@@ -54,6 +54,8 @@ extern "C" {
 #include "Annot.h"
 #include "Error.h"
 #include "shared_opt.h"
+#include "xml/node.h"
+
 // the MSVC math.h doesn't define this
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -312,7 +314,8 @@ PdfParser::PdfParser(XRef *xrefA,
     colorDeltas(),
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
-    operatorHistory(NULL)
+    operatorHistory(NULL),
+    backgroundCandidat(NULL)
 {
   setDefaultApproximationPrecision();
   builder->setDocumentSize(Inkscape::Util::Quantity::convert(state->getPageWidth(), "pt", "px"),
@@ -369,7 +372,8 @@ PdfParser::PdfParser(XRef *xrefA,
     colorDeltas(),
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
-    operatorHistory(NULL)
+    operatorHistory(NULL),
+	backgroundCandidat(NULL)
 {
   setDefaultApproximationPrecision();
   
@@ -428,6 +432,8 @@ void PdfParser::parse(Object *obj, GBool topLevel) {
   }
   parser = new Parser(xref, new Lexer(xref, obj), gFalse);
   go(topLevel);
+  if (backgroundCandidat)
+    backgroundCandidat->setAttribute("class", "background");
   delete parser;
   parser = NULL;
 }
@@ -2131,6 +2137,10 @@ void PdfParser::fillPatch(GfxPatch *patch, int nComps, int depth) {
 }
 
 void PdfParser::doEndPath() {
+	static double square = 0;
+
+	double cur_square = 0;
+	double xMin, yMin, xMax, yMax;
   if (state->isCurPt() && clip != clipNone) {
     state->clip();
     if (clip == clipNormal) {
@@ -2139,6 +2149,12 @@ void PdfParser::doEndPath() {
     } else {
       clipHistory->setClip(state->getPath(), clipEO);
       builder->clip(state, true);
+    }
+    state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
+    cur_square = (xMax - xMin) * (yMax - yMin);
+    if (square < cur_square) {
+      square = cur_square;
+      backgroundCandidat = builder->getContainer();
     }
   }
   clip = clipNone;

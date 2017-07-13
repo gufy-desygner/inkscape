@@ -150,6 +150,8 @@ public:
   // Set the precision of approximation for specific shading fills.
   void setApproximationPrecision(int shadingType, double colorDelta, int maxDepth);
 
+  Inkscape::XML::Node *backgroundCandidat;
+
 private:
 
   XRef *xref;			// the xref table for this PDF file
