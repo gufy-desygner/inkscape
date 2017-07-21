@@ -150,6 +150,8 @@ public:
   // Set the precision of approximation for specific shading fills.
   void setApproximationPrecision(int shadingType, double colorDelta, int maxDepth);
 
+  // If PDF file have any path,  bigest from them will be market how background
+  // class = background
   Inkscape::XML::Node *backgroundCandidat;
 
 private:

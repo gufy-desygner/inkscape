@@ -55,6 +55,11 @@ extern "C" {
 #include "Error.h"
 #include "shared_opt.h"
 #include "xml/node.h"
+#include "xml/element-node.h"
+#include "xml/attribute-record.h"
+#include "util/list.h"
+#include "png-merge.h"
+
 
 // the MSVC math.h doesn't define this
 #ifndef M_PI
@@ -302,7 +307,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gFalse),
-    printCommands(false),
+    printCommands(true),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72.0, 72.0, box, rotate, gTrue)),
     fontChanged(gFalse),
@@ -432,6 +437,8 @@ void PdfParser::parse(Object *obj, GBool topLevel) {
   }
   parser = new Parser(xref, new Lexer(xref, obj), gFalse);
   go(topLevel);
+
+  // if founded bigest path mark it how class="background"
   if (backgroundCandidat)
     backgroundCandidat->setAttribute("class", "background");
   delete parser;
@@ -503,6 +510,29 @@ void PdfParser::go(GBool /*topLevel*/)
     }
     for (int i = 0; i < numArgs; ++i)
       args[i].free();
+  }
+
+  // print SVG structure.
+  if (printCommands) {
+    Inkscape::XML::Node *root = builder->getRoot();
+    /*while(root) {
+      print_node(root, 0);
+      root = root->next();
+    }*/
+
+    //MergeBuilder *mergeBuilder = new MergeBuilder(root);
+
+  /*  root = find_image_node(root, 0);
+    if (isImage_node(root->next())) {
+    	merge_images(root, root->next());
+    }
+    if (root) {
+    	print_node(root, 2);
+        while((root = find_image_node(root->next(),2))){
+    	  print_node(root, 2);
+        }
+    }
+    fflush(stdout);*/
   }
 }
 
@@ -2150,6 +2180,8 @@ void PdfParser::doEndPath() {
       clipHistory->setClip(state->getPath(), clipEO);
       builder->clip(state, true);
     }
+
+    // Chouse bigest clip of path how background
     state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
     cur_square = (xMax - xMin) * (yMax - yMin);
     if (square < cur_square) {

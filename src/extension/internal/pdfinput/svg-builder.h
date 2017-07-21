@@ -133,6 +133,9 @@ public:
     void paintTransparencyGroup(GfxState *state, double *bbox);
     void setSoftMask(GfxState *state, double *bbox, bool alpha,
                      Function *transfer_func, GfxColor *backdrop_color);
+    Inkscape::XML::Node *getRoot() {
+    	return _root;
+    }
     void clearSoftMask(GfxState *state);
 
     // Text handling
