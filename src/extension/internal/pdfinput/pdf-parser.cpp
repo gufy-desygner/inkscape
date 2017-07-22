@@ -520,9 +520,13 @@ void PdfParser::go(GBool /*topLevel*/)
       root = root->next();
     }*/
 
-    //MergeBuilder *mergeBuilder = new MergeBuilder(root);
+    Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+    mergeBuilder->addText("fjkhsdfkjsdhkj");
 
-  /*  root = find_image_node(root, 0);
+
+
+
+    root = find_image_node(root, 0);
     if (isImage_node(root->next())) {
     	merge_images(root, root->next());
     }
@@ -532,7 +536,7 @@ void PdfParser::go(GBool /*topLevel*/)
     	  print_node(root, 2);
         }
     }
-    fflush(stdout);*/
+    fflush(stdout);
   }
 }
 

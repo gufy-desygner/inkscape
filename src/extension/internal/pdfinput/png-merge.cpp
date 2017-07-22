@@ -6,8 +6,15 @@
  */
 
 #include "png-merge.h"
-#include "document-private.h"
+#include "xml/document.h"
+#include "document.h"
 #include "document-undo.h"
+#include "../cairo-png-out.h"
+#include "util/units.h"
+
+namespace Inkscape {
+namespace Extension {
+namespace Internal {
 
 MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 	_doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
@@ -19,29 +26,70 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 	_sourceRoot = sourceTree;
 
 	Inkscape::XML::Node *tmpNode = sourceTree->firstChild();
-	// Link all no visual nodes from original doc
+	// Copy all no visual nodes from original doc
 	while(tmpNode) {
-		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
-			_root->appendChild(tmpNode);
-		}
-		else {
-			break;
-		};
+		//if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
+			copyAsChild(_root, tmpNode);
+		//}
+		//else {
+		//	break;
+		//};
 		tmpNode = tmpNode->next();
 	}
-	//_mainVisual = _xml_doc->createElement("svg:g");
-	_root->appendChild(_mainVisual);
+
+	// Create main visual node
+	_mainVisual = _xml_doc->createElement("svg:g");
+/*	_root->appendChild(_mainVisual);
 	if (tmpNode) {
 		Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 		while( attrList ) {
 		  _mainVisual->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+		  attrList++;
 		}
-	}
+	}*/
 }
 
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode) {
 
 }
+
+void MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode) {
+	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
+
+	// copy all attributes
+	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
+	while( attrList ) {
+	  tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+	  attrList++;
+	}
+
+	tempNode->setContent(childNode->content());
+
+	destNode->appendChild(tempNode);
+	// Add tree of appended node
+	Inkscape::XML::Node *ch = childNode->firstChild();
+	while(ch) {
+		copyAsChild(tempNode, ch);
+		ch = ch->next();
+	}
+}
+
+void MergeBuilder::addText(char* str) {
+	Inkscape::XML::Node *ch = _xml_doc->createElement("svg:text");
+	ch->setContent(str);
+	_mainVisual->appendChild(ch);
+	Inkscape::Extension::Internal::CairoRendererOutput *png = new CairoRendererOutput();
+	const Inkscape::Util::Quantity *quant = new Inkscape::Util::Quantity(2970, "px");
+	_doc->setHeight(*quant, TRUE);
+	quant = new Inkscape::Util::Quantity(2100, "px");
+	_doc->setWidth(*quant, TRUE);
+	_doc->setDocumentScale(0.4);
+	//_root->
+
+	png->save(NULL, _doc, "test.png");
+}
+
+} } } /* namespace Inkscape, Extension, Internal */
 
 void print_prefix(uint level) {
 	while((level--) > 0) printf("-");
