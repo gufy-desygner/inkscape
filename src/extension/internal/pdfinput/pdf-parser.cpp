@@ -302,7 +302,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gFalse),
-    printCommands(false),
+    printCommands(true),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72.0, 72.0, box, rotate, gTrue)),
     fontChanged(gFalse),
@@ -2150,12 +2150,12 @@ void PdfParser::doEndPath() {
       clipHistory->setClip(state->getPath(), clipEO);
       builder->clip(state, true);
     }
-    state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
-    cur_square = (xMax - xMin) * (yMax - yMin);
-    if (square < cur_square) {
-      square = cur_square;
-      backgroundCandidat = builder->getContainer();
-    }
+  }
+  state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
+  cur_square = (xMax - xMin) * (yMax - yMin);
+  if (square < cur_square) {
+    square = cur_square;
+    backgroundCandidat = builder->getContainer();
   }
   clip = clipNone;
   state->clearPath();
