@@ -2184,14 +2184,12 @@ void PdfParser::doEndPath() {
       clipHistory->setClip(state->getPath(), clipEO);
       builder->clip(state, true);
     }
-
-    // Chouse bigest clip of path how background
-    state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
-    cur_square = (xMax - xMin) * (yMax - yMin);
-    if (square < cur_square) {
-      square = cur_square;
-      backgroundCandidat = builder->getContainer();
-    }
+  }
+  state->getClipBBox(&xMin, &yMin, &xMax, &yMax);
+  cur_square = (xMax - xMin) * (yMax - yMin);
+  if (square < cur_square) {
+    square = cur_square;
+    backgroundCandidat = builder->getContainer();
   }
   clip = clipNone;
   state->clearPath();
