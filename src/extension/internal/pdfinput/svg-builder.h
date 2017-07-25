@@ -105,6 +105,7 @@ public:
     Inkscape::XML::Node *pushGroup();
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
+    Inkscape::XML::Node *createElement(char const *name);
 
     // Path adding
     void addPath(GfxState *state, bool fill, bool stroke, bool even_odd=false);

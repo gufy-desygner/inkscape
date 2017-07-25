@@ -11,6 +11,7 @@
 #include "document-undo.h"
 #include "../cairo-png-out.h"
 #include "util/units.h"
+#include "helper/png-write.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -18,49 +19,62 @@ namespace Internal {
 
 MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 	_doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
-	//bool saved = DocumentUndo::getUndoSensitive(doc);
 	Inkscape::DocumentUndo::setUndoSensitive(_doc, false);
 	_root = _doc->rroot;
-	_root->setAttribute("xml:space", "preserve");
 	_xml_doc = _doc->getReprDoc();
 	_sourceRoot = sourceTree;
+
+	// copy all attributes
+	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = sourceTree->attributeList();
+	while( attrList ) {
+	    _root->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+	    attrList++;
+	}
+
 
 	Inkscape::XML::Node *tmpNode = sourceTree->firstChild();
 	// Copy all no visual nodes from original doc
 	while(tmpNode) {
-		//if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
+		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
 			copyAsChild(_root, tmpNode);
-		//}
-		//else {
-		//	break;
-		//};
+		}
+		else {
+			break;
+		};
 		tmpNode = tmpNode->next();
 	}
 
 	// Create main visual node
 	_mainVisual = _xml_doc->createElement("svg:g");
-/*	_root->appendChild(_mainVisual);
+	_root->appendChild(_mainVisual);
 	if (tmpNode) {
 		Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 		while( attrList ) {
 		  _mainVisual->setAttribute(g_quark_to_string(attrList->key), attrList->value);
 		  attrList++;
 		}
-	}*/
+	}
 }
 
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode) {
-
+	copyAsChild(_mainVisual, imageNode)->setAttribute("style", "stroke:none;stroke-opacity:0;stroke-width:50");
 }
 
-void MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode) {
+Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode) {
 	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
 
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
 	while( attrList ) {
-	  tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
-	  attrList++;
+		// High quality of images
+		if ((strcmp(tempNode->name(), "svg:image") == 0) &&
+			(strcmp(g_quark_to_string(attrList->key), "style") == 0 )) {
+			tempNode->setAttribute("style", "image-rendering:crisp-edges");
+		}
+		else {
+	      tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+		}
+	    attrList++;
 	}
 
 	tempNode->setContent(childNode->content());
@@ -72,23 +86,28 @@ void MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Nod
 		copyAsChild(tempNode, ch);
 		ch = ch->next();
 	}
+	return tempNode;
 }
 
-void MergeBuilder::addText(char* str) {
-	Inkscape::XML::Node *ch = _xml_doc->createElement("svg:text");
-	ch->setContent(str);
-	_mainVisual->appendChild(ch);
-	Inkscape::Extension::Internal::CairoRendererOutput *png = new CairoRendererOutput();
-	const Inkscape::Util::Quantity *quant = new Inkscape::Util::Quantity(2970, "px");
-	_doc->setHeight(*quant, TRUE);
-	quant = new Inkscape::Util::Quantity(2100, "px");
-	_doc->setWidth(*quant, TRUE);
-	_doc->setDocumentScale(0.4);
-	//_root->
+void MergeBuilder::save(gchar const *filename) {
+	std::vector<SPItem*> x;
+	char *c;
+	float width = strtof(_root->attribute("width"), &c);
+	float height = strtof(_root->attribute("height"), &c);
+	sp_export_png_file(_doc, filename,
+					0, 0, width, height, // crop of document x,y,W,H
+					width * 3, height * 3, // size of png
+					150, 150, // dpi x & y
+					0xFFFFFF00,
+					NULL, // callback for progress bar
+					NULL, // struct SPEBP
+					true, // override file
+					x);
 
-	png->save(NULL, _doc, "test.png");
 }
-
+MergeBuilder::~MergeBuilder(void){
+  free(_doc);
+}
 } } } /* namespace Inkscape, Extension, Internal */
 
 void print_prefix(uint level) {

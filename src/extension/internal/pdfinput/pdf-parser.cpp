@@ -512,30 +512,45 @@ void PdfParser::go(GBool /*topLevel*/)
       args[i].free();
   }
 
-  // print SVG structure.
   if (printCommands) {
-    Inkscape::XML::Node *root = builder->getRoot();
-    /*while(root) {
-      print_node(root, 0);
-      root = root->next();
-    }*/
+	Inkscape::XML::Node *root = builder->getRoot();
+    Inkscape::XML::Node *mergeNode = builder->getRoot();
+    Inkscape::XML::Node *remNode;
+
 
     Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
-    mergeBuilder->addText("fjkhsdfkjsdhkj");
+    uint count = 0;
+    //find image nodes
+    mergeNode = find_image_node(mergeNode, 0);
+    while(mergeNode) {
+    	mergeBuilder->addImageNode(mergeNode);
+		while (isImage_node(mergeNode->next())) {
+			remNode = mergeNode;
+			mergeNode = mergeNode->next();
+			mergeBuilder->addImageNode(mergeNode);
+			mergeNode->parent()->removeChild(remNode);
+		}
 
+		// TODO : remove merged nodes (last node).
+		// TODO : generate new image node (calculate clip patch for main node - first element in defs tag).
+		// TODO : remove merged files
+		// TODO : Put merget files to folder of document
 
+		// Save merged image
+		char fName[1024];
+		sprintf(fName, "test%i.png",count++);
+		mergeBuilder->save(fName);
+		// Insert node with merged image
+		Inkscape::XML::Node *sumNode = builder->createElement("svg:image");
+		sumNode->setAttribute("xlink:href", "test0.png");
 
+		mergeNode->parent()->addChild(sumNode, mergeNode);
 
-    root = find_image_node(root, 0);
-    if (isImage_node(root->next())) {
-    	merge_images(root, root->next());
+		Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+		mergeNode = mergeNode->next();
+		mergeNode = find_image_node(mergeNode, 2);
     }
-    if (root) {
-    	print_node(root, 2);
-        while((root = find_image_node(root->next(),2))){
-    	  print_node(root, 2);
-        }
-    }
+
     fflush(stdout);
   }
 }

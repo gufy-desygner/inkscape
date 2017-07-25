@@ -31,8 +31,9 @@ class MergeBuilder {
 public:
 	MergeBuilder(Inkscape::XML::Node *sourceTree);
 	void addImageNode(Inkscape::XML::Node *imageNode);
-	void copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode);
-	void addText(char* str);
+	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode);
+	void save(gchar const *filename);
+	~MergeBuilder(void);
 private:
     SPDocument *_doc;
     Inkscape::XML::Node *_root;
