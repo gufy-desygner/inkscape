@@ -105,6 +105,7 @@ public:
     Inkscape::XML::Node *pushGroup();
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
+    Inkscape::XML::Node *createElement(char const *name);
 
     // Path adding
     void addPath(GfxState *state, bool fill, bool stroke, bool even_odd=false);
@@ -133,6 +134,9 @@ public:
     void paintTransparencyGroup(GfxState *state, double *bbox);
     void setSoftMask(GfxState *state, double *bbox, bool alpha,
                      Function *transfer_func, GfxColor *backdrop_color);
+    Inkscape::XML::Node *getRoot() {
+    	return _root;
+    }
     void clearSoftMask(GfxState *state);
 
     // Text handling
@@ -165,6 +169,7 @@ public:
                       double c5);
     void setTransform(double const *transform);
     bool getTransform(double *transform);
+    gchar *getDocName();
 
 private:
     void _init();

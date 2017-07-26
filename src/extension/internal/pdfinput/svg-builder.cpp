@@ -236,6 +236,10 @@ Inkscape::XML::Node *SvgBuilder::getContainer() {
     return _container;
 }
 
+Inkscape::XML::Node *SvgBuilder::createElement(char const *name) {
+	return _xml_doc->createElement(name);
+}
+
 static gchar *svgConvertRGBToText(double r, double g, double b) {
     using Inkscape::Filters::clamp;
     static gchar tmp[1023] = {0};
@@ -562,6 +566,10 @@ bool SvgBuilder::getTransform(double *transform) {
     } else {
         return false;
     }
+}
+
+gchar *SvgBuilder::getDocName() {
+	return _docname;
 }
 
 /**

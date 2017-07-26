@@ -55,6 +55,11 @@ extern "C" {
 #include "Error.h"
 #include "shared_opt.h"
 #include "xml/node.h"
+#include "xml/element-node.h"
+#include "xml/attribute-record.h"
+#include "util/list.h"
+#include "png-merge.h"
+
 
 // the MSVC math.h doesn't define this
 #ifndef M_PI
@@ -432,6 +437,8 @@ void PdfParser::parse(Object *obj, GBool topLevel) {
   }
   parser = new Parser(xref, new Lexer(xref, obj), gFalse);
   go(topLevel);
+
+  // if founded bigest path mark it how class="background"
   if (backgroundCandidat)
     backgroundCandidat->setAttribute("class", "background");
   delete parser;
@@ -503,6 +510,98 @@ void PdfParser::go(GBool /*topLevel*/)
     }
     for (int i = 0; i < numArgs; ++i)
       args[i].free();
+  }
+
+  if (sp_merge_images_sh) {
+	Inkscape::XML::Node *root = builder->getRoot();
+    Inkscape::XML::Node *mergeNode = builder->getRoot();
+    Inkscape::XML::Node *remNode;
+    Inkscape::XML::Node *toImageNode;
+    const gchar *tmpName;
+
+    Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
+
+    uint countMergedNodes = 0;
+    //find image nodes
+    mergeNode = find_image_node(mergeNode, 0);
+    while(mergeNode) {
+    	countMergedNodes = 0;
+    	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+    	while (isImage_node(mergeNode->next())) {
+			countMergedNodes++;
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			remNode = mergeNode;
+			mergeNode = mergeNode->next();
+
+			remNode->parent()->removeChild(remNode);
+		}
+
+    	//merge image
+		if (countMergedNodes) {
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			remNode = mergeNode;
+			// search "xlink:href"
+			toImageNode = mergeNode->firstChild();
+			while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
+				toImageNode = toImageNode->firstChild();
+			}
+			tmpName = toImageNode->attribute("xlink:href");
+			char *_fName = g_strdup_printf("%s", tmpName);
+			// separate ext and name
+			char *c = &_fName[strlen(_fName) - 1];
+			while((c != _fName) && (*c != '.')) {
+				c--;
+			}
+			if (*c == '.') {
+				*c = 0;
+				c++;
+			}
+			// generate filename
+			char *fName = g_strdup_printf("%sm.%s", _fName, c);
+			free(_fName);
+			mergeNode = mergeNode->next();
+			remNode->parent()->removeChild(remNode);
+
+			// Save merged image
+			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
+			mergeBuilder->save(mergedImagePath);
+			mergeBuilder->removeOldImages();
+			free(mergedImagePath);
+
+			// Insert node with merged image
+			char *buf;
+			float clipW , clipH;
+			long double tempD;
+
+			Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
+			mergeBuilder->getMainClipSize(&clipW, &clipH);
+
+			buf = g_strdup_printf("scale(%i.%i,%i.%i)",
+						(int)clipW, (int)(modfl(clipW, &tempD)*1000),
+						(int)clipH, (int)(modfl(clipH, &tempD)*1000));
+			sumNode->setAttribute("transform", buf);
+			Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
+			sumNode->appendChild(tmpNode);
+			tmpNode->setAttribute("xlink:href", fName);
+			tmpNode->setAttribute("transform", "matrix(1,0,0,-1,0,1)");
+			tmpNode->setAttribute("width", "1");
+			tmpNode->setAttribute("height", "1");
+			tmpNode->setAttribute("preserveAspectRatio", "none");
+
+			mergeNode->parent()->addChild(sumNode, mergeNode);
+			mergeNode = sumNode->next();
+			free(buf);
+			free(fName);
+		}
+		else { // if do not have two nearest images - can not merge
+			mergeNode = mergeNode->next();
+		}
+
+		mergeNode = find_image_node(mergeNode, 2);
+		free(mergeBuilder);
+    }
+
+    fflush(stdout);
   }
 }
 
