@@ -162,6 +162,7 @@ enum {
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
 	SP_ARG_GRADIENT_PRECISION,
+	SP_ARG_MERGE_IMAGES,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
     SP_ARG_EXPORT_SVG,
@@ -229,6 +230,7 @@ static gchar *sp_export_eps = NULL;
 static gint sp_export_ps_level = 3;
 static gboolean sp_embed_images = FALSE;
 static gint sp_gradient_precision = 2;
+static gboolean sp_merge_images = FALSE;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
@@ -436,6 +438,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_gradient_precision, SP_ARG_GRADIENT_PRECISION,
 	 N_("Precision of approximation gradient mesh"),
 	 N_("PRECISION")},
+
+	 {"mergeImages", 0,
+	  POPT_ARG_NONE, &sp_merge_images, SP_ARG_MERGE_IMAGES,
+	  N_("Merge nearest images tag to one layer"),
+	  N_("MERGE_IMAGES")},
 
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
@@ -2327,6 +2334,10 @@ sp_process_args(poptContext ctx)
             	  g_warning("Gradient precision must be between 2 - 246");
             	}
             	sp_gradient_precision_sh = sp_gradient_precision;
+            	break;
+            }
+            case SP_ARG_MERGE_IMAGES: {
+            	sp_merge_images_sh = TRUE;
             	break;
             }
             case SP_ARG_EXPORT_SVG: {

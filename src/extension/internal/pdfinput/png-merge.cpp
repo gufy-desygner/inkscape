@@ -36,7 +36,10 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 	// Copy all no visual nodes from original doc
 	while(tmpNode) {
 		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
-			copyAsChild(_root, tmpNode);
+			copyAsChild(_root, tmpNode, NULL);
+			if ( strcmp(tmpNode->name(),"svg:defs") == 0 ) {
+				_defs = tmpNode;
+			}
 		}
 		else {
 			break;
@@ -56,11 +59,11 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 	}
 }
 
-void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode) {
-	copyAsChild(_mainVisual, imageNode)->setAttribute("style", "stroke:none;stroke-opacity:0;stroke-width:50");
+void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
+	copyAsChild(_mainVisual, imageNode, rebasePath);
 }
 
-Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode) {
+Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
 	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
 
 	// copy all attributes
@@ -68,8 +71,10 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	while( attrList ) {
 		// High quality of images
 		if ((strcmp(tempNode->name(), "svg:image") == 0) &&
-			(strcmp(g_quark_to_string(attrList->key), "style") == 0 )) {
-			tempNode->setAttribute("style", "image-rendering:crisp-edges");
+			(strcmp(g_quark_to_string(attrList->key), "xlink:href") == 0 ) &&
+			rebasePath) {
+			tempNode->setAttribute(g_quark_to_string(attrList->key),
+					        g_strdup_printf("%s%s", rebasePath, attrList->value));
 		}
 		else {
 	      tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
@@ -83,7 +88,7 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	// Add tree of appended node
 	Inkscape::XML::Node *ch = childNode->firstChild();
 	while(ch) {
-		copyAsChild(tempNode, ch);
+		copyAsChild(tempNode, ch, rebasePath);
 		ch = ch->next();
 	}
 	return tempNode;
@@ -105,6 +110,67 @@ void MergeBuilder::save(gchar const *filename) {
 					x);
 
 }
+
+void MergeBuilder::getMainClipSize(float *w, float *h) {
+	Inkscape::XML::Node *mainPath = NULL;
+	mainPath = _defs->firstChild();
+	float startx, starty;
+	float tmpf = 0;
+	char *sizeStr;
+	char *c1, *c2, *c3;
+	*w = *h = 0;
+	while ((mainPath != NULL) && (strcmp(mainPath->name(), "svg:clipPath") != 0 )) {
+		mainPath = mainPath->next();
+	}
+	if (mainPath) { // we have clipPatch in defs
+		mainPath = mainPath->firstChild();
+		sizeStr = (char *) mainPath->attribute("d");
+		c1 = (char *)alloca(strlen(sizeStr));
+		strcpy(c1, sizeStr);
+		c2 = c1;
+		while(*c2 != 0) {
+			if (*c2 == ',') *c2='|';
+			if (*c2 == '.') *c2=localeconv()->decimal_point[0];
+			c2++;
+		}
+
+		c2 = c1 + 1;
+		while(c2 != 0 && c2[0] != 'Z') {
+			tmpf = strtof(c2, &c3);
+			if (c2 == c3) {
+				c2 = c3 + 1;
+				continue;
+			}
+			*w = *w > tmpf ? *w : tmpf;
+			c2 = c3 + 1;
+			tmpf = strtof(c2, &c3);
+			*h = *h > tmpf ? *h : tmpf;
+			c2 = c3 + 1;
+		}
+	}
+	else  // we do not have clipPatch in defs
+	{
+		// TODO: if we do not have main path we must return width and height attribute from svg tag
+
+	}
+
+}
+
+void MergeBuilder::removeOldImages(void) {
+	Inkscape::XML::Node *tmpNode = _mainVisual->firstChild();
+	Inkscape::XML::Node *toImageNode;
+	const char *tmpName;
+	while(tmpNode) {
+		toImageNode = tmpNode;
+		while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
+			toImageNode = toImageNode->firstChild();
+		}
+	    tmpName = toImageNode->attribute("xlink:href");
+	    remove(tmpName);
+	    tmpNode = tmpNode->next();
+	}
+}
+
 MergeBuilder::~MergeBuilder(void){
   free(_doc);
 }
@@ -165,7 +231,7 @@ bool isImage_node(Inkscape::XML::Node *node) {
   uint coun = 0;
 
   // Calculate count of right svg:g before image
-  while(  (coun < 4) &&
+  while(  (coun < 5) &&
 		  (tmpNode != NULL) &&
 		  (tmpNode->childCount() == 1) &&
 		  (strcmp(tmpNode->name(), "svg:g") == 0)) {
@@ -196,16 +262,16 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level) {
 		}
 	}
 	if (level == 2) {
-		if (isImage_node(node)) {
-			return node;
+		tmpNode = node;
+		while(tmpNode) {
+			if (isImage_node(tmpNode)) {
+				return tmpNode;
+			}
+			tmpNode = tmpNode->next();
 		}
 	}
 
 	return resNode;
 }
 
-Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2) {
-
-	return node1;
-}
 

@@ -307,7 +307,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gFalse),
-    printCommands(true),
+    printCommands(false),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72.0, 72.0, box, rotate, gTrue)),
     fontChanged(gFalse),
@@ -512,43 +512,93 @@ void PdfParser::go(GBool /*topLevel*/)
       args[i].free();
   }
 
-  if (printCommands) {
+  if (sp_merge_images_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
     Inkscape::XML::Node *mergeNode = builder->getRoot();
     Inkscape::XML::Node *remNode;
+    Inkscape::XML::Node *toImageNode;
+    const gchar *tmpName;
 
+    Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
 
-    Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
-    uint count = 0;
+    uint countMergedNodes = 0;
     //find image nodes
     mergeNode = find_image_node(mergeNode, 0);
     while(mergeNode) {
-    	mergeBuilder->addImageNode(mergeNode);
-		while (isImage_node(mergeNode->next())) {
+    	countMergedNodes = 0;
+    	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+    	while (isImage_node(mergeNode->next())) {
+			countMergedNodes++;
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 			mergeNode = mergeNode->next();
-			mergeBuilder->addImageNode(mergeNode);
-			mergeNode->parent()->removeChild(remNode);
+
+			remNode->parent()->removeChild(remNode);
 		}
 
-		// TODO : remove merged nodes (last node).
-		// TODO : generate new image node (calculate clip patch for main node - first element in defs tag).
-		// TODO : remove merged files
-		// TODO : Put merget files to folder of document
+    	//merge image
+		if (countMergedNodes) {
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			remNode = mergeNode;
+			// search "xlink:href"
+			toImageNode = mergeNode->firstChild();
+			while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
+				toImageNode = toImageNode->firstChild();
+			}
+			tmpName = toImageNode->attribute("xlink:href");
+			char *_fName = g_strdup_printf("%s", tmpName);
+			// separate ext and name
+			char *c = &_fName[strlen(_fName) - 1];
+			while((c != _fName) && (*c != '.')) {
+				c--;
+			}
+			if (*c == '.') {
+				*c = 0;
+				c++;
+			}
+			// generate filename
+			char *fName = g_strdup_printf("%sm.%s", _fName, c);
+			free(_fName);
+			mergeNode = mergeNode->next();
+			remNode->parent()->removeChild(remNode);
 
-		// Save merged image
-		char fName[1024];
-		sprintf(fName, "test%i.png",count++);
-		mergeBuilder->save(fName);
-		// Insert node with merged image
-		Inkscape::XML::Node *sumNode = builder->createElement("svg:image");
-		sumNode->setAttribute("xlink:href", "test0.png");
+			// Save merged image
+			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
+			mergeBuilder->save(mergedImagePath);
+			mergeBuilder->removeOldImages();
+			free(mergedImagePath);
 
-		mergeNode->parent()->addChild(sumNode, mergeNode);
+			// Insert node with merged image
+			char *buf;
+			float clipW , clipH;
+			long double tempD;
 
-		Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
-		mergeNode = mergeNode->next();
+			Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
+			mergeBuilder->getMainClipSize(&clipW, &clipH);
+
+			buf = g_strdup_printf("scale(%i.%i,%i.%i)",
+						(int)clipW, (int)(modfl(clipW, &tempD)*1000),
+						(int)clipH, (int)(modfl(clipH, &tempD)*1000));
+			sumNode->setAttribute("transform", buf);
+			Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
+			sumNode->appendChild(tmpNode);
+			tmpNode->setAttribute("xlink:href", fName);
+			tmpNode->setAttribute("transform", "matrix(1,0,0,-1,0,1)");
+			tmpNode->setAttribute("width", "1");
+			tmpNode->setAttribute("height", "1");
+			tmpNode->setAttribute("preserveAspectRatio", "none");
+
+			mergeNode->parent()->addChild(sumNode, mergeNode);
+			mergeNode = sumNode->next();
+			free(buf);
+			free(fName);
+		}
+		else { // if do not have two nearest images - can not merge
+			mergeNode = mergeNode->next();
+		}
+
 		mergeNode = find_image_node(mergeNode, 2);
+		free(mergeBuilder);
     }
 
     fflush(stdout);

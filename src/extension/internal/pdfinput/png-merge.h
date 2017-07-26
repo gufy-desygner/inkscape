@@ -30,13 +30,16 @@ namespace Internal {
 class MergeBuilder {
 public:
 	MergeBuilder(Inkscape::XML::Node *sourceTree);
-	void addImageNode(Inkscape::XML::Node *imageNode);
-	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode);
+	void addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
+	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
 	void save(gchar const *filename);
+	void getMainClipSize(float *w, float *h);
+	void removeOldImages(void);
 	~MergeBuilder(void);
 private:
     SPDocument *_doc;
     Inkscape::XML::Node *_root;
+    Inkscape::XML::Node *_defs;
     Inkscape::XML::Node *_mainVisual;
     Inkscape::XML::Node *_sourceRoot;
     Inkscape::XML::Document *_xml_doc;

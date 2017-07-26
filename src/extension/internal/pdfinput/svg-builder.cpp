@@ -568,6 +568,10 @@ bool SvgBuilder::getTransform(double *transform) {
     }
 }
 
+gchar *SvgBuilder::getDocName() {
+	return _docname;
+}
+
 /**
  * \brief Sets the transformation matrix of the current container
  */

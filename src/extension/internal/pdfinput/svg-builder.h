@@ -169,6 +169,7 @@ public:
                       double c5);
     void setTransform(double const *transform);
     bool getTransform(double *transform);
+    gchar *getDocName();
 
 private:
     void _init();
