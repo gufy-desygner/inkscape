@@ -2307,6 +2307,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 {
   int len;
   char *fname;
+  static int num = 0;
 
   GfxFont *font = res->lookupFont(args[0].getName());
 
@@ -2330,8 +2331,13 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 
   // Save font file
   if (sp_export_fonts_sh) {
-	  fname = (char*)malloc(1024);
-	  sprintf(fname, "%s%s.ttf", sp_export_svg_path_sh, state->getFont()->getName()->getCString());
+	  //fname = (char*)malloc(1024);
+	  GooString *fontName= state->getFont()->getName();
+	  if (fontName)
+	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, fontName->getCString());
+	  else
+		fname = g_strdup_printf("%s%s_unnamed%i.ttf", sp_export_svg_path_sh, builder->getDocName(), num);
+		num++;
 	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
 
 	  FILE *fl = fopen(fname, "w");
