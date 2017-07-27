@@ -512,7 +512,9 @@ void PdfParser::go(GBool /*topLevel*/)
       args[i].free();
   }
 
-  if (sp_merge_images_sh) {
+  if (sp_merge_images_sh ||
+			((sp_merge_limit_sh > 0) &&
+			 (sp_merge_limit_sh < builder->getCountOfImages()))) {
 	Inkscape::XML::Node *root = builder->getRoot();
     Inkscape::XML::Node *mergeNode = builder->getRoot();
     Inkscape::XML::Node *remNode;
@@ -2331,7 +2333,6 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 
   // Save font file
   if (sp_export_fonts_sh) {
-	  //fname = (char*)malloc(1024);
 	  GooString *fontName= state->getFont()->getName();
 	  if (fontName)
 	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, fontName->getCString());
@@ -2339,11 +2340,12 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		fname = g_strdup_printf("%s%s_unnamed%i.ttf", sp_export_svg_path_sh, builder->getDocName(), num);
 		num++;
 	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
-
-	  FILE *fl = fopen(fname, "w");
-	  fwrite(buf, 1, len, fl);
-	  fclose(fl);
-	  free(fname);
+	  if (len > 0) {
+		  FILE *fl = fopen(fname, "w");
+		  fwrite(buf, 1, len, fl);
+		  fclose(fl);
+		  free(fname);
+	  }
 	  free(buf);
   }
   fontChanged = gTrue;

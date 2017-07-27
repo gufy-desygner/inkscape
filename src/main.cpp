@@ -163,6 +163,7 @@ enum {
 	SP_ARG_LINK_IMAGES,
 	SP_ARG_GRADIENT_PRECISION,
 	SP_ARG_MERGE_IMAGES,
+	SP_ARG_MERGE_LIMIT,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
     SP_ARG_EXPORT_SVG,
@@ -231,6 +232,7 @@ static gint sp_export_ps_level = 3;
 static gboolean sp_embed_images = FALSE;
 static gint sp_gradient_precision = 2;
 static gboolean sp_merge_images = FALSE;
+static gint sp_merge_limit = 0;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
@@ -439,10 +441,15 @@ struct poptOption options[] = {
 	 N_("Precision of approximation gradient mesh"),
 	 N_("PRECISION")},
 
-	 {"mergeImages", 0,
-	  POPT_ARG_NONE, &sp_merge_images, SP_ARG_MERGE_IMAGES,
-	  N_("Merge nearest images tag to one layer"),
-	  N_("MERGE_IMAGES")},
+	{"mergeImages", 0,
+     POPT_ARG_NONE, &sp_merge_images, SP_ARG_MERGE_IMAGES,
+     N_("Merge nearest images tag to one layer"),
+     N_("MERGE_IMAGES")},
+
+    {"mergeLimit", 0,
+	 POPT_ARG_INT, &sp_merge_limit, SP_ARG_MERGE_LIMIT,
+	 N_("If number of images in the file more then mergeLimit inkscape will try merge nearest tag of images to one layer"),
+	 N_("MERGE_LIMIT")},
 
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
@@ -2339,6 +2346,9 @@ sp_process_args(poptContext ctx)
             case SP_ARG_MERGE_IMAGES: {
             	sp_merge_images_sh = TRUE;
             	break;
+            }
+            case SP_ARG_MERGE_LIMIT: {
+                sp_merge_limit_sh = sp_merge_limit;
             }
             case SP_ARG_EXPORT_SVG: {
             	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);

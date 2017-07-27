@@ -170,6 +170,7 @@ public:
     void setTransform(double const *transform);
     bool getTransform(double *transform);
     gchar *getDocName();
+    gint getCountOfImages(void) { return _countOfImages;};
 
 private:
     void _init();
@@ -230,6 +231,7 @@ private:
     double _width;       // Document size in px
     double _height;       // Document size in px
     double _ttm[6]; ///< temporary transform matrix
+    int _countOfImages;
     bool _ttm_is_set;
 };
 

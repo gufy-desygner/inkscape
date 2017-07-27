@@ -80,6 +80,7 @@ struct SvgTransparencyGroup {
 SvgBuilder::SvgBuilder(SPDocument *document, gchar *docname, XRef *xref)
 {
     _is_top_level = true;
+    _countOfImages = 0;
     _doc = document;
     _docname = docname;
     _xref = xref;
@@ -1500,7 +1501,8 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
                                               int *mask_colors, bool alpha_only,
                                               bool invert_alpha) {
 
-    // Create PNG write struct
+    _countOfImages++;
+	// Create PNG write struct
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if ( png_ptr == NULL ) {
         return NULL;
