@@ -796,6 +796,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         if (dlg)
             dlg->getImportSettings(prefs);
         else {
+        	sp_repr_set_svg_double(prefs, "cropTo", -1.0);
         	if (sp_embed_images_sh)
         		prefs->setAttribute("embedImages", "1");
         	else {

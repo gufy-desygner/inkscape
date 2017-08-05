@@ -34,6 +34,7 @@ public:
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
 	void save(gchar const *filename);
 	void getMainClipSize(float *w, float *h);
+	void getMainSize(float *w, float *h);
 	void removeOldImages(void);
 	~MergeBuilder(void);
 private:

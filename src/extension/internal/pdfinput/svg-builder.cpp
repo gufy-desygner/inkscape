@@ -1162,6 +1162,10 @@ void SvgBuilder::updateFont(GfxState *state) {
         double *font_matrix = font->getFontMatrix();
         if ( font_matrix[0] != 0.0 ) {
             css_font_size *= font_matrix[3] / font_matrix[0];
+            if (css_font_size < 0) {
+            	css_font_size = abs(css_font_size);
+            //	font_matrix[3] *= (-1);
+            }
         }
     }
     os_font_size << css_font_size;

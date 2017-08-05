@@ -111,6 +111,27 @@ void MergeBuilder::save(gchar const *filename) {
 
 }
 
+char *prepareStringForFloat(char *str) {
+	char *c2 = str;
+	while(*c2 != 0) {
+		if (*c2 == ',') *c2='|';
+		if (*c2 == '.') *c2=localeconv()->decimal_point[0];
+		c2++;
+	}
+	return str;
+}
+
+void MergeBuilder::getMainSize(float *w, float *h) {
+	/*char *tempStr;
+	char *heightStr = g_strdup_printf("%s", _root->attribute("height"));
+	*h = strtof(prepareStringForFloat(heightStr), &tempStr)/ 1.33333333;
+
+    char *widthStr = g_strdup_printf("%s", _root->attribute("width"));
+    *w = strtof(prepareStringForFloat(widthStr), &tempStr)/ 1.33333333*/
+	*h = 792;
+	*w = 612;
+}
+
 void MergeBuilder::getMainClipSize(float *w, float *h) {
 	Inkscape::XML::Node *mainPath = NULL;
 	mainPath = _defs->firstChild();
@@ -119,6 +140,7 @@ void MergeBuilder::getMainClipSize(float *w, float *h) {
 	char *sizeStr;
 	char *c1, *c2, *c3;
 	*w = *h = 0;
+
 	while ((mainPath != NULL) && (strcmp(mainPath->name(), "svg:clipPath") != 0 )) {
 		mainPath = mainPath->next();
 	}

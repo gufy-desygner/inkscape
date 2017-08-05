@@ -504,6 +504,7 @@ void PdfParser::go(GBool /*topLevel*/)
       for (int i = 0; i < numArgs; ++i) {
 	printf(" ");
 	args[i].print(stdout);
+
       }
       printf("\n");
       fflush(stdout);
@@ -511,7 +512,7 @@ void PdfParser::go(GBool /*topLevel*/)
     for (int i = 0; i < numArgs; ++i)
       args[i].free();
   }
-
+  //print_node(builder->getRoot(), 0);
   if (sp_merge_images_sh ||
 			((sp_merge_limit_sh > 0) &&
 			 (sp_merge_limit_sh < builder->getCountOfImages()))) {
@@ -576,8 +577,8 @@ void PdfParser::go(GBool /*topLevel*/)
 			long double tempD;
 
 			Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
-			mergeBuilder->getMainClipSize(&clipW, &clipH);
-
+			//mergeBuilder->getMainClipSize(&clipW, &clipH);
+			mergeBuilder->getMainSize(&clipW, &clipH);
 			buf = g_strdup_printf("scale(%i.%i,%i.%i)",
 						(int)clipW, (int)(modfl(clipW, &tempD)*1000),
 						(int)clipH, (int)(modfl(clipH, &tempD)*1000));
