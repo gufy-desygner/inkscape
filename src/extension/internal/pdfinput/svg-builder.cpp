@@ -457,6 +457,7 @@ void SvgBuilder::addPath(GfxState *state, bool fill, bool stroke, bool even_odd)
     sp_repr_css_attr_unref(css);
 
     _container->appendChild(path);
+    _countOfPath++;
     Inkscape::GC::release(path);
 }
 

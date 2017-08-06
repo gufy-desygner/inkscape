@@ -36,6 +36,12 @@ public:
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
 	void removeOldImages(void);
+	void addTagName(char *tagName);
+	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level);
+	bool haveTagFormList(Inkscape::XML::Node *node);
+	void clearMerge(void);
+	Inkscape::XML::Node *findFirstNode(void);
+	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	~MergeBuilder(void);
 private:
     SPDocument *_doc;
@@ -43,7 +49,10 @@ private:
     Inkscape::XML::Node *_defs;
     Inkscape::XML::Node *_mainVisual;
     Inkscape::XML::Node *_sourceRoot;
+    Inkscape::XML::Node *_sourceVisual;
     Inkscape::XML::Document *_xml_doc;
+    char *_listMergeTags[10];
+    int _sizeListMergeTag;
 };
 
 } // namespace Internal

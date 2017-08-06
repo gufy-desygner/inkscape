@@ -7,6 +7,8 @@ extern gint sp_gradient_precision_sh;
 extern gboolean sp_export_fonts_sh;
 extern gboolean sp_original_fonts_sh;
 extern gboolean sp_merge_images_sh;
+extern gboolean sp_merge_path_sh;
 extern gint sp_merge_limit_sh;
+extern gint sp_merge_limit_path_sh;
 #endif
 

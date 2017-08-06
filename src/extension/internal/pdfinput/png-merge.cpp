@@ -17,7 +17,9 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
-MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
+MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree)
+{
+	_sizeListMergeTag = 0;
 	_doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
 	Inkscape::DocumentUndo::setUndoSensitive(_doc, false);
 	_root = _doc->rroot;
@@ -46,7 +48,7 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 		};
 		tmpNode = tmpNode->next();
 	}
-
+    _sourceVisual = tmpNode;
 	// Create main visual node
 	_mainVisual = _xml_doc->createElement("svg:g");
 	_root->appendChild(_mainVisual);
@@ -57,6 +59,77 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree) {
 		  attrList++;
 		}
 	}
+}
+
+void MergeBuilder::addTagName(char *tagName) {
+	_listMergeTags[_sizeListMergeTag] = (char*) malloc(strlen(tagName+1));
+	strcpy(_listMergeTags[_sizeListMergeTag], tagName);
+	_sizeListMergeTag++;
+}
+
+Inkscape::XML::Node *MergeBuilder::findFirstNode(void) {
+	return findNode(_sourceVisual->firstChild(), 2);
+}
+
+Inkscape::XML::Node *MergeBuilder::findNextNode(Inkscape::XML::Node *node, int level) {
+	return findNode(node, level);
+}
+
+void MergeBuilder::clearMerge(void) {
+    while(_mainVisual->firstChild()){
+    	_mainVisual->removeChild(_mainVisual->firstChild());
+    }
+}
+
+Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode;
+	if (level > 2) return (Inkscape::XML::Node *) NULL;
+	if (level < 2) {
+		if (node->childCount()){
+		  tmpNode = node->firstChild();
+		  while( tmpNode ) {
+			  resNode = findNode(tmpNode, level+1);
+			  if (resNode) return resNode;
+			  tmpNode = tmpNode->next();
+		  }
+		}
+	}
+	if (level == 2) {
+		tmpNode = node;
+		while(tmpNode) {
+			if (haveTagFormList(tmpNode)) {
+				return tmpNode;
+			}
+			tmpNode = tmpNode->next();
+		}
+	}
+
+	return resNode;
+}
+
+bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
+	  Inkscape::XML::Node *tmpNode = node;
+	  bool res = FALSE;
+	  uint coun = 0;
+	  // print_node(node, 3);
+	  // Calculate count of right svg:g before image
+	  while(  (coun < 5) &&
+			  (tmpNode != NULL) &&
+			  //(tmpNode->childCount() == 1) &&
+			  (strcmp(tmpNode->name(), "svg:g") == 0)) {
+		  coun++;
+		  tmpNode = tmpNode->firstChild();
+		  if (! tmpNode ) break;
+	  }
+
+	  for(int i = 0; i < _sizeListMergeTag; i++) {
+		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
+			  res = TRUE;
+		  }
+	  }
+
+	  return res;
 }
 
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
@@ -187,14 +260,19 @@ void MergeBuilder::removeOldImages(void) {
 		while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
 			toImageNode = toImageNode->firstChild();
 		}
-	    tmpName = toImageNode->attribute("xlink:href");
-	    remove(tmpName);
+		if (toImageNode) { // if it is image node
+			tmpName = toImageNode->attribute("xlink:href");
+			remove(tmpName);
+		}
 	    tmpNode = tmpNode->next();
 	}
 }
 
 MergeBuilder::~MergeBuilder(void){
   free(_doc);
+  for(int i = 0; i < _sizeListMergeTag; i++) {
+	  free(_listMergeTags[i]);
+  }
 }
 } } } /* namespace Inkscape, Extension, Internal */
 

@@ -164,6 +164,7 @@ enum {
 	SP_ARG_GRADIENT_PRECISION,
 	SP_ARG_MERGE_IMAGES,
 	SP_ARG_MERGE_LIMIT,
+	SP_ARG_MERGE_LIMIT_PATH,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
     SP_ARG_EXPORT_SVG,
@@ -233,6 +234,7 @@ static gboolean sp_embed_images = FALSE;
 static gint sp_gradient_precision = 2;
 static gboolean sp_merge_images = FALSE;
 static gint sp_merge_limit = 0;
+static gint sp_merge_limit_path = 0;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
@@ -450,6 +452,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_merge_limit, SP_ARG_MERGE_LIMIT,
 	 N_("If number of images in the file more then mergeLimit inkscape will try merge nearest tag of images to one layer"),
 	 N_("MERGE_LIMIT")},
+
+	{"mergeLimitPath", 0,
+	 POPT_ARG_INT, &sp_merge_limit_path, SP_ARG_MERGE_LIMIT_PATH,
+	 N_("If number of path objects in the file more then mergeLimitPath inkscape will try merge nearest tag of path to one PNG image"),
+	 N_("MERGE_LIMIT_PATH")},
 
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
@@ -2349,6 +2356,11 @@ sp_process_args(poptContext ctx)
             }
             case SP_ARG_MERGE_LIMIT: {
                 sp_merge_limit_sh = sp_merge_limit;
+                break;
+            }
+            case SP_ARG_MERGE_LIMIT_PATH: {
+                sp_merge_limit_path_sh = sp_merge_limit_path;
+                break;
             }
             case SP_ARG_EXPORT_SVG: {
             	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);

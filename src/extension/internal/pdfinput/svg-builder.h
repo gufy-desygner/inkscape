@@ -171,6 +171,7 @@ public:
     bool getTransform(double *transform);
     gchar *getDocName();
     gint getCountOfImages(void) { return _countOfImages;};
+    gint getCountOfPath(void) { return _countOfPath;};
 
 private:
     void _init();
@@ -232,6 +233,7 @@ private:
     double _height;       // Document size in px
     double _ttm[6]; ///< temporary transform matrix
     int _countOfImages;
+    int _countOfPath;
     bool _ttm_is_set;
 };
 

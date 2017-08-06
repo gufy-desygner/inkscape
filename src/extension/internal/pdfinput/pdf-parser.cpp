@@ -512,12 +512,15 @@ void PdfParser::go(GBool /*topLevel*/)
     for (int i = 0; i < numArgs; ++i)
       args[i].free();
   }
+
+  sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
+			 (sp_merge_limit_sh < builder->getCountOfImages());
+  sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
+			 (sp_merge_limit_path_sh < builder->getCountOfPath());
   //print_node(builder->getRoot(), 0);
-  if (sp_merge_images_sh ||
-			((sp_merge_limit_sh > 0) &&
-			 (sp_merge_limit_sh < builder->getCountOfImages()))) {
+  if (sp_merge_images_sh || sp_merge_path_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
-    Inkscape::XML::Node *mergeNode = builder->getRoot();
+    //Inkscape::XML::Node *mergeNode = builder->getRoot();
     Inkscape::XML::Node *remNode;
     Inkscape::XML::Node *toImageNode;
     const gchar *tmpName;
@@ -526,11 +529,19 @@ void PdfParser::go(GBool /*topLevel*/)
 
     uint countMergedNodes = 0;
     //find image nodes
-    mergeNode = find_image_node(mergeNode, 0);
+    mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+
+    if (sp_merge_images_sh) {
+      mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+    }
+    if (sp_merge_path_sh) {
+          mergeBuilder->addTagName(g_strdup_printf("svg:path"));
+    }
+    Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
     while(mergeNode) {
     	countMergedNodes = 0;
-    	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
-    	while (isImage_node(mergeNode->next())) {
+    	mergeBuilder->clearMerge();
+    	while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next())) {
 			countMergedNodes++;
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
@@ -545,23 +556,23 @@ void PdfParser::go(GBool /*topLevel*/)
 			remNode = mergeNode;
 			// search "xlink:href"
 			toImageNode = mergeNode->firstChild();
-			while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
+			/*while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
 				toImageNode = toImageNode->firstChild();
-			}
-			tmpName = toImageNode->attribute("xlink:href");
-			char *_fName = g_strdup_printf("%s", tmpName);
+			}*/
+			tmpName = toImageNode->attribute("id");
+			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
 			// separate ext and name
-			char *c = &_fName[strlen(_fName) - 1];
+			/*char *c = &_fName[strlen(_fName) - 1];
 			while((c != _fName) && (*c != '.')) {
 				c--;
 			}
 			if (*c == '.') {
 				*c = 0;
 				c++;
-			}
+			}*/
 			// generate filename
-			char *fName = g_strdup_printf("%sm.%s", _fName, c);
-			free(_fName);
+			//char *fName = g_strdup_printf("%s.%s", _fName, c);
+			//free(_fName);
 			mergeNode = mergeNode->next();
 			remNode->parent()->removeChild(remNode);
 
@@ -600,10 +611,10 @@ void PdfParser::go(GBool /*topLevel*/)
 			mergeNode = mergeNode->next();
 		}
 
-		mergeNode = find_image_node(mergeNode, 2);
-		free(mergeBuilder);
+		if (mergeNode)
+		  mergeNode = find_image_node(mergeNode, 2);
     }
-
+    free(mergeBuilder);
     fflush(stdout);
   }
 }
