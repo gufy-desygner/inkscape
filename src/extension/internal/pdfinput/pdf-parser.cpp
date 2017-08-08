@@ -538,6 +538,8 @@ void PdfParser::go(GBool /*topLevel*/)
           mergeBuilder->addTagName(g_strdup_printf("svg:path"));
     }
     Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
+    Inkscape::XML::Node *visualNode;
+    if (mergeNode) visualNode = mergeNode->parent();
     while(mergeNode) {
     	countMergedNodes = 0;
     	mergeBuilder->clearMerge();
@@ -557,9 +559,6 @@ void PdfParser::go(GBool /*topLevel*/)
 
 			tmpName = mergeNode->attribute("id");
 			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
-
-			mergeNode = mergeNode->next();
-			remNode->parent()->removeChild(remNode);
 
 			// Save merged image
 			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
@@ -592,7 +591,8 @@ void PdfParser::go(GBool /*topLevel*/)
 			tmpNode->setAttribute("height", "1");
 			tmpNode->setAttribute("preserveAspectRatio", "none");
 
-			mergeNode->parent()->addChild(sumNode, mergeNode);
+			visualNode->addChild(sumNode, mergeNode);
+			visualNode->removeChild(remNode);
 			mergeNode = sumNode->next();
 			free(buf);
 			free(fName);
@@ -601,8 +601,8 @@ void PdfParser::go(GBool /*topLevel*/)
 			mergeNode = mergeNode->next();
 		}
 
-		if (mergeNode)
-		  mergeNode = find_image_node(mergeNode, 2);
+		/*if (mergeNode)
+		  mergeNode =  mergeNode->next();*/
     }
     free(mergeBuilder);
     fflush(stdout);
