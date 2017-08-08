@@ -554,25 +554,10 @@ void PdfParser::go(GBool /*topLevel*/)
 		if (countMergedNodes) {
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
-			// search "xlink:href"
-			toImageNode = mergeNode->firstChild();
-			/*while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
-				toImageNode = toImageNode->firstChild();
-			}*/
-			tmpName = toImageNode->attribute("id");
+
+			tmpName = mergeNode->attribute("id");
 			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
-			// separate ext and name
-			/*char *c = &_fName[strlen(_fName) - 1];
-			while((c != _fName) && (*c != '.')) {
-				c--;
-			}
-			if (*c == '.') {
-				*c = 0;
-				c++;
-			}*/
-			// generate filename
-			//char *fName = g_strdup_printf("%s.%s", _fName, c);
-			//free(_fName);
+
 			mergeNode = mergeNode->next();
 			remNode->parent()->removeChild(remNode);
 
@@ -590,9 +575,14 @@ void PdfParser::go(GBool /*topLevel*/)
 			Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
 			//mergeBuilder->getMainClipSize(&clipW, &clipH);
 			mergeBuilder->getMainSize(&clipW, &clipH);
-			buf = g_strdup_printf("scale(%i.%i,%i.%i)",
-						(int)clipW, (int)(modfl(clipW, &tempD)*1000),
-						(int)clipH, (int)(modfl(clipH, &tempD)*1000));
+			float coeffE = mergeBuilder->mainMatrix[4]/mergeBuilder->mainMatrix[0] * (-1);
+			float coeffF = mergeBuilder->mainMatrix[5]/mergeBuilder->mainMatrix[3] * (-1) - clipH;
+
+			buf = g_strdup_printf("matrix(%i.%i,0,0,%i.%i,%i.%i,%i.%i)",
+						(int)clipW, (int)abs(modfl(clipW, &tempD)*1000),
+						(int)clipH, (int)abs(modfl(clipH, &tempD)*1000),
+						(int)coeffE, (int)abs(modfl(coeffE, &tempD)*1000),
+						(int)coeffF, (int)abs(modfl(coeffF, &tempD)*1000));
 			sumNode->setAttribute("transform", buf);
 			Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
 			sumNode->appendChild(tmpNode);

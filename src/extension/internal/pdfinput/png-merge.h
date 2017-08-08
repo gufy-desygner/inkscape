@@ -42,6 +42,7 @@ public:
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(void);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
+	float mainMatrix[6];
 	~MergeBuilder(void);
 private:
     SPDocument *_doc;
