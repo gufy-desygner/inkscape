@@ -17,7 +17,7 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
-MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree)
+MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 {
 	_sizeListMergeTag = 0;
 	_doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
@@ -38,7 +38,7 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree)
 	// Copy all no visual nodes from original doc
 	while(tmpNode) {
 		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
-			copyAsChild(_root, tmpNode, NULL);
+			copyAsChild(_root, tmpNode, rebasePath);
 			if ( strcmp(tmpNode->name(),"svg:defs") == 0 ) {
 				_defs = tmpNode;
 			}
@@ -136,6 +136,15 @@ void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath
 	copyAsChild(_mainVisual, imageNode, rebasePath);
 }
 
+void MergeBuilder::mergeAll(char* rebasePath) {
+	Inkscape::XML::Node *node;
+	node = _sourceVisual->firstChild();
+	while(node) {
+		copyAsChild(_mainVisual, node, rebasePath);
+		node = node->next();
+	}
+}
+
 Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
 	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
 
@@ -182,6 +191,23 @@ void MergeBuilder::save(gchar const *filename) {
 					true, // override file
 					x);
 
+}
+
+void MergeBuilder::saveThumbW(int w, gchar const *filename){
+	std::vector<SPItem*> x;
+	char *c;
+	float width = strtof(_root->attribute("width"), &c);
+	float height = strtof(_root->attribute("height"), &c);
+	float zoom = width/w;
+	sp_export_png_file(_doc, filename,
+					0, 0, width, height, // crop of document x,y,W,H
+					width/zoom, height/zoom, // size of png
+					150, 150, // dpi x & y
+					0xFFFFFF00,
+					NULL, // callback for progress bar
+					NULL, // struct SPEBP
+					true, // override file
+					x);
 }
 
 char *prepareStringForFloat(char *str) {

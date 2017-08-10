@@ -29,10 +29,12 @@ namespace Internal {
 
 class MergeBuilder {
 public:
-	MergeBuilder(Inkscape::XML::Node *sourceTree);
+	MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath);
 	void addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
+	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
 	void save(gchar const *filename);
+	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
 	void removeOldImages(void);

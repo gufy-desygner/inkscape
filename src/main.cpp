@@ -165,6 +165,7 @@ enum {
 	SP_ARG_MERGE_IMAGES,
 	SP_ARG_MERGE_LIMIT,
 	SP_ARG_MERGE_LIMIT_PATH,
+	SP_ARG_THUMB_WIDTH,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
     SP_ARG_EXPORT_SVG,
@@ -235,6 +236,7 @@ static gint sp_gradient_precision = 2;
 static gboolean sp_merge_images = FALSE;
 static gint sp_merge_limit = 0;
 static gint sp_merge_limit_path = 0;
+static gint sp_thumb_width = 0;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
@@ -457,6 +459,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_merge_limit_path, SP_ARG_MERGE_LIMIT_PATH,
 	 N_("If number of path objects in the file more then mergeLimitPath inkscape will try merge nearest tag of path to one PNG image"),
 	 N_("MERGE_LIMIT_PATH")},
+
+	{"generateThumbWidth", 0,
+	 POPT_ARG_INT, &sp_thumb_width, SP_ARG_THUMB_WIDTH,
+	 N_("Generate thumb with specified width and save proportion of document"),
+	 N_("GENERATE_THUMB_WIDTH")},
 
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
@@ -2373,6 +2380,10 @@ sp_process_args(poptContext ctx)
             	  sp_export_svg_path_sh = (char*)alloca(2);
             	  sp_export_svg_path_sh = (char*)"";
             	}
+            	break;
+            }
+            case SP_ARG_THUMB_WIDTH: {
+            	sp_thumb_width_sh = sp_thumb_width;
             	break;
             }
             case POPT_ERROR_BADOPT: {

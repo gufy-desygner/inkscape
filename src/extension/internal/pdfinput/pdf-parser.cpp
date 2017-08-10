@@ -59,6 +59,8 @@ extern "C" {
 #include "xml/attribute-record.h"
 #include "util/list.h"
 #include "png-merge.h"
+#include "sp-item.h"
+#include "helper/png-write.h"
 
 
 // the MSVC math.h doesn't define this
@@ -513,6 +515,8 @@ void PdfParser::go(GBool /*topLevel*/)
       args[i].free();
   }
 
+
+  //==================merge paths and images ==================
   sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
 			 (sp_merge_limit_sh < builder->getCountOfImages());
   sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
@@ -529,7 +533,7 @@ void PdfParser::go(GBool /*topLevel*/)
 
     uint countMergedNodes = 0;
     //find image nodes
-    mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root);
+    mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
 
     if (sp_merge_images_sh) {
       mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
@@ -606,6 +610,21 @@ void PdfParser::go(GBool /*topLevel*/)
     }
     free(mergeBuilder);
     fflush(stdout);
+  }
+
+  //===================gnerate thumbs==================================
+  if (sp_thumb_width_sh) {
+	Inkscape::XML::Node *root = builder->getRoot();
+	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
+    mergeBuilder->mergeAll(sp_export_svg_path_sh);
+
+	char *c;
+	float width = strtof(root->attribute("width"), &c);
+	float height = strtof(root->attribute("height"), &c);
+	float zoom = width/sp_thumb_width_sh;
+	gchar *fName = g_strdup_printf("%s%s_thumb.png",sp_export_svg_path_sh, builder->getDocName());
+    mergeBuilder->saveThumbW(sp_thumb_width_sh, fName);
+	free(fName);
   }
 }
 

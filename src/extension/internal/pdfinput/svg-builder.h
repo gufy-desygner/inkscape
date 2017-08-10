@@ -172,6 +172,7 @@ public:
     gchar *getDocName();
     gint getCountOfImages(void) { return _countOfImages;};
     gint getCountOfPath(void) { return _countOfPath;};
+    SPDocument *getSpDocument(void){ return _doc;};
 
 private:
     void _init();
