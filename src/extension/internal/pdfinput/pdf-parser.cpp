@@ -20,7 +20,7 @@
 #ifdef USE_GCC_PRAGMAS
 #pragma implementation
 #endif
-
+#define CURL_STATICLIB 1
 extern "C" {
         
 #include <stdlib.h>
@@ -61,7 +61,7 @@ extern "C" {
 #include "png-merge.h"
 #include "sp-item.h"
 #include "helper/png-write.h"
-
+#include <curl/curl.h>
 
 // the MSVC math.h doesn't define this
 #ifndef M_PI
@@ -2354,20 +2354,32 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 
   // Save font file
   if (sp_export_fonts_sh) {
+	  CURL *curl = curl_easy_init();
 	  GooString *fontName= state->getFont()->getName();
-	  if (fontName)
-	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, fontName->getCString());
-	  else
-		fname = g_strdup_printf("%s%s_unnamed%i.ttf", sp_export_svg_path_sh, builder->getDocName(), num);
+	  if (fontName) {
+		char * encodeName = curl_easy_escape(curl, fontName->getCString(), 0);
+	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
+	    free(encodeName);
+	  }
+	  else {
+		fname = g_strdup_printf("%s_unnamed%i", builder->getDocName(), num);
+		char * encodeName = curl_easy_escape(curl, fname, 0);
+	    free(fname);
+		fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
+		free(encodeName);
+	  }
 		num++;
 	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
+
 	  if (len > 0) {
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
-		  free(fname);
 	  }
+	  curl_free(fname);
+      //free(fname);
 	  free(buf);
+	  free (curl);
   }
   fontChanged = gTrue;
 }

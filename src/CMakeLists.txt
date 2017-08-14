@@ -549,6 +549,7 @@ set(INKSCAPE_TARGET_LIBS
         depixelize_LIB
         util_LIB
         gc_LIB
+        curlpp
         ${INKSCAPE_LIBS}
 )
 
