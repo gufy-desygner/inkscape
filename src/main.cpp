@@ -472,7 +472,7 @@ struct poptOption options[] = {
 
 	{"originalFonts", 0,
 	 POPT_ARG_NONE, &sp_original_fonts, SP_ARG_ORIGINAL_FONTS,
-	 N_("if parameter used - will set original fonts to styles of SVG file"),
+	 N_("use font names as they are in the PDF and skips font scan of system"),
 	 NULL},
 
     {"export-pdf", 'A',
@@ -1452,7 +1452,6 @@ int sp_main_console(int argc, char const **argv)
      */
     g_type_init();
 #endif
-
     char **argv2 = const_cast<char **>(argv);
     gtk_init_check( &argc, &argv2 );
     //setlocale(LC_ALL, "");

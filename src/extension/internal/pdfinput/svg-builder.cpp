@@ -39,6 +39,7 @@
 #include "io/base64stream.h"
 #include "display/nr-filter-utils.h"
 #include "libnrtype/font-instance.h"
+#include "shared_opt.h"
 
 #include "Function.h"
 #include "GfxState.h"
@@ -122,11 +123,13 @@ void SvgBuilder::_init() {
     _height = 0;
 
     // Fill _availableFontNames (Bug LP #179589) (code cfr. FontLister)
-    std::vector<PangoFontFamily *> families;
-    font_factory::Default()->GetUIFamilies(families);
-    for ( std::vector<PangoFontFamily *>::iterator iter = families.begin();
-          iter != families.end(); ++iter ) {
-        _availableFontNames.push_back(pango_font_family_get_name(*iter));
+    if (! sp_original_fonts_sh) {
+    	std::vector<PangoFontFamily *> families;
+		font_factory::Default()->GetUIFamilies(families);
+		for ( std::vector<PangoFontFamily *>::iterator iter = families.begin();
+			  iter != families.end(); ++iter ) {
+			_availableFontNames.push_back(pango_font_family_get_name(*iter));
+		}
     }
 
     _transp_group_stack = NULL;

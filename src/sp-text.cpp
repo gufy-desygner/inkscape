@@ -50,6 +50,7 @@
 #include "sp-tspan.h"
 
 #include "text-editing.h"
+#include "shared_opt.h"
 
 // For SVG 2 text flow
 #include "livarot/Path.h"
@@ -531,7 +532,9 @@ unsigned SPText::_buildLayoutInput(SPObject *root, Inkscape::Text::Layout::Optio
 
         layout.strut.reset();
         if (style) {
-            font_instance *font = font_factory::Default()->FaceFromStyle( style );
+        	font_instance *font = NULL;
+        	if (! sp_original_fonts_sh)
+              font_instance *font = font_factory::Default()->FaceFromStyle( style );
             if (font) {
                 font->FontMetrics(layout.strut.ascent, layout.strut.descent, layout.strut.xheight);
                 font->Unref();
@@ -620,7 +623,9 @@ void SPText::rebuildLayout()
     layout.clear();
     Inkscape::Text::Layout::OptionalTextTagAttrs optional_attrs;
     _buildLayoutInput(this, optional_attrs, 0, false);
-    layout.calculateFlow();
+    if (! sp_original_fonts_sh) {
+      layout.calculateFlow();
+    }
     for (SPObject *child = firstChild() ; child ; child = child->getNext() ) {
         if (SP_IS_TEXTPATH(child)) {
             SPTextPath const *textpath = SP_TEXTPATH(child);
