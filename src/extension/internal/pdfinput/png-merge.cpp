@@ -110,6 +110,7 @@ Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level
 
 bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
 	  Inkscape::XML::Node *tmpNode = node;
+	  if (node == 0) return false;
 	  bool res = FALSE;
 	  uint coun = 0;
 	  // print_node(node, 3);
@@ -122,6 +123,8 @@ bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
 		  tmpNode = tmpNode->firstChild();
 		  if (! tmpNode ) break;
 	  }
+
+	  if (tmpNode == 0) return false;
 
 	  for(int i = 0; i < _sizeListMergeTag; i++) {
 		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
