@@ -441,7 +441,7 @@ void PdfParser::parse(Object *obj, GBool topLevel) {
   go(topLevel);
 
   // if founded bigest path mark it how class="background"
-  if (backgroundCandidat)
+  if (backgroundCandidat && sp_add_background_sh)
     backgroundCandidat->setAttribute("class", "background");
   delete parser;
   parser = NULL;
@@ -2355,7 +2355,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   // Save font file
   if (sp_export_fonts_sh) {
 	  CURL *curl = curl_easy_init();
-	  GooString *fontName= state->getFont()->getName();
+	  GooString *fontName= state->getFont()->getFamily();
 	  if (fontName) {
 		char * encodeName = curl_easy_escape(curl, fontName->getCString(), 0);
 	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
@@ -2372,9 +2372,22 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
 
 	  if (len > 0) {
+		  char exeDir[1024];
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
+		  if (fontName) {
+/*			  readlink("/proc/self/exe", exeDir, 1024);
+			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
+				  exeDir[strlen(exeDir) - 1 ] = 0;
+			  }
+			  gchar *fontForgeCmd = g_strdup_printf("fontforge -quiet -script %schageFontName.pe %s %s 2> /dev/null",
+										  exeDir,
+										  fname,
+										  fontName->getCString());
+			  system(fontForgeCmd);
+			  g_free(fontForgeCmd);*/
+		  }
 	  }
 	  curl_free(fname);
       //free(fname);

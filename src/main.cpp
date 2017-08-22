@@ -161,6 +161,7 @@ enum {
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
+	SP_ARG_ADD_BACKGROUND,
 	SP_ARG_GRADIENT_PRECISION,
 	SP_ARG_MERGE_IMAGES,
 	SP_ARG_MERGE_LIMIT,
@@ -232,6 +233,7 @@ static gchar *sp_export_ps = NULL;
 static gchar *sp_export_eps = NULL;
 static gint sp_export_ps_level = 3;
 static gboolean sp_embed_images = FALSE;
+static gboolean sp_add_background = FALSE;
 static gint sp_gradient_precision = 2;
 static gboolean sp_merge_images = FALSE;
 static gint sp_merge_limit = 0;
@@ -438,6 +440,11 @@ struct poptOption options[] = {
 	{"link", 0,
 	 POPT_ARG_NONE, &sp_embed_images, SP_ARG_LINK_IMAGES,
 	 N_("embed images from PDF"),
+	 NULL},
+
+	{"addBackground", 0,
+	 POPT_ARG_NONE, &sp_add_background, SP_ARG_ADD_BACKGROUND,
+	 N_("set class=background attribute for biggest path"),
 	 NULL},
 
 	{"gradientPrecision", 0,
@@ -2340,6 +2347,9 @@ sp_process_args(poptContext ctx)
             case SP_ARG_LINK_IMAGES: {
             	sp_embed_images_sh = FALSE;
             	break;
+            }
+            case SP_ARG_ADD_BACKGROUND: {
+            	sp_add_background_sh = TRUE;
             }
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;
