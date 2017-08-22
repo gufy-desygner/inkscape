@@ -1,5 +1,8 @@
 if(UNIX)
-    #The install directive for the binaries and libraries are found in src/CMakeList.txt
+    install(FILES
+      ${CMAKE_SOURCE_DIR}/fontForge/chageFontName.pe
+      DESTINATION ${CMAKE_INSTALL_PREFIX}/)
+   #The install directive for the binaries and libraries are found in src/CMakeList.txt
     install(FILES
       ${CMAKE_BINARY_DIR}/inkscape.desktop
       DESTINATION ${CMAKE_INSTALL_PREFIX}/${SHARE_INSTALL}/applications)

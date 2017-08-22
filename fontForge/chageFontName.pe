@@ -1,0 +1,4 @@
+Open($1); 
+SetFontNames($2,$3);
+Generate($1);
+

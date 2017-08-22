@@ -2377,16 +2377,24 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
 		  if (fontName) {
-/*			  readlink("/proc/self/exe", exeDir, 1024);
+			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  gchar *fontForgeCmd = g_strdup_printf("fontforge -quiet -script %schageFontName.pe %s %s 2> /dev/null",
+			  char *fontN = (char*)malloc(strlen(fontName->getCString()) + 1);
+			  memcpy(fontN, fontName->getCString(), strlen(fontName->getCString()) + 1);
+
+			  for(int i = 0; i < strlen(fontN); i++) {
+				  if (fontN[i] == ' ') fontN[i] = '-';
+			  }
+			  gchar *fontForgeCmd = g_strdup_printf("fontforge -quiet -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 										  exeDir,
 										  fname,
+										  fontN,
 										  fontName->getCString());
+			  free(fontN);
 			  system(fontForgeCmd);
-			  g_free(fontForgeCmd);*/
+			  g_free(fontForgeCmd);
 		  }
 	  }
 	  curl_free(fname);
