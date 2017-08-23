@@ -2355,11 +2355,19 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   // Save font file
   if (sp_export_fonts_sh) {
 	  CURL *curl = curl_easy_init();
-	  GooString *fontName= state->getFont()->getFamily();
+	  GooString *fontName = state->getFont()->getFamily();
 	  if (fontName) {
-		char * encodeName = curl_easy_escape(curl, fontName->getCString(), 0);
+		GooString *fontName2= new GooString(state->getFont()->getFamily());
+		// remove space from file name
+		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
+		  while(fontName2->getChar(strPos) == ' '){
+			  fontName2->del(strPos, 1);
+		  }
+		}
+		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
 	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
 	    free(encodeName);
+	    delete(fontName2);
 	  }
 	  else {
 		fname = g_strdup_printf("%s_unnamed%i", builder->getDocName(), num);
