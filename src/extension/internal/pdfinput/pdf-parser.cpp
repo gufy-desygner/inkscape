@@ -2387,7 +2387,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 			  for(int i = 0; i < strlen(fontN); i++) {
 				  if (fontN[i] == ' ') fontN[i] = '-';
 			  }
-			  gchar *fontForgeCmd = g_strdup_printf("fontforge -quiet -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
+			  gchar *fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 										  exeDir,
 										  fname,
 										  fontN,
