@@ -7,6 +7,7 @@ gboolean sp_original_fonts_sh = FALSE;
 gboolean sp_merge_images_sh = FALSE;
 gboolean sp_merge_path_sh = FALSE;
 gboolean sp_add_background_sh = FALSE;
+gboolean sp_mapping_off_sh = FALSE;
 gint sp_merge_limit_sh = 0;
 gint sp_merge_limit_path_sh = 0;
 gint sp_thumb_width_sh = 0;
