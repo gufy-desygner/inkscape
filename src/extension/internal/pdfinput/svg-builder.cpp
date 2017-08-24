@@ -1062,7 +1062,20 @@ void SvgBuilder::updateFont(GfxState *state) {
 
     // Font family
     if (font->getFamily()) { // if font family is explicitly given use it.
-        sp_repr_css_set_property(_font_style, "font-family", font->getFamily()->getCString());
+		GooString *fontName2= new GooString(font->getName());
+		// format font name
+		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
+		  if (fontName2->getChar(strPos) == '-'){
+		    fontName2->setChar(strPos, ' ');
+		  }
+		  if (fontName2->getChar(strPos) == '+') {
+		    fontName2->del(0, strPos+1);
+			strPos = 0;
+		  }
+		}
+        //sp_repr_css_set_property(_font_style, "font-family", font->getFamily()->getCString());
+		sp_repr_css_set_property(_font_style, "font-family", fontName2->getCString());
+		delete fontName2;
     } else { 
         int attr_value = 1;
         sp_repr_get_int(_preferences, "localFonts", &attr_value);

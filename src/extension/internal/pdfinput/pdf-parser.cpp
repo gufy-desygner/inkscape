@@ -2357,11 +2357,15 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  CURL *curl = curl_easy_init();
 	  GooString *fontName = state->getFont()->getFamily();
 	  if (fontName) {
-		GooString *fontName2= new GooString(state->getFont()->getFamily());
-		// remove space from file name
+		GooString *fontName2= new GooString(state->getFont()->getName());
+		// format file name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
-		  while(fontName2->getChar(strPos) == ' '){
+		  while(fontName2->getChar(strPos) == '-'){
 			  fontName2->del(strPos, 1);
+		  }
+		  if (fontName2->getChar(strPos) == '+') {
+			  fontName2->del(0, strPos+1);
+			  strPos = 0;
 		  }
 		}
 		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
@@ -2385,28 +2389,36 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
 		  if (fontName) {
+			  // get path to inkscape
 			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  char *fontN = (char*)malloc(strlen(fontName->getCString()) + 1);
-			  memcpy(fontN, fontName->getCString(), strlen(fontName->getCString()) + 1);
-
-			  for(int i = 0; i < strlen(fontN); i++) {
-				  if (fontN[i] == ' ') fontN[i] = '-';
+			  GooString *fontName2= new GooString(state->getFont()->getName());
+			  // format font name
+			  for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
+				  if (fontName2->getChar(strPos) == '-'){
+					  fontName2->setChar(strPos, ' ');
+				  }
+				  if (fontName2->getChar(strPos) == '+') {
+					  fontName2->del(0, strPos+1);
+					  strPos = 0;
+				  }
 			  }
+
+			  // generate command for path names inside TTF file
 			  gchar *fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
-										  exeDir,
-										  fname,
-										  fontN,
-										  fontName->getCString());
-			  free(fontN);
+							exeDir, // path to script, without name
+							fname,  // name of TTF file for path
+						    state->getFont()->getName()->getCString(), //postscriptname
+							fontName2->getCString()); //family
 			  system(fontForgeCmd);
+
+			  delete(fontName2);
 			  g_free(fontForgeCmd);
 		  }
 	  }
 	  curl_free(fname);
-      //free(fname);
 	  free(buf);
 	  free (curl);
   }
