@@ -40,10 +40,15 @@ public:
 	void removeOldImages(void);
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level);
+	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
 	bool haveTagFormList(Inkscape::XML::Node *node);
+	bool haveTagAttrFormList(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(void);
+	Inkscape::XML::Node *findFirstAttrNode(void);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
+	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
+	void addAttrName(char *attrName);
 	float mainMatrix[6];
 	~MergeBuilder(void);
 private:
@@ -56,6 +61,8 @@ private:
     Inkscape::XML::Document *_xml_doc;
     char *_listMergeTags[10];
     int _sizeListMergeTag;
+    char *_listMergeAttr[10];
+    int _sizeListMergeAttr;
 };
 
 } // namespace Internal

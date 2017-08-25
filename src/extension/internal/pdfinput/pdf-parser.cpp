@@ -516,7 +516,70 @@ void PdfParser::go(GBool /*topLevel*/)
   }
 
 
-  //==================merge paths and images ==================
+  //================== merge images with masks =================
+  if (sp_merge_mask_sh) {
+	  // init MergeBuilder
+	  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+			  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+	  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
+
+	  // merge masked images
+	  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNode();
+	  Inkscape::XML::Node *remNode;
+	  Inkscape::XML::Node *visualNode;
+	  if (mergeNode) visualNode = mergeNode->parent();
+	  const gchar *tmpName;
+	  while(mergeNode) {
+		mergeBuilder->clearMerge();
+		mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+		remNode = mergeNode;
+		// generate name of new image
+		tmpName = mergeNode->attribute("id");
+		char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
+
+		// Save merged image
+		gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
+		mergeBuilder->save(mergedImagePath);
+		mergeBuilder->removeOldImages();
+		free(mergedImagePath);
+
+		// Insert node with merged image
+		char *buf;
+		float clipW , clipH;
+		long double tempD;
+
+		Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
+		mergeBuilder->getMainSize(&clipW, &clipH);
+		float coeffE = mergeBuilder->mainMatrix[4]/mergeBuilder->mainMatrix[0] * (-1);
+		float coeffF = mergeBuilder->mainMatrix[5]/mergeBuilder->mainMatrix[3] * (-1) - clipH;
+
+		buf = g_strdup_printf("matrix(%i.%i,0,0,%i.%i,%i.%i,%i.%i)",
+					(int)clipW, (int)abs(modfl(clipW, &tempD)*1000),
+					(int)clipH, (int)abs(modfl(clipH, &tempD)*1000),
+					(int)coeffE, (int)abs(modfl(coeffE, &tempD)*1000),
+					(int)coeffF, (int)abs(modfl(coeffF, &tempD)*1000));
+		sumNode->setAttribute("transform", buf);
+		Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
+		sumNode->appendChild(tmpNode);
+		tmpNode->setAttribute("xlink:href", fName);
+		tmpNode->setAttribute("transform", "matrix(1,0,0,-1,0,1)");
+		tmpNode->setAttribute("width", "1");
+		tmpNode->setAttribute("height", "1");
+		tmpNode->setAttribute("preserveAspectRatio", "none");
+
+		visualNode->addChild(sumNode, mergeNode);
+		visualNode->removeChild(remNode);
+		mergeNode = sumNode->next();
+		free(buf);
+		free(fName);
+		mergeNode = mergeBuilder->findNextAttrNode(mergeNode);
+	  }
+	  delete mergeBuilder;
+  }
+
+
+  //================== merge paths and images ==================
   sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
 			 (sp_merge_limit_sh < builder->getCountOfImages());
   sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
@@ -608,7 +671,7 @@ void PdfParser::go(GBool /*topLevel*/)
 		/*if (mergeNode)
 		  mergeNode =  mergeNode->next();*/
     }
-    free(mergeBuilder);
+    delete mergeBuilder;
     fflush(stdout);
   }
 
@@ -3346,7 +3409,6 @@ void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox
   } else if (transpGroup) {
     builder->paintTransparencyGroup(state, bbox);
   }
-
   return;
 }
 

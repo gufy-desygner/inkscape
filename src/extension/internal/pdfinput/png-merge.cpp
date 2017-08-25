@@ -20,6 +20,7 @@ namespace Internal {
 MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 {
 	_sizeListMergeTag = 0;
+	_sizeListMergeAttr = 0;
 	_doc = SPDocument::createNewDoc(NULL, TRUE, TRUE);
 	Inkscape::DocumentUndo::setUndoSensitive(_doc, false);
 	_root = _doc->rroot;
@@ -62,17 +63,31 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 }
 
 void MergeBuilder::addTagName(char *tagName) {
-	_listMergeTags[_sizeListMergeTag] = (char*) malloc(strlen(tagName+1));
+	_listMergeTags[_sizeListMergeTag] = (char*) malloc(strlen(tagName) + 1);
 	strcpy(_listMergeTags[_sizeListMergeTag], tagName);
 	_sizeListMergeTag++;
+}
+
+void MergeBuilder::addAttrName(char *attrName) {
+	_listMergeAttr[_sizeListMergeAttr] = (char*) malloc(strlen(attrName) + 1);
+	strcpy(_listMergeAttr[_sizeListMergeAttr], attrName);
+	_sizeListMergeAttr++;
 }
 
 Inkscape::XML::Node *MergeBuilder::findFirstNode(void) {
 	return findNode(_sourceVisual->firstChild(), 2);
 }
 
+Inkscape::XML::Node *MergeBuilder::findFirstAttrNode(void) {
+	return findAttrNode(_sourceVisual->firstChild());
+}
+
 Inkscape::XML::Node *MergeBuilder::findNextNode(Inkscape::XML::Node *node, int level) {
 	return findNode(node, level);
+}
+
+Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
+	return findAttrNode(node);
 }
 
 void MergeBuilder::clearMerge(void) {
@@ -108,6 +123,20 @@ Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level
 	return resNode;
 }
 
+Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode = NULL;
+	tmpNode = node;
+	while(tmpNode) {
+		if (haveTagAttrFormList(tmpNode)) {
+			return tmpNode;
+		}
+		tmpNode = tmpNode->next();
+	}
+	return resNode;
+}
+
+
 bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
 	  Inkscape::XML::Node *tmpNode = node;
 	  if (node == 0) return false;
@@ -135,6 +164,54 @@ bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
 	  return res;
 }
 
+bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode = node;
+	  if (tmpNode == 0) return false;
+	  bool tag = FALSE;
+	  bool attr = FALSE;
+	  uint coun = 0;
+	  // print_node(node, 3);
+	  // Calculate count of right svg:g before other tag
+	  while(  (coun < 15) &&
+			  (tmpNode != NULL) &&
+			  //(tmpNode->childCount() == 1) &&
+			  (strcmp(tmpNode->name(), "svg:g") == 0)) {
+		  coun++;
+		  // Check in attribs list
+		  Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
+		  while( attrList ) {
+			  const char *attrName = g_quark_to_string(attrList->key);
+			  for(int i = 0; i < _sizeListMergeAttr; i++) {
+				  if (strcmp(attrName, _listMergeAttr[i]) == 0) {
+					  attr = TRUE;
+				  }
+			  }
+			  attrList++;
+		  }
+
+		  if ((tmpNode->childCount() == 0) && tmpNode->next()) {
+			  tmpNode = tmpNode->next();
+			  coun--;
+		  } else {
+		      tmpNode = tmpNode->firstChild();
+		  }
+		  // if empty <g> tag - exit
+		  if (! tmpNode ) break;
+	  }
+
+	  if (tmpNode == 0) return false;
+
+	  // if in list of tag
+	  for(int i = 0; i < _sizeListMergeTag; i++) {
+		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
+			  tag = TRUE;
+		  }
+	  }
+
+	  return tag && attr;
+
+}
+
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
 	copyAsChild(_mainVisual, imageNode, rebasePath);
 }
@@ -150,7 +227,7 @@ void MergeBuilder::mergeAll(char* rebasePath) {
 
 Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
 	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
-
+    //print_node(childNode, 1);
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
 	while( attrList ) {
@@ -310,9 +387,12 @@ void MergeBuilder::removeOldImages(void) {
 }
 
 MergeBuilder::~MergeBuilder(void){
-  free(_doc);
+  delete _doc;
   for(int i = 0; i < _sizeListMergeTag; i++) {
 	  free(_listMergeTags[i]);
+  }
+  for(int i = 0; i < _sizeListMergeAttr; i++) {
+  	  free(_listMergeAttr[i]);
   }
 }
 } } } /* namespace Inkscape, Extension, Internal */

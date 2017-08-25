@@ -159,6 +159,7 @@ enum {
     SP_ARG_EXPORT_ID_ONLY,
     SP_ARG_EXPORT_USE_HINTS,
 	SP_ARG_MAPPING_OFF,
+	SP_ARG_MERGE_MASK,
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
@@ -229,6 +230,7 @@ static gchar *sp_export_background_opacity = NULL;
 static gboolean sp_export_area_snap = FALSE;
 static gboolean sp_export_use_hints = FALSE;
 static gboolean sp_mapping_off = FALSE;
+static gboolean sp_merge_mask = FALSE;
 static gboolean sp_export_id_only = FALSE;
 static gchar *sp_export_svg = NULL;
 static gchar *sp_export_ps = NULL;
@@ -411,6 +413,11 @@ struct poptOption options[] = {
     {"mappingOff", 0,
 	 POPT_ARG_NONE, &sp_mapping_off, SP_ARG_MAPPING_OFF,
 	 N_("turn off unicode mapping for ascii table (codes 0-255)"),
+	 NULL},
+
+	{"mergeMask", 0,
+	 POPT_ARG_NONE, &sp_merge_mask, SP_ARG_MERGE_MASK,
+	 N_("merge mask with image to one PNG layer for PDF->SVG"),
 	 NULL},
 
     {"export-background", 'b',
@@ -2357,9 +2364,15 @@ sp_process_args(poptContext ctx)
             }
             case SP_ARG_ADD_BACKGROUND: {
             	sp_add_background_sh = TRUE;
+            	break;
             }
             case SP_ARG_MAPPING_OFF: {
                 sp_mapping_off_sh = TRUE;
+                break;
+            }
+            case SP_ARG_MERGE_MASK: {
+            	sp_merge_mask_sh = TRUE;
+            	break;
             }
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;
