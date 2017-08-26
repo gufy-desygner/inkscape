@@ -376,7 +376,11 @@ void MergeBuilder::removeOldImages(void) {
 	while(tmpNode) {
 		toImageNode = tmpNode;
 		while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
-			toImageNode = toImageNode->firstChild();
+			if ((toImageNode->childCount() == 0) && toImageNode->next()) {
+			  toImageNode = toImageNode->next();
+			} else {
+			  toImageNode = toImageNode->firstChild();
+			}
 		}
 		if (toImageNode) { // if it is image node
 			tmpName = toImageNode->attribute("xlink:href");
