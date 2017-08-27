@@ -98,7 +98,7 @@ void MergeBuilder::clearMerge(void) {
 
 Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level) {
 	Inkscape::XML::Node *tmpNode;
-	Inkscape::XML::Node *resNode;
+	Inkscape::XML::Node *resNode = NULL;
 	if (level > 2) return (Inkscape::XML::Node *) NULL;
 	if (level < 2) {
 		if (node->childCount()){

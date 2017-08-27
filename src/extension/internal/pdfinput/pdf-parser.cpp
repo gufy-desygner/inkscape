@@ -582,9 +582,9 @@ void PdfParser::go(GBool /*topLevel*/)
 
   //================== merge paths and images ==================
   sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
-			 (sp_merge_limit_sh < builder->getCountOfImages());
+			 (sp_merge_limit_sh <= builder->getCountOfImages());
   sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
-			 (sp_merge_limit_path_sh < builder->getCountOfPath());
+			 (sp_merge_limit_path_sh <= builder->getCountOfPath());
   //print_node(builder->getRoot(), 0);
   if (sp_merge_images_sh || sp_merge_path_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
