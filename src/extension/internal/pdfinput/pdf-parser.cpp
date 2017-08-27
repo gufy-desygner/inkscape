@@ -522,6 +522,7 @@ void PdfParser::go(GBool /*topLevel*/)
 	  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
 			  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
 	  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 
 	  // merge masked images
