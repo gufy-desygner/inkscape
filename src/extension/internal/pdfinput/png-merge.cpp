@@ -12,6 +12,8 @@
 #include "../cairo-png-out.h"
 #include "util/units.h"
 #include "helper/png-write.h"
+#include <regex.h>
+
 
 namespace Inkscape {
 namespace Extension {
@@ -183,6 +185,7 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 			  const char *attrName = g_quark_to_string(attrList->key);
 			  for(int i = 0; i < _sizeListMergeAttr; i++) {
 				  if (strcmp(attrName, _listMergeAttr[i]) == 0) {
+					  attrValue = tmpNode->attribute(attrName);
 					  attr = TRUE;
 				  }
 			  }
@@ -388,6 +391,31 @@ void MergeBuilder::removeOldImages(void) {
 		}
 	    tmpNode = tmpNode->next();
 	}
+}
+
+Inkscape::XML::Node *MergeBuilder::getDefNodeById(char *nodeId) {
+	Inkscape::XML::Node *tmpNode = _defs->firstChild();
+	Inkscape::XML::Node *resNode = NULL;
+	while(tmpNode) {
+	  if (strcmp(tmpNode->attribute("id"), nodeId) == 0) { //currect ID
+		  resNode = tmpNode;
+		  break;
+	  }
+	  tmpNode = tmpNode->next();
+	}
+	return resNode;
+}
+
+const char *MergeBuilder::findAttribute(Inkscape::XML::Node *node, char *attribName) {
+	Inkscape::XML::Node *tmpNode = node;
+	while(tmpNode) {
+		if (tmpNode->attribute(attribName)) {
+			return tmpNode->attribute(attribName);
+		}
+		tmpNode = tmpNode->firstChild();
+	}
+
+	return NULL;
 }
 
 MergeBuilder::~MergeBuilder(void){

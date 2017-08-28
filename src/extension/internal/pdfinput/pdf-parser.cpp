@@ -571,6 +571,37 @@ void PdfParser::go(GBool /*topLevel*/)
 
 		visualNode->addChild(sumNode, mergeNode);
 		visualNode->removeChild(remNode);
+        delete remNode;
+
+		char nodeId[100];
+		memcpy(nodeId, mergeBuilder->attrValue + 5, strlen(mergeBuilder->attrValue) - 6);
+		nodeId[strlen(mergeBuilder->attrValue) - 5] = 0;
+		remNode = mergeBuilder->getDefNodeById(nodeId);
+
+		// serch and remove main relation node
+		if (remNode) {
+			//0x55555641fba0 "fill:url(#linearGradient38);stroke:none"
+			const char* style = mergeBuilder->findAttribute(remNode, (char*)"style");
+			if (style) {
+				const char *grIdStart = strstr(style, "url(#");
+				const char *grIdEnd;
+				if (grIdStart) {
+				  grIdStart += 5; // + len of "url(#"
+				  grIdEnd = strstr(grIdStart, ");");
+				}
+				if (grIdStart && grIdEnd) {
+					memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
+					nodeId[grIdEnd - grIdStart] = 0;
+					Inkscape::XML::Node *remNode2 = mergeBuilder->getDefNodeById(nodeId);
+					remNode2->parent()->removeChild(remNode2);
+					delete remNode2;
+				}
+			}
+			remNode->parent()->removeChild(remNode);
+			delete remNode;
+		}
+
+
 		mergeNode = sumNode->next();
 		free(buf);
 		free(fName);
@@ -618,6 +649,7 @@ void PdfParser::go(GBool /*topLevel*/)
 			mergeNode = mergeNode->next();
 
 			remNode->parent()->removeChild(remNode);
+			delete remNode;
 		}
 
     	//merge image
@@ -661,6 +693,7 @@ void PdfParser::go(GBool /*topLevel*/)
 
 			visualNode->addChild(sumNode, mergeNode);
 			visualNode->removeChild(remNode);
+			delete remNode;
 			mergeNode = sumNode->next();
 			free(buf);
 			free(fName);
