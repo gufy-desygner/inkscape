@@ -2777,7 +2777,7 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
-      if (u && (*u < 256) && sp_mapping_off_sh) {
+      if (u && (*u < 256) && sp_mapping_off_sh && p[0]) {
     	  *u = p[0];
       }
       if (wMode) {
