@@ -51,7 +51,7 @@ public:
 	void addAttrName(char *attrName); // attr name for sersch
 	Inkscape::XML::Node *getDefNodeById(char *nodeId);
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
-	const char *attrValue; // last value of attribute of node from haveTagAttrFormList()
+	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
 	~MergeBuilder(void);
 private:

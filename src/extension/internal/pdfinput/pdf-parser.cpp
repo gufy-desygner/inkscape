@@ -524,6 +524,7 @@ void PdfParser::go(GBool /*topLevel*/)
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
 	  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
+	  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
 
 	  // merge masked images
 	  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNode();
@@ -573,14 +574,10 @@ void PdfParser::go(GBool /*topLevel*/)
 		visualNode->removeChild(remNode);
         delete remNode;
 
-		char nodeId[100];
-		memcpy(nodeId, mergeBuilder->attrValue + 5, strlen(mergeBuilder->attrValue) - 6);
-		nodeId[strlen(mergeBuilder->attrValue) - 5] = 0;
-		remNode = mergeBuilder->getDefNodeById(nodeId);
+		// serch and remove main relation node (<def> region)
+		remNode = mergeBuilder->getDefNodeById(mergeBuilder->linkedID);
 
-		// serch and remove main relation node
 		if (remNode) {
-			//0x55555641fba0 "fill:url(#linearGradient38);stroke:none"
 			const char* style = mergeBuilder->findAttribute(remNode, (char*)"style");
 			if (style) {
 				const char *grIdStart = strstr(style, "url(#");
@@ -590,6 +587,7 @@ void PdfParser::go(GBool /*topLevel*/)
 				  grIdEnd = strstr(grIdStart, ");");
 				}
 				if (grIdStart && grIdEnd) {
+					char nodeId[100];
 					memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
 					nodeId[grIdEnd - grIdStart] = 0;
 					Inkscape::XML::Node *remNode2 = mergeBuilder->getDefNodeById(nodeId);

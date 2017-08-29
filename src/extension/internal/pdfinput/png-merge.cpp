@@ -169,24 +169,39 @@ bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
 bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode = node;
 	  if (tmpNode == 0) return false;
+	  Inkscape::XML::Node *tmpNode2 = NULL;
 	  bool tag = FALSE;
 	  bool attr = FALSE;
 	  uint coun = 0;
 	  // print_node(node, 3);
 	  // Calculate count of right svg:g before other tag
-	  while(  (coun < 15) &&
-			  (tmpNode != NULL) &&
-			  //(tmpNode->childCount() == 1) &&
-			  (strcmp(tmpNode->name(), "svg:g") == 0)) {
+	  while((coun < 15) &&  (tmpNode != NULL)) {
+		  if (strcmp(tmpNode->name(), "svg:g") != 0 && (! tmpNode2)) {
+			  tmpNode2 = tmpNode; // node for check tags list
+		  }
 		  coun++;
 		  // Check in attribs list
 		  Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 		  while( attrList ) {
 			  const char *attrName = g_quark_to_string(attrList->key);
 			  for(int i = 0; i < _sizeListMergeAttr; i++) {
-				  if (strcmp(attrName, _listMergeAttr[i]) == 0) {
-					  attrValue = tmpNode->attribute(attrName);
-					  attr = TRUE;
+				  if (strcmp(attrName, _listMergeAttr[i]) == 0 && (! attr)) {
+					  bool additionCond = TRUE;
+					  const char *styleValue = tmpNode->attribute(attrName);
+					  if (strcmp(attrName, "style") == 0) {
+						  additionCond = (strstr(styleValue, "Gradient") > 0);
+					  }
+					  const char *begin = strstr(styleValue, "url(#");
+					  const char *end;
+					  if (begin) {
+						  begin += 5;
+						  end = strstr(begin, ")");
+					  }
+					  if (begin && end) {
+						  memcpy(linkedID, begin, end - begin);
+						  linkedID[end-begin] = 0;
+						  attr = additionCond;
+					  }
 				  }
 			  }
 			  attrList++;
@@ -201,6 +216,8 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 		  // if empty <g> tag - exit
 		  if (! tmpNode ) break;
 	  }
+
+	  tmpNode = tmpNode2;
 
 	  if (tmpNode == 0) return false;
 
