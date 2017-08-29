@@ -2453,7 +2453,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   if (sp_export_fonts_sh) {
 	  CURL *curl = curl_easy_init();
 	  GooString *fontName = state->getFont()->getFamily();
-	  if (fontName) {
+	  if (state->getFont()->getName()) {
 		GooString *fontName2= new GooString(state->getFont()->getName());
 		// format file name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
