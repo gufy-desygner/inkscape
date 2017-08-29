@@ -2483,7 +2483,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
-		  if (fontName) {
+		  if (state->getFont()->getName()) {
 			  // get path to inkscape
 			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
