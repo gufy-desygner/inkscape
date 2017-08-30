@@ -2483,7 +2483,8 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
-		  if (state->getFont()->getName()) {
+		  //if (state->getFont()->getName()) {
+		  if (false) {
 			  // get path to inkscape
 			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
@@ -2808,7 +2809,9 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
-      if (u && (*u < 256) && sp_mapping_off_sh && p[0]) {
+      if (u && (*u < 256) && sp_mapping_off_sh && p[0] &&
+    		  strcmp(font->getTag()->getCString(), "TT3") &&
+			  strcmp(font->getTag()->getCString(), "TT5")) {
     	  *u = p[0];
       }
       if (wMode) {
