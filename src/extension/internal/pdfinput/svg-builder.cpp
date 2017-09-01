@@ -121,6 +121,8 @@ void SvgBuilder::_init() {
     _current_state = NULL;
     _width = 0;
     _height = 0;
+    _countOfPath = 0;
+    _countOfImages = 0;
 
     // Fill _availableFontNames (Bug LP #179589) (code cfr. FontLister)
     if (! sp_original_fonts_sh) {

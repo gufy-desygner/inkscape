@@ -23,9 +23,16 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 
+
+
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
+
+void mergeImagePathToOneLayer(SvgBuilder *builder);
+void mergeMaskGradientToLayer(SvgBuilder *builder);
+uint mergePredictionCountImages(SvgBuilder *builder);
+void mergeImagePathToLayerSave(SvgBuilder *builder);
 
 class MergeBuilder {
 public:
@@ -38,6 +45,7 @@ public:
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
 	void removeOldImages(void);
+	void removeRelateDefNodes(Inkscape::XML::Node *node);
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
@@ -48,7 +56,9 @@ public:
 	Inkscape::XML::Node *findFirstAttrNode(void);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder);
 	void addAttrName(char *attrName); // attr name for sersch
+	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId);
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()

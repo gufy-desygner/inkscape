@@ -60,6 +60,7 @@
 #include "ui/widget/spinbutton.h"
 #include "ui/widget/frame.h"
 #include <glibmm/i18n.h>
+#include "png-merge.h"
 
 #include <gdkmm/general.h>
 
@@ -862,6 +863,12 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         page->getContents(&obj);
         if (!obj.isNull()) {
             pdf_parser->parse(&obj);
+            mergeMaskGradientToLayer(builder);
+            if (mergePredictionCountImages(builder) > 15) {
+              mergeImagePathToOneLayer(builder);
+            } else {
+            	mergeImagePathToLayerSave(builder);
+            }
         }
 
         // Cleanup
