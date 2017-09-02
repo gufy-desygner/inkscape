@@ -1183,10 +1183,11 @@ void SvgBuilder::updateFont(GfxState *state) {
             css_font_size *= font_matrix[3] / font_matrix[0];
             if (css_font_size < 0) {
             	css_font_size = abs(css_font_size);
-            //	font_matrix[3] *= (-1);
             }
         }
     }
+
+    css_font_size = round(css_font_size * 100) / 100;
     os_font_size << css_font_size;
     sp_repr_css_set_property(_font_style, "font-size", os_font_size.str().c_str());
 
@@ -1271,6 +1272,12 @@ void SvgBuilder::_flushText() {
     }
 
     Inkscape::XML::Node *text_node = _xml_doc->createElement("svg:text");
+    gchar c[32];
+    // add coordinates for end text
+    sp_svg_number_write_de(c, sizeof(c), glipEndX, 8, -8);
+    text_node->setAttribute("endGlipX", g_strdup(c));
+    sp_svg_number_write_de(c, sizeof(c), glipEndY, 8, -8);
+    text_node->setAttribute("endGlipY", g_strdup(c));
     // Set text matrix
     Geom::Affine text_transform(_text_matrix);
     text_transform[4] = first_glyph.position[0];

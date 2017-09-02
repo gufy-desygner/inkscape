@@ -33,6 +33,7 @@ void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 uint mergePredictionCountImages(SvgBuilder *builder);
 void mergeImagePathToLayerSave(SvgBuilder *builder);
+void mergeNearestTextToOnetag(SvgBuilder *builder);
 
 class MergeBuilder {
 public:

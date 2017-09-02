@@ -869,6 +869,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             } else {
             	mergeImagePathToLayerSave(builder);
             }
+            mergeNearestTextToOnetag(builder);
         }
 
         // Cleanup

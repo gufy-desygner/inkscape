@@ -570,6 +570,203 @@ uint mergePredictionCountImages(SvgBuilder *builder) {
   return resultCount;
 }
 
+void mergerParseStyle(const char *style, char **names, char values[][100], int count) {
+	const char *begin;
+	const char *end;
+	for(int i = 0; i < count; i++) {
+		begin = strstr(style, names[i]);
+		if (! begin) {
+			values[i][0] = 0;
+			continue;
+		}
+		begin += strlen(names[i]);
+		end = strstr(begin, ";");
+		if (! end) end = begin + strlen(begin);
+		if (end - begin > 100) end = begin + 100;
+		memcpy(values[i], begin, end - begin);
+		values[i][end-begin] = 0;
+	}
+}
+
+void mergerParseMatrixString(const char *matrix, double *values) {
+	char mat[1024];
+	char *pos;
+	char *tail;
+	strcpy(mat, matrix);
+	//prepareStringForFloat(mat);
+	pos = strstr(mat, "(") + 1;
+	for(int i = 0; i < 6; i++) {
+		values[i] = g_ascii_strtod(pos, &tail);//strtod(pos, &tail);
+		pos = tail + 1;
+	}
+}
+
+/**
+ * Merge two node if they have content then remove second node
+ * return: if merge success return merged node (same: prevNode)
+ *         if do not merge return NULL.
+ */
+Inkscape::XML::Node *generateMergedTextNode(
+	Inkscape::XML::Node *prevTextNode,
+	Inkscape::XML::Node *currTextNode)
+{
+	const char *currContent;
+	const char *prevContent;
+	Inkscape::XML::Node *_tspanPrevNode = prevTextNode->firstChild();
+	Inkscape::XML::Node *_tspanCurrNode = currTextNode->firstChild();
+	Inkscape::XML::Node *contentPrevNode = prevTextNode->firstChild();
+    char *tmpPointer;
+
+
+	// search text inside nodes
+	if (_tspanCurrNode->childCount()) {
+	    currContent = _tspanCurrNode->firstChild()->content();
+	} else {
+		currContent = _tspanCurrNode->content();
+	}
+	if (_tspanPrevNode->childCount()) {
+	    prevContent = _tspanPrevNode->firstChild()->content();
+	    contentPrevNode = _tspanPrevNode->firstChild();
+	} else {
+		prevContent = _tspanPrevNode->content();
+		contentPrevNode = _tspanCurrNode;
+	}
+
+
+	char *styleAttribList[] = {
+			(char*)"font-weight:",
+			(char*)"font-size:",
+			(char*)"font-family:"
+	};
+
+	char styleValuePrev[3][100];
+	char styleValueCurr[3][100];
+
+	// is not text - is not merge
+	if (!(prevContent && currContent)) {
+		return NULL;
+	}
+
+	const char *prevNodeStyle = prevTextNode->attribute("style");
+	const char *currNodeStyle = currTextNode->attribute("style");
+
+	const char *prevNodeMatrix = prevTextNode->attribute("transform");
+    const char *currNodeMatrix = currTextNode->attribute("transform");
+    double prevMatrix[6];
+    double currMatrix[6];
+    double prevEndGlipX;
+
+    mergerParseStyle(prevNodeStyle, styleAttribList, styleValuePrev,  3);
+    mergerParseStyle(currNodeStyle, styleAttribList, styleValueCurr,  3);
+
+    // if font style different we can't merge it
+    if ( !(
+    		strcmp(styleValuePrev[0], styleValueCurr[0]) == 0 &&
+    		strcmp(styleValuePrev[1], styleValueCurr[1]) == 0 &&
+			strcmp(styleValuePrev[2], styleValueCurr[2]) == 0 )
+       ) {
+    	return NULL;
+    }
+
+    mergerParseMatrixString(prevNodeMatrix, prevMatrix);
+    mergerParseMatrixString(currNodeMatrix, currMatrix);
+
+    // different line position
+    if (prevMatrix[5] != currMatrix[5]) {
+    	return NULL;
+    }
+
+    prevEndGlipX = g_ascii_strtod(prevTextNode->attribute("endGlipX"), &tmpPointer);
+    double avrWidthOfChar = (prevEndGlipX - prevMatrix[4])/strlen(prevContent);
+    if (abs(currMatrix[4] - prevEndGlipX) < (avrWidthOfChar/20)) {
+    	// do merge
+    	contentPrevNode->setContent(g_strdup_printf("%s%s", prevContent, currContent));
+    	currTextNode->parent()->removeChild(currTextNode);
+    	delete currTextNode;
+
+    	return prevTextNode;
+    } else {
+    	return NULL;
+    }
+}
+
+void mergeFindNearestNodes(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode = node->firstChild();
+	Inkscape::XML::Node *sumNode;
+	Inkscape::XML::Node *prevTextNode = NULL;
+	bool textLevel = false;
+	while(tmpNode) {
+		if (strcmp(tmpNode->name(), "svg:text") == 0) {
+			if (prevTextNode) {
+				sumNode = generateMergedTextNode(prevTextNode, tmpNode);
+				if (sumNode) {
+					prevTextNode = sumNode;
+					tmpNode = sumNode;
+				} else {
+					prevTextNode = tmpNode;
+				}
+			} else {
+				prevTextNode = tmpNode;
+			}
+			textLevel = true;
+		} else {
+			prevTextNode = 0;
+			if (! textLevel) {
+				mergeFindNearestNodes(tmpNode);
+			}
+		}
+		tmpNode = tmpNode->next();
+	}
+}
+
+void mergeNearestTextToOnetag(SvgBuilder *builder) {
+	Inkscape::XML::Node *_root = builder->getRoot();
+	Inkscape::XML::Node *_defNode = NULL;
+	Inkscape::XML::Node *_visualNode = NULL;
+	Inkscape::XML::Node *sumNode;
+	Inkscape::XML::Node *prevTextNode = NULL;
+
+	// parse top struct of SVG.
+	Inkscape::XML::Node *tmpNode = _root->firstChild();
+	while(tmpNode) {
+		if (strcmp(tmpNode->name(), "svg:defs") == 0) {
+			_defNode = tmpNode;
+			break;
+		}
+		tmpNode = tmpNode->next();
+	}
+
+	tmpNode = tmpNode->next();
+	while(tmpNode) {
+		if (strcmp(tmpNode->name(), "svg:g") == 0) {
+			_visualNode = tmpNode;
+			break;
+		}
+		tmpNode = tmpNode->next();
+	}
+
+
+	// somthing is wrong
+	if (!(_visualNode && _defNode)) return;
+
+	// search two nearest text node
+	mergeFindNearestNodes(_visualNode);
+/*	tmpNode = _visualNode->firstChild();
+	while(tmpNode) {
+ 		if (strcmp(tmpNode->name(), "svg:text") == 0) {
+			// if we found two nearest text nodes
+			if (prevTextNode) {
+				sumNode = generateMergedTextNode(prevTextNode, tmpNode);
+			} else {
+				prevTextNode = tmpNode;
+			}
+		} else {
+			prevTextNode = 0;
+		}
+		tmpNode = tmpNode->next();
+	}*/
+}
+
 // do merge tags without text bitweene
 void mergeImagePathToLayerSave(SvgBuilder *builder) {
   //================== merge paths and images ==================

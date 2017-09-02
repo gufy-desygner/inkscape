@@ -2645,6 +2645,8 @@ void PdfParser::doShowText(GooString *s) {
       builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
                        dx, dy, tOriginX, tOriginY, code, n, u, uLen);
       state->shift(tdx, tdy);
+      builder->glipEndX = state->getCurX();
+      builder->glipEndY = state->getCurY();
       p += n;
       len -= n;
     }
