@@ -596,7 +596,7 @@ void mergerParseMatrixString(const char *matrix, double *values) {
 	//prepareStringForFloat(mat);
 	pos = strstr(mat, "(") + 1;
 	for(int i = 0; i < 6; i++) {
-		values[i] = g_ascii_strtod(pos, &tail);//strtod(pos, &tail);
+		values[i] = round(g_ascii_strtod(pos, &tail) * 100)/100;//strtod(pos, &tail);
 		pos = tail + 1;
 	}
 }
