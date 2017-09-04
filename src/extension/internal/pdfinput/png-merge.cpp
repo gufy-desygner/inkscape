@@ -676,7 +676,7 @@ Inkscape::XML::Node *generateMergedTextNode(
     	return NULL;
     }
 
-    prevEndGlipX = g_ascii_strtod(prevTextNode->attribute("endGlipX"), &tmpPointer);
+    prevEndGlipX = g_ascii_strtod(prevTextNode->attribute("data-endGlipX"), &tmpPointer);
     double avrWidthOfChar = (prevEndGlipX - prevMatrix[4])/strlen(prevContent);
     if (abs(currMatrix[4] - prevEndGlipX) < (avrWidthOfChar/20)) {
     	// do merge

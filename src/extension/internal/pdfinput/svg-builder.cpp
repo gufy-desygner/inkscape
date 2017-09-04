@@ -1275,9 +1275,9 @@ void SvgBuilder::_flushText() {
     gchar c[32];
     // add coordinates for end text
     sp_svg_number_write_de(c, sizeof(c), glipEndX, 8, -8);
-    text_node->setAttribute("endGlipX", g_strdup(c));
+    text_node->setAttribute("data-endGlipX", g_strdup(c));
     sp_svg_number_write_de(c, sizeof(c), glipEndY, 8, -8);
-    text_node->setAttribute("endGlipY", g_strdup(c));
+    text_node->setAttribute("data-endGlipY", g_strdup(c));
     // Set text matrix
     Geom::Affine text_transform(_text_matrix);
     text_transform[4] = first_glyph.position[0];
