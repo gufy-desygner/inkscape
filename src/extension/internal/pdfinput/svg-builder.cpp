@@ -1262,6 +1262,8 @@ void SvgBuilder::_flushText() {
         _glyphs.clear();
         return;
     }
+    double lastDeltaX = 0;
+    int glipCount = 0;
     std::vector<SvgGlyph>::iterator i = _glyphs.begin();
     const SvgGlyph& first_glyph = (*i);
     int render_mode = first_glyph.render_mode;
@@ -1320,6 +1322,9 @@ void SvgBuilder::_flushText() {
                     sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
                 } else {
                     tspan_node->setAttribute("x", x_coords.c_str());
+                    sp_svg_number_write_de(c, sizeof(c), lastDeltaX/glipCount, 8, -8);
+                    tspan_node->setAttribute("dx", c);
+                    glipCount = 0;
                 }
                 if ( same_coords[1] ) {
                     sp_repr_set_svg_double(tspan_node, "y", last_delta_pos[1]);
@@ -1382,6 +1387,8 @@ void SvgBuilder::_flushText() {
         delta_pos *= _font_scaling;
         Inkscape::CSSOStringStream os_x;
         os_x << delta_pos[0];
+        lastDeltaX = delta_pos[0];
+        glipCount++;
         x_coords.append(os_x.str());
         Inkscape::CSSOStringStream os_y;
         os_y << delta_pos[1];
