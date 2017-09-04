@@ -1063,7 +1063,7 @@ void SvgBuilder::updateFont(GfxState *state) {
     }
 
     // Font family
-    if (font->getFamily()) { // if font family is explicitly given use it.
+    if (state->getFont()->getName()) { // if font family is explicitly given use it.
 		GooString *fontName2= new GooString(font->getName());
 		// format font name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
