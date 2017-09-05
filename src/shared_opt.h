@@ -9,6 +9,7 @@ extern gboolean sp_original_fonts_sh;
 extern gboolean sp_merge_images_sh;
 extern gboolean sp_merge_path_sh;
 extern gboolean sp_add_background_sh;
+extern gboolean sp_use_dx_sh;
 extern gboolean sp_mapping_off_sh;
 extern gboolean sp_merge_mask_sh;
 extern gint sp_merge_limit_sh;

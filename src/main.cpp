@@ -158,6 +158,7 @@ enum {
     SP_ARG_EXPORT_ID,
     SP_ARG_EXPORT_ID_ONLY,
     SP_ARG_EXPORT_USE_HINTS,
+	SP_ARG_USE_DX,
 	SP_ARG_MAPPING_OFF,
 	SP_ARG_MERGE_MASK,
     SP_ARG_EXPORT_BACKGROUND,
@@ -229,6 +230,7 @@ static gchar *sp_export_background = NULL;
 static gchar *sp_export_background_opacity = NULL;
 static gboolean sp_export_area_snap = FALSE;
 static gboolean sp_export_use_hints = FALSE;
+static gboolean sp_use_dx = FALSE;
 static gboolean sp_mapping_off = FALSE;
 static gboolean sp_merge_mask = FALSE;
 static gboolean sp_export_id_only = FALSE;
@@ -409,6 +411,11 @@ struct poptOption options[] = {
      POPT_ARG_NONE, &sp_export_use_hints, SP_ARG_EXPORT_USE_HINTS,
      N_("Use stored filename and DPI hints when exporting (only with export-id)"),
      NULL},
+
+	{"useDx", 0,
+	 POPT_ARG_NONE, &sp_use_dx, SP_ARG_USE_DX,
+	 N_("change x attribute in <tspan> to dx attribute"),
+	 NULL},
 
     {"mappingOff", 0,
 	 POPT_ARG_NONE, &sp_mapping_off, SP_ARG_MAPPING_OFF,
@@ -2365,6 +2372,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_ADD_BACKGROUND: {
             	sp_add_background_sh = TRUE;
             	break;
+            }
+            case SP_ARG_USE_DX: {
+                sp_use_dx_sh = TRUE;
+                break;
             }
             case SP_ARG_MAPPING_OFF: {
                 sp_mapping_off_sh = TRUE;

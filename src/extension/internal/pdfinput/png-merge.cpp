@@ -564,6 +564,9 @@ uint mergePredictionCountImages(SvgBuilder *builder) {
 
 		if (mergeNode)
 		  mergeNode =  mergeNode->next();
+		while( mergeNode && (! mergeBuilder->haveTagFormList(mergeNode))) {
+			mergeNode = mergeNode->next();
+		}
 	}
 	delete mergeBuilder;
   }
@@ -774,7 +777,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			 (sp_merge_limit_sh <= builder->getCountOfImages());
   sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
 			 (sp_merge_limit_path_sh <= builder->getCountOfPath());
-  //print_node(builder->getRoot(), 0);
+
   if (sp_merge_images_sh || sp_merge_path_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
 	//Inkscape::XML::Node *mergeNode = builder->getRoot();
@@ -797,6 +800,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
 	Inkscape::XML::Node *visualNode;
 	if (mergeNode) visualNode = mergeNode->parent();
+	//print_node(visualNode, 2);
 	while(mergeNode) {
 		countMergedNodes = 0;
 		mergeBuilder->clearMerge();
@@ -832,15 +836,14 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			delete remNode;
 
 			mergeNode = sumNode->next();
-			//free(buf);
-			//free(fName);
 		}
 		else { // if do not have two nearest images - can not merge
 			mergeNode = mergeNode->next();
 		}
 
-		/*if (mergeNode)
-		  mergeNode =  mergeNode->next();*/
+		while( mergeNode && (! mergeBuilder->haveTagFormList(mergeNode))) {
+			mergeNode = mergeNode->next();
+		}
 	}
 	delete mergeBuilder;
   }

@@ -1319,9 +1319,17 @@ void SvgBuilder::_flushText() {
             if (tspan_node) {
                 // Set the x and y coordinate arrays
                 if ( same_coords[0] ) {
-                    sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
+                	if (sp_use_dx_sh) {
+                	    sp_repr_set_svg_double(tspan_node, "dx", last_delta_pos[0]);
+                	} else {
+                        sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
+                	}
                 } else {
-                    tspan_node->setAttribute("x", x_coords.c_str());
+                	if (sp_use_dx_sh) {
+                		tspan_node->setAttribute("dx", x_coords.c_str());
+                	} else {
+                		tspan_node->setAttribute("x", x_coords.c_str());
+                	}
                     sp_svg_number_write_de(c, sizeof(c), lastDeltaX/glipCount, 8, -8);
                     tspan_node->setAttribute("data-dx", c);
                     glipCount = 0;
