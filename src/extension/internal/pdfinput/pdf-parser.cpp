@@ -314,10 +314,12 @@ PdfParser::PdfParser(XRef *xrefA,
     state(new GfxState(72.0, 72.0, box, rotate, gTrue)),
     fontChanged(gFalse),
     clip(clipNone),
+	actualtextString(NULL),
     ignoreUndef(0),
     baseMatrix(),
     formDepth(0),
     parser(NULL),
+	actualMarkerBegin(FALSE),
     colorDeltas(),
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
@@ -375,7 +377,9 @@ PdfParser::PdfParser(XRef *xrefA,
     ignoreUndef(0),
     baseMatrix(),
     formDepth(0),
+	actualtextString(NULL),
     parser(NULL),
+	actualMarkerBegin(FALSE),
     colorDeltas(),
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
@@ -2521,6 +2525,7 @@ void PdfParser::doShowText(GooString *s) {
   double riseX, riseY;
   CharCode code;
   Unicode *u = NULL;
+  Unicode uActual = 0;
   double x, y, dx, dy, tdx, tdy;
   double originX, originY, tOriginX, tOriginY;
   double oldCTM[6], newCTM[6];
@@ -2616,9 +2621,27 @@ void PdfParser::doShowText(GooString *s) {
     p = s->getCString();
     len = s->getLength();
     while (len > 0) {
+    	/*if (actualMarkerBegin) {
+    		actualMarkerPosition++;
+    		if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
+    			p[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
+    		}
+    	}*/
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
+      if (actualMarkerBegin) {
+    	  actualMarkerPosition++;
+    	  if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
+    		  uActual = 0;
+    		  u = &uActual;
+    		  ((char*)u)[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
+    		  ((char*)u)[1] = actualtextString->getCString()[actualMarkerPosition * 2];
+    		  if (uActual < 32) uActual = 32;
+    	      code = uActual;
+    	  }
+
+      }
       if (u && (*u < 256) && sp_mapping_off_sh && p[0] &&
     		  strcmp(font->getTag()->getCString(), "TT3") &&
 			  strcmp(font->getTag()->getCString(), "TT5")) {
@@ -3373,6 +3396,16 @@ void PdfParser::opBeginMarkedContent(Object args[], int numArgs) {
     fflush(stdout);
   }
 
+  if (args[0].isName("Span") && numArgs == 2 && args[1].isDict()) {
+      Object obj;
+      if (args[1].dictLookup("ActualText", &obj)->isString()) {
+    	actualMarkerBegin = true;
+    	actualtextString = new GooString(obj.getString());
+    	actualMarkerPosition = 0;
+      }
+      obj.free();
+  }
+
   if(numArgs == 2) {
     //out->beginMarkedContent(args[0].getName(),args[1].getDict());
   } else {
@@ -3382,6 +3415,10 @@ void PdfParser::opBeginMarkedContent(Object args[], int numArgs) {
 
 void PdfParser::opEndMarkedContent(Object /*args*/[], int /*numArgs*/)
 {
+	if (actualMarkerBegin) {
+	  actualMarkerBegin = false;
+	  delete actualtextString;
+	}
   //out->endMarkedContent();
 }
 

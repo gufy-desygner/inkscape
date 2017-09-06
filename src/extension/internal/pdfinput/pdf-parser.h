@@ -161,7 +161,9 @@ private:
   GBool subPage;		// is this a sub-page object?
   GBool printCommands;		// print the drawing commands (for debugging)
   GfxResources *res;		// resource stack
-
+  GooString *actualtextString;
+  GBool actualMarkerBegin;
+  int  actualMarkerPosition;
   GfxState *state;		// current graphics state
   GBool fontChanged;		// set if font or text matrix has changed
   GfxClipType clip;		// do a clip?
