@@ -528,13 +528,25 @@ void PdfParser::go(GBool /*topLevel*/)
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
     mergeBuilder->mergeAll(sp_export_svg_path_sh);
 
-	char *c;
-	float width = strtof(root->attribute("width"), &c);
-	float height = strtof(root->attribute("height"), &c);
-	float zoom = width/sp_thumb_width_sh;
+	//char *c;
+	//float width = strtof(root->attribute("width"), &c);
+	//float height = strtof(root->attribute("height"), &c);
+	//float zoom = width/sp_thumb_width_sh;
 	gchar *fName = g_strdup_printf("%s%s_thumb.png",sp_export_svg_path_sh, builder->getDocName());
     mergeBuilder->saveThumbW(sp_thumb_width_sh, fName);
-	free(fName);
+	/*std::vector<SPItem*> x;
+	sp_export_png_file(builder->getSpDocument(), fName,
+					0, 0, width, height, // crop of document x,y,W,H
+					width/zoom, height/zoom, // size of png
+					150, 150, // dpi x & y
+					0xFFFFFF00,
+					NULL, // callback for progress bar
+					NULL, // struct SPEBP
+					true, // override file
+					x);*/
+	delete mergeBuilder;
+
+    free(fName);
   }
 }
 

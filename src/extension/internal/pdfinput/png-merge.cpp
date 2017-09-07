@@ -300,15 +300,18 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
 	while( attrList ) {
+		if (strcmp(g_quark_to_string(attrList->key), "sodipodi:role") == 0) {
+			attrList++;
+			continue;
+		}
 		// High quality of images
 		if ((strcmp(tempNode->name(), "svg:image") == 0) &&
 			(strcmp(g_quark_to_string(attrList->key), "xlink:href") == 0 ) &&
 			rebasePath) {
 			tempNode->setAttribute(g_quark_to_string(attrList->key),
 					        g_strdup_printf("%s%s", rebasePath, attrList->value));
-		}
-		else {
-	      tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+		} else{
+		    tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
 		}
 	    attrList++;
 	}
