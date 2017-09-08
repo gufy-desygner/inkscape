@@ -1294,6 +1294,7 @@ void SvgBuilder::_flushText() {
     unsigned int glyphs_in_a_row = 0;
     Inkscape::XML::Node *tspan_node = NULL;
     Glib::ustring x_coords;
+    Glib::ustring dx_coords;
     Glib::ustring y_coords;
     Glib::ustring text_buffer;
 
@@ -1319,14 +1320,14 @@ void SvgBuilder::_flushText() {
             if (tspan_node) {
                 // Set the x and y coordinate arrays
                 if ( same_coords[0] ) {
-                	if (sp_use_dx_sh) {
-                	    sp_repr_set_svg_double(tspan_node, "dx", last_delta_pos[0]);
-                	} else {
+
                         sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
-                	}
+
                 } else {
                 	if (sp_use_dx_sh) {
-                		tspan_node->setAttribute("dx", x_coords.c_str());
+                		tspan_node->setAttribute("dx", dx_coords.c_str());
+                		sp_repr_set_svg_double(tspan_node, "x",
+                			 first_glyph.rise * _font_scaling);
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
                 	}
@@ -1350,6 +1351,7 @@ void SvgBuilder::_flushText() {
                 text_node->appendChild(tspan_node);
                 // Clear temporary buffers
                 x_coords.clear();
+                dx_coords.clear();
                 y_coords.clear();
                 text_buffer.clear();
                 Inkscape::GC::release(tspan_node);
@@ -1379,6 +1381,7 @@ void SvgBuilder::_flushText() {
         }
         if ( glyphs_in_a_row > 0 ) {
             x_coords.append(" ");
+            dx_coords.append(" ");
             y_coords.append(" ");
             // Check if we have the same coordinates
             const SvgGlyph& prev_glyph = (*prev_iterator);
@@ -1394,10 +1397,13 @@ void SvgBuilder::_flushText() {
         delta_pos[1] *= -1.0;   // flip it
         delta_pos *= _font_scaling;
         Inkscape::CSSOStringStream os_x;
+        Inkscape::CSSOStringStream os_dx;
         os_x << delta_pos[0];
+        os_dx << glyph.dx;
         lastDeltaX = delta_pos[0];
         glipCount++;
         x_coords.append(os_x.str());
+        dx_coords.append(os_dx.str());
         Inkscape::CSSOStringStream os_y;
         os_y << delta_pos[1];
         y_coords.append(os_y.str());
