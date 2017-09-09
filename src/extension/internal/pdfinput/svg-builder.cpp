@@ -1311,7 +1311,7 @@ void SvgBuilder::_flushText() {
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
                      glyph.text_position[0] == prev_glyph.text_position[0] ) ) ) {
-                new_tspan = true;
+            	new_tspan = true;
             }
         }
 
@@ -1327,7 +1327,7 @@ void SvgBuilder::_flushText() {
                 	if (sp_use_dx_sh) {
                 		tspan_node->setAttribute("dx", dx_coords.c_str());
                 		sp_repr_set_svg_double(tspan_node, "x",
-                			 first_glyph.rise * _font_scaling);
+                			 0);
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
                 	}
@@ -1398,8 +1398,13 @@ void SvgBuilder::_flushText() {
         delta_pos *= _font_scaling;
         Inkscape::CSSOStringStream os_x;
         Inkscape::CSSOStringStream os_dx;
+        const SvgGlyph& prev_glyph = (*prev_iterator);
         os_x << delta_pos[0];
-        os_dx << glyph.dx;
+        if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
+            os_dx << (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
+        } else {
+        	os_dx << 0; // we set "x" attribute for first element so dx always 0;
+        }
         lastDeltaX = delta_pos[0];
         glipCount++;
         x_coords.append(os_x.str());
