@@ -1320,14 +1320,12 @@ void SvgBuilder::_flushText() {
             if (tspan_node) {
                 // Set the x and y coordinate arrays
                 if ( same_coords[0] ) {
-
                         sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
-
                 } else {
                 	if (sp_use_dx_sh) {
                 		tspan_node->setAttribute("dx", dx_coords.c_str());
-                		sp_repr_set_svg_double(tspan_node, "x",
-                			 0);
+                		sp_repr_set_svg_double(tspan_node, "x", 0);
+                		tspan_node->setAttribute("data-x", x_coords.c_str());
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
                 	}
