@@ -1289,6 +1289,7 @@ void SvgBuilder::_flushText() {
     g_free(transform);
 
     bool new_tspan = true;
+    bool dxIsDefault = true; //if dx attribut will have 0 in all position
     bool same_coords[2] = {true, true};
     Geom::Point last_delta_pos;
     unsigned int glyphs_in_a_row = 0;
@@ -1323,7 +1324,8 @@ void SvgBuilder::_flushText() {
                         sp_repr_set_svg_double(tspan_node, "x", last_delta_pos[0]);
                 } else {
                 	if (sp_use_dx_sh) {
-                		tspan_node->setAttribute("dx", dx_coords.c_str());
+                		if (! dxIsDefault)
+                			tspan_node->setAttribute("dx", dx_coords.c_str());
                 		sp_repr_set_svg_double(tspan_node, "x", 0);
                 		tspan_node->setAttribute("data-x", x_coords.c_str());
                 	} else {
@@ -1399,7 +1401,9 @@ void SvgBuilder::_flushText() {
         const SvgGlyph& prev_glyph = (*prev_iterator);
         os_x << delta_pos[0];
         if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
-            os_dx << (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
+        	float calc_dx = (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
+        	if (calc_dx >0.001) dxIsDefault = false;
+            os_dx << calc_dx;
         } else {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
         }
