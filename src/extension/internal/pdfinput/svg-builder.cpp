@@ -1362,7 +1362,7 @@ void SvgBuilder::_flushText() {
                 break;
             } else {
                 tspan_node = _xml_doc->createElement("svg:tspan");
-                
+                dxIsDefault = true;
                 ///////
                 // Create a font specification string and save the attribute in the style
                 PangoFontDescription *descr = pango_font_description_from_string(glyph.font_specification);
