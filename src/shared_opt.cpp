@@ -10,6 +10,7 @@ gboolean sp_add_background_sh = FALSE;
 gboolean sp_use_dx_sh = FALSE;
 gboolean sp_mapping_off_sh = FALSE;
 gboolean sp_merge_mask_sh = FALSE;
+char *sp_font_postfix_sh = 0;
 gint sp_merge_limit_sh = 0;
 gint sp_merge_limit_path_sh = 0;
 gint sp_thumb_width_sh = 0;

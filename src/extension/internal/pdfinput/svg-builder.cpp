@@ -1065,6 +1065,10 @@ void SvgBuilder::updateFont(GfxState *state) {
     // Font family
     if (state->getFont()->getName()) { // if font family is explicitly given use it.
 		GooString *fontName2= new GooString(font->getName());
+		if (sp_font_postfix_sh) {
+			fontName2->append("-");
+			fontName2->append(sp_font_postfix_sh);
+		}
 		// format font name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
 		  if (fontName2->getChar(strPos) == '-'){

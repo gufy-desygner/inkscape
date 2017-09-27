@@ -161,6 +161,7 @@ enum {
 	SP_ARG_USE_DX,
 	SP_ARG_MAPPING_OFF,
 	SP_ARG_MERGE_MASK,
+	SP_ARG_FONT_POSTFIX,
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
 	SP_ARG_LINK_IMAGES,
@@ -233,6 +234,7 @@ static gboolean sp_export_use_hints = FALSE;
 static gboolean sp_use_dx = FALSE;
 static gboolean sp_mapping_off = FALSE;
 static gboolean sp_merge_mask = FALSE;
+static gchar *sp_font_postfix = NULL;
 static gboolean sp_export_id_only = FALSE;
 static gchar *sp_export_svg = NULL;
 static gchar *sp_export_ps = NULL;
@@ -425,6 +427,11 @@ struct poptOption options[] = {
 	{"mergeMask", 0,
 	 POPT_ARG_NONE, &sp_merge_mask, SP_ARG_MERGE_MASK,
 	 N_("merge mask with image to one PNG layer for PDF->SVG"),
+	 NULL},
+
+	{"fontPostfix", 0,
+	 POPT_ARG_STRING, &sp_font_postfix, SP_ARG_FONT_POSTFIX,
+	 N_("Add postfix to file name of the font family"),
 	 NULL},
 
     {"export-background", 'b',
@@ -2384,6 +2391,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_MERGE_MASK: {
             	sp_merge_mask_sh = TRUE;
             	break;
+            }
+            case SP_ARG_FONT_POSTFIX: {
+                sp_font_postfix_sh = g_strdup_printf("%s", sp_font_postfix);
+                break;
             }
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;

@@ -2280,6 +2280,10 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  GooString *fontName = state->getFont()->getFamily();
 	  if (state->getFont()->getName()) {
 		GooString *fontName2= new GooString(state->getFont()->getName());
+		if (sp_font_postfix_sh) {
+			fontName2->append("-");
+			fontName2->append(sp_font_postfix_sh);
+		}
 		// format file name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
 		  while(fontName2->getChar(strPos) == '-'){
@@ -2317,6 +2321,10 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
 			  GooString *fontName2= new GooString(state->getFont()->getName());
+		      if (sp_font_postfix_sh) {
+				fontName2->append("-");
+				fontName2->append(sp_font_postfix_sh);
+			  }
 			  // format font name
 			  for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
 				  if (fontName2->getChar(strPos) == '-'){
