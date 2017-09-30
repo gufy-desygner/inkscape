@@ -4,6 +4,7 @@ import sys
 import os.path
 import json
 import re
+import tempfile
 
 IMPORT_OPTIONS = ('removeoverlap', 'correctdir')
 
@@ -46,6 +47,7 @@ def main(font_file):
     #sys.stdout.write(font.sfnt_names)
 
     # serch current glyph in CID font
+    glyphFileName = '%s/%s_font_file.svg' % (tempfile.gettempdir(), ttf_name)
     for glyph in font.glyphs():
         if (glyph.glyphname == '.notdef'):
             continue
@@ -57,7 +59,6 @@ def main(font_file):
 
         if (gId == int(cids[mapPos])):
             # todo: temp dirrectory for this file
-            glyphFileName = '%s_font_file.svg' % ttf_name
             glyph.export(glyphFileName)
             glyph.unicode = int(cds[mapPos])
             g = fontTTF.createChar(int(cds[mapPos]))
@@ -67,7 +68,10 @@ def main(font_file):
             mapPos = mapPos + 1
             if mapSize <= mapPos:
                 break
-    #print('===');
+    try:
+        os.remove(glyphFileName)
+    except:
+        print('Can not remove temp file')
     #print("%s%s" % (path, ttf_name))
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname
