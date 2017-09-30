@@ -863,6 +863,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         page->getContents(&obj);
         if (!obj.isNull()) {
             pdf_parser->parse(&obj);
+
+            // post processing
             mergeMaskGradientToLayer(builder);
             if (mergePredictionCountImages(builder) > 15) {
               mergeImagePathToOneLayer(builder);
@@ -870,6 +872,25 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	mergeImagePathToLayerSave(builder);
             }
             mergeNearestTextToOnetag(builder);
+
+            // CID font convertor
+            if (sp_cid_to_ttf_sh) {
+				char exeDir[1024];
+				readlink("/proc/self/exe", exeDir, 1024);
+				while(exeDir[strlen(exeDir) - 1 ] != '/') {
+					exeDir[strlen(exeDir) - 1 ] = 0;
+				}
+
+				for(int cidFontN = 0; cidFontN < pdf_parser->cidFontList->len; cidFontN++) {
+					// generate command for path names inside TTF file
+					gchar *fontForgeCmd = g_strdup_printf("%scidConvertor.py %s 2>/dev/null",
+						exeDir, // path to script, without name
+						(char *)g_ptr_array_index(pdf_parser->cidFontList, cidFontN)  // name of TTF file for path
+					);
+					system(fontForgeCmd);
+					free(fontForgeCmd);
+				}
+            }
         }
 
         // Cleanup

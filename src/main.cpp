@@ -152,6 +152,7 @@ enum {
     SP_ARG_EXPORT_AREA_DRAWING,
     SP_ARG_EXPORT_AREA_PAGE,
     SP_ARG_EXPORT_MARGIN,
+	SP_ARG_CID_TO_TTF,
     SP_ARG_EXPORT_AREA_SNAP,
     SP_ARG_EXPORT_WIDTH,
     SP_ARG_EXPORT_HEIGHT,
@@ -248,6 +249,7 @@ static gint sp_merge_limit = 0;
 static gint sp_merge_limit_path = 0;
 static gint sp_thumb_width = 0;
 static gboolean sp_export_fonts = FALSE;
+static gboolean sp_cid_to_ttf = FALSE;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
 static gchar *sp_export_pdf_version = NULL;
@@ -503,6 +505,11 @@ struct poptOption options[] = {
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
 	 N_("export embed fonts from PDF"),
+	 NULL},
+
+	{"cid-to-ttf", 0,
+	 POPT_ARG_NONE, &sp_cid_to_ttf, SP_ARG_CID_TO_TTF,
+	 N_("After export font. Start process for converting CID fonts to TTF"),
 	 NULL},
 
 	{"originalFonts", 0,
@@ -2399,6 +2406,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;
               	break;
+            }
+            case SP_ARG_CID_TO_TTF: {
+                sp_cid_to_ttf_sh = TRUE;
+                break;
             }
             case SP_ARG_ORIGINAL_FONTS: {
               	sp_original_fonts_sh = TRUE;

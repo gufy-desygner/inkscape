@@ -31,6 +31,7 @@ extern "C" {
 
 }
 
+#include <CharCodeToUnicode.h>
 #include "svg-builder.h"
 #include "Gfx.h"
 #include "pdf-parser.h"
@@ -360,6 +361,8 @@ PdfParser::PdfParser(XRef *xrefA,
     }
   }
   pushOperator("startPage");
+  cidFontList = g_ptr_array_new();
+  savedFontsList = g_ptr_array_new();
 }
 
 PdfParser::PdfParser(XRef *xrefA,
@@ -392,6 +395,8 @@ PdfParser::PdfParser(XRef *xrefA,
     baseMatrix[i] = state->getCTM()[i];
   }
   formDepth = 0;
+  cidFontList = g_ptr_array_new();
+  savedFontsList = g_ptr_array_new();
 }
 
 PdfParser::~PdfParser() {
@@ -422,6 +427,8 @@ PdfParser::~PdfParser() {
     delete clipHistory;
     clipHistory = NULL;
   }
+  g_ptr_array_free(cidFontList, true);
+  g_ptr_array_free(savedFontsList, false);
 }
 
 void PdfParser::parse(Object *obj, GBool topLevel) {
@@ -2275,9 +2282,24 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   state->setFont(font, args[1].getNum());
 
   // Save font file
-  if (sp_export_fonts_sh) {
+  // if we have saved this file. We do not do it again
+  bool alreadyDone = false;
+  for(int cntFnt = 0; cntFnt < savedFontsList->len; cntFnt++) {
+	  if (g_ptr_array_index(savedFontsList, cntFnt) == font) {
+		  alreadyDone = true;
+		  break;
+	  }
+  }
+
+  if (sp_export_fonts_sh && (! alreadyDone)) {
 	  CURL *curl = curl_easy_init();
 	  GooString *fontName = state->getFont()->getFamily();
+	  char *fontExt;
+	  if (font->isCIDFont()) {
+		  fontExt = g_strdup_printf("%s", "cff");
+	  } else {
+		  fontExt = g_strdup_printf("%s", "ttf");
+	  }
 	  if (state->getFont()->getName()) {
 		GooString *fontName2= new GooString(state->getFont()->getName());
 		if (sp_font_postfix_sh) {
@@ -2295,7 +2317,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  }
 		}
 		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
-	    fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
+	    fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
 	    free(encodeName);
 	    delete(fontName2);
 	  }
@@ -2303,7 +2325,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		fname = g_strdup_printf("%s_unnamed%i", builder->getDocName(), num);
 		char * encodeName = curl_easy_escape(curl, fname, 0);
 	    free(fname);
-		fname = g_strdup_printf("%s%s.ttf", sp_export_svg_path_sh, encodeName);
+		fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
 		free(encodeName);
 	  }
 		num++;
@@ -2336,6 +2358,38 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 				  }
 			  }
 
+			  CharCodeToUnicode *ctu;
+			  // Generate MAP file
+			  if (font->isCIDFont()) {
+				  ctu = font->getToUnicode();
+				  int mapLen = ctu->getLength();
+				  Unicode *u;
+				  //make JSON map file
+				  char * mapFileName = g_strdup_printf("%s.map", fname);
+				  FILE *fMap = fopen(mapFileName, "w");
+				  free(mapFileName);
+				  char buff[256];
+				  sprintf(buff, "[\n");
+				  fwrite(buff, 1, strlen(buff), fMap);
+
+				  bool jsonArrayStarted = false;
+				  for(int i = 0; i < mapLen; i++) {
+					  if (ctu->mapToUnicode(i, &u)) {
+						 if (jsonArrayStarted) {
+						    buff[0] = ','; buff[1] = 0;
+						    fwrite(buff, 1, strlen(buff), fMap);
+						 }
+					     sprintf(buff, "{\"%i\" : %u }\n", i, *u);
+					     fwrite(buff, 1, strlen(buff), fMap);
+					     jsonArrayStarted = true;
+					  }
+				  };
+
+				  sprintf(buff, "]\n");
+				  fwrite(buff, 1, strlen(buff), fMap);
+				  fclose(fMap);
+			  }
+
 			  // generate command for path names inside TTF file
 			  gchar *fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 							exeDir, // path to script, without name
@@ -2344,11 +2398,18 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 							fontName2->getCString()); //family
 			  system(fontForgeCmd);
 
+			  if (font->isCIDFont()) {
+				  char *cidName = g_strdup_printf(fname);
+				  g_ptr_array_add(cidFontList, cidName);
+			  }
 			  delete(fontName2);
 			  g_free(fontForgeCmd);
+			  // put font to passed list
+			  g_ptr_array_add(savedFontsList, font);
 		  }
 	  }
 	  curl_free(fname);
+	  free(fontExt);
 	  free(buf);
 	  free (curl);
   }

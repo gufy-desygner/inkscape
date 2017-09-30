@@ -154,6 +154,9 @@ public:
   // class = background
   Inkscape::XML::Node *backgroundCandidat;
 
+  GPtrArray *cidFontList;
+  GPtrArray *savedFontsList;
+
 private:
 
   XRef *xref;			// the xref table for this PDF file

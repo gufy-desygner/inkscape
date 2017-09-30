@@ -1,7 +1,12 @@
 if(UNIX)
     install(FILES
       ${CMAKE_SOURCE_DIR}/fontForge/chageFontName.pe
-      DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/)
+      ${CMAKE_SOURCE_DIR}/fontForge/cidConvertor.py
+      DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/
+      PERMISSIONS 
+      OWNER_EXECUTE
+      GROUP_EXECUTE
+      WORLD_EXECUTE)
    #The install directive for the binaries and libraries are found in src/CMakeList.txt
     install(FILES
       ${CMAKE_BINARY_DIR}/inkscape.desktop
