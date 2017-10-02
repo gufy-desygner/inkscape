@@ -6,7 +6,11 @@ if(UNIX)
       PERMISSIONS 
       OWNER_EXECUTE
       GROUP_EXECUTE
-      WORLD_EXECUTE)
+      WORLD_EXECUTE
+      OWNER_READ
+      GROUP_READ
+      WORLD_READ
+      OWNER_WRITE)
    #The install directive for the binaries and libraries are found in src/CMakeList.txt
     install(FILES
       ${CMAKE_BINARY_DIR}/inkscape.desktop

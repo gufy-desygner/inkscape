@@ -13,6 +13,24 @@ try:
 except NameError:
     unicode = str
 
+def fixWidth(width, height, svgFileName):
+    content = ""
+    m = None
+    for line in open(svgFileName, 'r'):
+        content = "%s%s" % (content, line)
+ #       if m == None :
+#            m = re.match(r'.+transform="matrix\([\d-]+ [\d-]+ [\d-]+ [\d-]+ [\d-]+ ([\d-]+).+', line)
+    #hh = int(m.group(1))
+    regExp = re.compile(r'^.*\n.*\n.*(viewBox="[\d-]+ [\d-]+ [\d-]+ [\d-]+").*', re.MULTILINE)
+    viewBoxContent = regExp.match(content).group(1)
+    vwidth = int(re.match(r'.+ ([\d-]+)\"$',viewBoxContent).group(1))
+    #diff = hh - int(height)
+    newViewBox = "viewBox=\"0 %i %i %i\"" % (0, int(width * vwidth/height), vwidth)
+    content2 = re.sub(viewBoxContent, newViewBox, content)
+    f = open(svgFileName, 'w')
+    f.write(content2)
+    f.close()
+
 def loadJson(filename='font.json'):
     with open(filename) as f:
         return json.load(f)
@@ -48,6 +66,7 @@ def main(font_file):
 
     # serch current glyph in CID font
     glyphFileName = '%s/%s_font_file.svg' % (tempfile.gettempdir(), ttf_name)
+
     for glyph in font.glyphs():
         if (glyph.glyphname == '.notdef'):
             continue
@@ -58,13 +77,15 @@ def main(font_file):
            gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", glyph.glyphname).group(1), 16)
 
         if (gId == int(cids[mapPos])):
-            # todo: temp dirrectory for this file
             glyph.export(glyphFileName)
             glyph.unicode = int(cds[mapPos])
+            fixWidth(glyph.width, font.capHeight, glyphFileName)
             g = fontTTF.createChar(int(cds[mapPos]))
             g.importOutlines(glyphFileName, IMPORT_OPTIONS)
             g.removeOverlap()
-#            sys.stdout.write('%s %s\n' % (cids[mapPos], cds[mapPos]))
+            wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
+            g.width = wNew
+            #print("-w%i  %i  h%i %i" % (g.width, glyph.width, fontTTF.capHeight, font.capHeight))
             mapPos = mapPos + 1
             if mapSize <= mapPos:
                 break
@@ -72,17 +93,16 @@ def main(font_file):
         os.remove(glyphFileName)
     except:
         print('Can not remove temp file')
-    #print("%s%s" % (path, ttf_name))
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname
         fontTTF.fontname = font.fontname
-    fontTTF.mergeFonts(font_file)
+    #fontTTF.mergeFonts(font_file)
     fontTTF.generate("%s%s" % (path, ttf_name))
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         main(sys.argv[1])
     else:
-        sys.stderr.write("\nUsage: %s something.json\n" % sys.argv[0] )
+        sys.stderr.write("\nUsage: %s CIDkeyFont.cff\n" % sys.argv[0] )
 
 # vim: set filetype=python:
