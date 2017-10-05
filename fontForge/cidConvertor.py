@@ -90,45 +90,80 @@ def main(font_file):
         # convert name of glyph to GID of glyph
         # original GID no always matchet to MAP file
         # two style of glyph name
-        if re.search(r'uniF', glyph.glyphname) == None :
-           gId = int(re.match(r"[^\d]*(\d+)$", glyph.glyphname).group(1))
-        else:
-           gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", glyph.glyphname).group(1), 16)
+        # print "%s %s %s" %(glyph.encoding, glyph.originalgid, glyph.glyphname)
+        # continue
+        uni = 0 # unecode for puting glyph
+        gId = 0 # try receive CID of glyph
+        try:
+            if re.search(r'uniF', glyph.glyphname) == None :
+               if re.search(r'uni', glyph.glyphname) != None :
+                 gId = int(re.match(r"^uni([0-9A-F]+)$", glyph.glyphname).group(1), 16)
+               else:
+                 gId = int(re.match(r"[^\d]*(\d+)$", glyph.glyphname).group(1))
+            else:
+               gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", glyph.glyphname).group(1), 16)
+        except:
+            gId = gId
 
-        if (gId == int(cids[mapPos])):
-            glyph.export(glyphFileName)
-            glyph.unicode = int(cds[mapPos])
-            fixWidth(glyph.width, font.capHeight, glyphFileName)
-            hasUni = 0;
-            try : # if glyph is not to be it skeep line "hasUni = 1"
-                name = fontTTF[cds[mapPos]].glyphname
-                hasUni = 1;
-                #print "%i skeeped" % cds[mapPos]
-                mapPos = mapPos + 1
-            except TypeError :
-                hasUni = 0
-                #print "%i putted" % cds[mapPos]
+        # if we receive glyph ID and have it in map table
+        if gId > 0 and gId == int(cids[mapPos]):
+            uni = int(cds[mapPos])
 
-            # if font has not current code
-            if hasUni == 0 :
-                needGenerate = 1;
-                g = fontTTF.createChar(int(cds[mapPos]))
-                g.importOutlines(glyphFileName, IMPORT_OPTIONS)
-                g.removeOverlap()
-                wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
-                g.width = wNew
-                #print("-w%i  %i  h%i %i" % (g.width, glyph.width, fontTTF.capHeight, font.capHeight))
-                mapPos = mapPos + 1
-                if mapSize <= mapPos:
-                    break
+        if gId == int(cids[mapPos]) and mapPos < (mapSize - 1) :
+            mapPos = mapPos + 1
+
+        # glyph have unicode inside
+        if uni == 0 and glyph.unicode != -1 :
+            uni = glyph.unicode
+  
+        # if we do not have unicode - we must not do anythink
+        if uni == 0 :
+            continue 
+
+        # maybe TTF have this unicode already
+        hasUni = 0;
+        try : # if glyph is not to be it skeep line "hasUni = 1"
+            name = fontTTF[uni].originalgid
+            hasUni = 1;
+        except TypeError :
+            hasUni = hasUni
+
+        if hasUni == 1 :
+            continue
+
+        # processing convert one glyph
+        glyph.export(glyphFileName)
+        # glyph.export("%i.svg" % uni)
+        # FIX: issue of fontforge with widgt of SVG glyph
+        fixWidth(glyph.width, font.capHeight, glyphFileName)
+        # if font has not current code
+
+        needGenerate = 1; # if add any plyph we must generate font
+        g = fontTTF.createChar(uni)
+    
+        g.importOutlines(glyphFileName, IMPORT_OPTIONS)
+        g.removeOverlap()
+        
+        # FIX: issue of fontforge with widgt of SVG glyph
+        if font.capHeight < 0 : # if width no defined
+            wNew = glyph.width/2.05
+        else :
+            wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
+        #if uni > 47 and uni < 57 : 
+        print "%s %s %i/%i" % (wNew, glyph.width, fontTTF.capHeight, font.capHeight)
+        if wNew > 100000 or wNew < 0:
+           wNew = int(glyph.width * font.capHeight/2.05)
+        g.width = wNew
+
+    # remove temp file
     try:
         os.remove(glyphFileName)
     except:
         print('Can not remove temp file')
+
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname
         fontTTF.fontname = font.fontname
-    #fontTTF.mergeFonts(font_file)
     if needGenerate != 0 :
         fontTTF.generate("%s%s" % (path, ttf_name))
 
