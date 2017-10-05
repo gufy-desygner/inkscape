@@ -150,7 +150,7 @@ def main(font_file):
         else :
             wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
         #if uni > 47 and uni < 57 : 
-        print "%s %s %i/%i" % (wNew, glyph.width, fontTTF.capHeight, font.capHeight)
+        #print "%s %s %i/%i" % (wNew, glyph.width, fontTTF.capHeight, font.capHeight)
         if wNew > 100000 or wNew < 0:
            wNew = int(glyph.width * font.capHeight/2.05)
         g.width = wNew
