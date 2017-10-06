@@ -114,7 +114,9 @@ def main(font_file):
 
         # glyph have unicode inside
         if uni == 0 and glyph.unicode != -1 :
-            uni = glyph.unicode
+           for unicod in cds :
+             if unicod == glyph.unicode :
+                uni = glyph.unicode
   
         # if we do not have unicode - we must not do anythink
         if uni == 0 :
@@ -130,7 +132,6 @@ def main(font_file):
 
         if hasUni == 1 :
             continue
-
         # processing convert one glyph
         glyph.export(glyphFileName)
         # glyph.export("%i.svg" % uni)
@@ -150,10 +151,11 @@ def main(font_file):
         else :
             wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
         #if uni > 47 and uni < 57 : 
-        #print "%s %s %i/%i" % (wNew, glyph.width, fontTTF.capHeight, font.capHeight)
         if wNew > 100000 or wNew < 0:
-           wNew = int(glyph.width * font.capHeight/2.05)
+           wNew = int(glyph.width / 2.05)
+        #print "%s %i %i %i/%i" % (uni, wNew, glyph.width, fontTTF.capHeight, font.capHeight)
         g.width = wNew
+ 
 
     # remove temp file
     try:
