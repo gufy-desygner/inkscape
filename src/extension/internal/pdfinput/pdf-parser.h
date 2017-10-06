@@ -144,6 +144,9 @@ public:
   // Restore graphics state.
   void restoreState();
 
+  // save stream of font to the file
+  void exportFont(GfxFont *font);
+
   // Get the current graphics state object.
   GfxState *getState() { return state; }
 

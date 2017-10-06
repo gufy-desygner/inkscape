@@ -873,6 +873,15 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             }
             mergeNearestTextToOnetag(builder);
 
+            // export fonts savedFontsList
+            if (sp_export_fonts_sh) {
+				for(int allFontN = 0; allFontN < pdf_parser->savedFontsList->len; allFontN++) {
+					// generate command for path names inside TTF file
+					GfxFont *font = (GfxFont *)g_ptr_array_index(pdf_parser->savedFontsList, allFontN);
+					pdf_parser->exportFont(font);
+				}
+            }
+
             // CID font convertor
             if (sp_cid_to_ttf_sh) {
 				char exeDir[1024];

@@ -2254,54 +2254,21 @@ void PdfParser::opSetCharSpacing(Object args[], int /*numArgs*/)
   state->setCharSpace(args[0].getNum());
 }
 
-// TODO not good that numArgs is ignored but args[] is used:
-void PdfParser::opSetFont(Object args[], int /*numArgs*/)
+void PdfParser::exportFont(GfxFont *font)
 {
-  int len;
-  char *fname;
-  static int num = 0;
-
-  GfxFont *font = res->lookupFont(args[0].getName());
-
-  if (!font) {
-    // unsetting the font (drawing no text) is better than using the
-    // previous one and drawing random glyphs from it
-    state->setFont(NULL, args[1].getNum());
-    fontChanged = gTrue;
-    return;
-  }
-  if (printCommands) {
-    printf("  font: tag=%s name='%s' %g\n",
-	   font->getTag()->getCString(),
-	   font->getName() ? font->getName()->getCString() : "???",
-	   args[1].getNum());
-    fflush(stdout);
-  }
-
-  font->incRefCnt();
-  state->setFont(font, args[1].getNum());
-
-  // Save font file
-  // if we have saved this file. We do not do it again
-  bool alreadyDone = false;
-  for(int cntFnt = 0; cntFnt < savedFontsList->len; cntFnt++) {
-	  if (g_ptr_array_index(savedFontsList, cntFnt) == font) {
-		  alreadyDone = true;
-		  break;
-	  }
-  }
-
-  if (sp_export_fonts_sh && (! alreadyDone)) {
-	  CURL *curl = curl_easy_init();
-	  GooString *fontName = state->getFont()->getFamily();
-	  char *fontExt;
+	int len;
+	char *fname;
+	static int num = 0;
+	CURL *curl = curl_easy_init();
+	GooString *fontName = font->getFamily();
+	char *fontExt;
 	  if (font->isCIDFont()) {
 		  fontExt = g_strdup_printf("%s", "cff");
 	  } else {
 		  fontExt = g_strdup_printf("%s", "ttf");
 	  }
-	  if (state->getFont()->getName()) {
-		GooString *fontName2= new GooString(state->getFont()->getName());
+	  if (font->getName()) {
+		GooString *fontName2= new GooString(font->getName());
 		if (sp_font_postfix_sh) {
 			fontName2->append("-");
 			fontName2->append(sp_font_postfix_sh);
@@ -2329,20 +2296,20 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		free(encodeName);
 	  }
 		num++;
-	  char *buf = state->getFont()->readEmbFontFile(xref, &len);
+	  char *buf = font->readEmbFontFile(xref, &len);
 
 	  if (len > 0) {
 		  char exeDir[1024];
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
-		  if (state->getFont()->getName()) {
+		  if (font->getName()) {
 			  // get path to inkscape
 			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  GooString *fontName2= new GooString(state->getFont()->getName());
+			  GooString *fontName2= new GooString(font->getName());
 		      if (sp_font_postfix_sh) {
 				fontName2->append("-");
 				fontName2->append(sp_font_postfix_sh);
@@ -2394,7 +2361,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 			  gchar *fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 							exeDir, // path to script, without name
 							fname,  // name of TTF file for path
-						    state->getFont()->getName()->getCString(), //postscriptname
+						    font->getName()->getCString(), //postscriptname
 							fontName2->getCString()); //family
 			  system(fontForgeCmd);
 
@@ -2404,15 +2371,62 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 			  }
 			  delete(fontName2);
 			  g_free(fontForgeCmd);
-			  // put font to passed list
-			  g_ptr_array_add(savedFontsList, font);
 		  }
 	  }
 	  curl_free(fname);
 	  free(fontExt);
 	  free(buf);
 	  free (curl);
+}
+
+
+
+// TODO not good that numArgs is ignored but args[] is used:
+void PdfParser::opSetFont(Object args[], int /*numArgs*/)
+{
+  int len;
+  char *fname;
+  static int num = 0;
+
+  GfxFont *font = res->lookupFont(args[0].getName());
+
+  if (!font) {
+    // unsetting the font (drawing no text) is better than using the
+    // previous one and drawing random glyphs from it
+    state->setFont(NULL, args[1].getNum());
+    fontChanged = gTrue;
+    return;
   }
+  if (printCommands) {
+    printf("  font: tag=%s name='%s' %g\n",
+	   font->getTag()->getCString(),
+	   font->getName() ? font->getName()->getCString() : "???",
+	   args[1].getNum());
+    fflush(stdout);
+  }
+
+  font->incRefCnt();
+  state->setFont(font, args[1].getNum());
+
+  if (sp_export_fonts_sh)
+  {
+	  // Save font file
+	  // if we have saved this file. We do not do it again
+	  bool alreadyDone = false;
+	  for(int cntFnt = 0; cntFnt < savedFontsList->len; cntFnt++) {
+		  if (g_ptr_array_index(savedFontsList, cntFnt) == font) {
+			  alreadyDone = true;
+			  break;
+		  }
+	  }
+
+	  if (! alreadyDone) {
+		  //exportFont(font);
+		  // put font to passed list
+		  g_ptr_array_add(savedFontsList, font);
+	  }
+  }
+
   fontChanged = gTrue;
 }
 
@@ -2727,6 +2741,26 @@ void PdfParser::doShowText(GooString *s) {
     		  strcmp(font->getTag()->getCString(), "TT3") &&
 			  strcmp(font->getTag()->getCString(), "TT5")) {
     	  *u = p[0];
+      }
+      //try remove span with ZERO WITCH SPACE only
+      if (*u == 8203) {
+    	  int _len = s->getLength();
+    	  char *_p = s->getCString();
+    	  bool onlySpase = true;
+    	  uint _currentCode = 0;
+    	  for(int ii = 0; ii < n; ii++) {
+    		  _currentCode = ((_currentCode << 8) & 0xFF) + p[ii];
+    	  }
+    	  while(_len > 0) {
+    		  uint _code = 0;
+    		  for(int ii = 0; ii < n; ii++) {
+    			  _code = ((_code << 8) & 0xFF) + _p[ii];
+    		  }
+    		  if (_code != _currentCode) onlySpase = false;
+    		  _p += n;
+    		  _len -= n;
+    	  }
+    	  if (onlySpase) break;
       }
       if (wMode) {
 	dx *= state->getFontSize();
