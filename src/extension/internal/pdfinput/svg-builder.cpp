@@ -1267,6 +1267,7 @@ void SvgBuilder::_flushText() {
         return;
     }
     double lastDeltaX = 0;
+    double first_glyphX = 0;
     int glipCount = 0;
     std::vector<SvgGlyph>::iterator i = _glyphs.begin();
     const SvgGlyph& first_glyph = (*i);
@@ -1330,7 +1331,7 @@ void SvgBuilder::_flushText() {
                 	if (sp_use_dx_sh) {
                 		if (! dxIsDefault)
                 			tspan_node->setAttribute("dx", dx_coords.c_str());
-                		sp_repr_set_svg_double(tspan_node, "x", 0);
+                		sp_repr_set_svg_double(tspan_node, "x", first_glyphX);
                 		tspan_node->setAttribute("data-x", x_coords.c_str());
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
@@ -1412,6 +1413,8 @@ void SvgBuilder::_flushText() {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
         }
         lastDeltaX = delta_pos[0];
+        if (glipCount == 0)
+          first_glyphX = delta_pos[0];
         glipCount++;
         x_coords.append(os_x.str());
         dx_coords.append(os_dx.str());
