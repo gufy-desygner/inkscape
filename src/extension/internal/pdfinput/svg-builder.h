@@ -82,6 +82,10 @@ struct SvgGlyph {
     SPCSSAttr *style;
     int render_mode;    // Text render mode
     char *font_specification;   // Pointer to current font specification
+    GfxFont *font; // reference to PDF font
+    double fontSize;
+    uint gidCode; // code of glyph in font stream
+    gchar *transform;
 };
 
 /**
@@ -106,6 +110,9 @@ public:
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
     Inkscape::XML::Node *createElement(char const *name);
+
+    char *getGlyph(SvgGlyph * svgGlyph, GfxFont *font);
+    const char *generateClipsFormLetters(Inkscape::XML::Node *container);
 
     // Path adding
     void addPath(GfxState *state, bool fill, bool stroke, bool even_odd=false);
@@ -216,6 +223,7 @@ private:
     bool _need_font_update;
     Geom::Affine _text_matrix;
     Geom::Point _text_position;
+    GPtrArray *glyphs_for_clips;
     std::vector<SvgGlyph> _glyphs;   // Added characters
     bool _in_text_object;   // Whether we are inside a text object
     bool _invalidated_style;

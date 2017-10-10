@@ -134,7 +134,7 @@ def main(font_file):
             continue
         # processing convert one glyph
         glyph.export(glyphFileName)
-        # glyph.export("%i.svg" % uni)
+        #glyph.export("%i.svg" % glyph.originalgid)
         # FIX: issue of fontforge with widgt of SVG glyph
         fixWidth(glyph.width, font.capHeight, glyphFileName)
         # if font has not current code
@@ -161,7 +161,8 @@ def main(font_file):
     try:
         os.remove(glyphFileName)
     except:
-        print('Can not remove temp file')
+        wNew = wNew
+        #print('Can not remove temp file')
 
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname

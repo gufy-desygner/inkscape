@@ -94,6 +94,7 @@ SvgBuilder::SvgBuilder(SPDocument *document, gchar *docname, XRef *xref)
     _preferences = _xml_doc->createElement("svgbuilder:prefs");
     _preferences->setAttribute("embedImages", "1");
     _preferences->setAttribute("localFonts", "1");
+    glyphs_for_clips = g_ptr_array_new();
 }
 
 SvgBuilder::SvgBuilder(SvgBuilder *parent, Inkscape::XML::Node *root) {
@@ -104,10 +105,12 @@ SvgBuilder::SvgBuilder(SvgBuilder *parent, Inkscape::XML::Node *root) {
     _xml_doc = parent->_xml_doc;
     _preferences = parent->_preferences;
     _container = this->_root = root;
+    glyphs_for_clips = g_ptr_array_new();
     _init();
 }
 
 SvgBuilder::~SvgBuilder() {
+	g_ptr_array_free(glyphs_for_clips, true);
 }
 
 void SvgBuilder::_init() {
@@ -1289,6 +1292,8 @@ void SvgBuilder::_flushText() {
     Geom::Affine text_transform(_text_matrix);
     text_transform[4] = first_glyph.position[0];
     text_transform[5] = first_glyph.position[1];
+    Geom::Affine clip_transform(text_transform);
+    clip_transform[3] *= -1;
     gchar *transform = sp_svg_transform_write(text_transform);
     text_node->setAttribute("transform", transform);
     g_free(transform);
@@ -1303,10 +1308,12 @@ void SvgBuilder::_flushText() {
     Glib::ustring dx_coords;
     Glib::ustring y_coords;
     Glib::ustring text_buffer;
+    Glib::ustring glyphs_buffer;
 
     // Output all buffered glyphs
     while (1) {
         const SvgGlyph& glyph = (*i);
+        ((SvgGlyph *)(&glyph))->transform = sp_svg_transform_write(clip_transform);
         std::vector<SvgGlyph>::iterator prev_iterator = i - 1;
         // Check if we need to make a new tspan
         if (glyph.style_changed) {
@@ -1354,11 +1361,13 @@ void SvgBuilder::_flushText() {
                 tspan_node->appendChild(text_content);
                 Inkscape::GC::release(text_content);
                 text_node->appendChild(tspan_node);
+                tspan_node->setAttribute("sodipodi:glyphs_list", glyphs_buffer.c_str());
                 // Clear temporary buffers
                 x_coords.clear();
                 dx_coords.clear();
                 y_coords.clear();
                 text_buffer.clear();
+                glyphs_buffer.clear();
                 Inkscape::GC::release(tspan_node);
                 glyphs_in_a_row = 0;
             }
@@ -1396,6 +1405,8 @@ void SvgBuilder::_flushText() {
                 }
             }
         }
+
+
         // Append the coordinates to their respective strings
         Geom::Point delta_pos( glyph.text_position - first_glyph.text_position );
         delta_pos[1] += glyph.rise;
@@ -1426,6 +1437,15 @@ void SvgBuilder::_flushText() {
         // Append the character to the text buffer
 	if ( !glyph.code.empty() ) {
             text_buffer.append(1, glyph.code[0]);
+
+            void *tmpVoid = malloc(sizeof(SvgGlyph));
+			memcpy(tmpVoid, &glyph, sizeof(SvgGlyph));
+			g_ptr_array_add(glyphs_for_clips, tmpVoid);
+
+			Inkscape::CSSOStringStream n_glyph;
+			n_glyph << glyphs_for_clips->len - 1;
+			glyphs_buffer.append(n_glyph.str());
+			glyphs_buffer.append(" ");
 	}
 
         glyphs_in_a_row++;
@@ -1455,7 +1475,7 @@ void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
 void SvgBuilder::addChar(GfxState *state, double x, double y,
                          double dx, double dy,
                          double originX, double originY,
-                         CharCode /*code*/, int /*nBytes*/, Unicode *u, int uLen) {
+                         CharCode code, int /*nBytes*/, Unicode *u, int uLen) {
 
 
     bool is_space = ( uLen == 1 && u[0] == 32 );
@@ -1479,6 +1499,9 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     new_glyph.text_position = _text_position;
     new_glyph.dx = dx;
     new_glyph.dy = dy;
+    new_glyph.gidCode = code;
+    new_glyph.font = state->getFont();
+    new_glyph.fontSize = state->getFontSize();
     Geom::Point delta(dx, dy);
     _text_position += delta;
 
@@ -1804,13 +1827,219 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     }
 }
 
+#define GG_STATE_START 0
+#define GG_STATE_CONT 1
+#define FT_face_getTag(F, P) (FT_CURVE_TAG(F->glyph->outline.tags[P]))
+#define GLYPH_SCALE 0.00001
+#define gLibUstrAppendCoord(USTR, D) { \
+    Inkscape::CSSOStringStream coord; \
+	coord << D * GLYPH_SCALE; USTR.append(coord.str()); USTR.append(" "); \
+}
+char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, GfxFont *font) {
+	int len;
+	int firstPoint;
+	int lastPoint;
+	Glib::ustring path;
+	FT_Face       face;
+	FT_Error      error;
+	FT_GlyphSlot  slot;
+	FT_Library    ft_lib;
+	//FT_Glyph      glyph;
+	//FT_BBox      acbox;
+	FT_Init_FreeType(&ft_lib);
+	FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(_xref, &len);
+	error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+
+	/* use 50pt at 100dpi */
+	error = FT_Set_Char_Size( face, 0, (uint)(svgGlyph->fontSize * 100000 * _font_scaling),
+	                            0, 72);                /* set character size */
+	slot = face->glyph;
+	/* load glyph image into the slot (erase previous one) */
+	uint state = 0;
+	uint countour = 0;
+	if (FT_Load_Glyph(face, (FT_UInt)svgGlyph->gidCode, FT_LOAD_NO_BITMAP) == 0) {
+	  /*for(int tPrn = 0; tPrn < face->glyph->outline.n_points; tPrn++) {
+		  printf("%i\t%i\t%i\n",
+				  face->glyph->outline.points[tPrn].x,
+				  face->glyph->outline.points[tPrn].y,
+				  face->glyph->outline.tags[tPrn]);
+	  }
+	  fflush(stdout);*/
+	  int p = 0;
+	  while(p < face->glyph->outline.n_points) {
+		FT_Pos x = face->glyph->outline.points[p].x;
+		FT_Pos y = face->glyph->outline.points[p].y;
+		char tag = FT_CURVE_TAG(face->glyph->outline.tags[p]);
+	    /*printf("%i\t%i\t%i\n",
+				x, y,
+				FT_face_getTag(face, p));*/
+
+	    if (state == GG_STATE_START) {
+	    	path.append("M");
+	    	gLibUstrAppendCoord(path, x);
+	    	gLibUstrAppendCoord(path, y);
+	    	firstPoint = p;
+	    	if (face->glyph->outline.n_contours > countour)
+	    	  lastPoint = face->glyph->outline.contours[countour];
+	    	else
+	    	  lastPoint = face->glyph->outline.n_points - 1;
+	    	state++;
+	    	p++;
+	    	continue;
+	    }
+
+	    //draw curve
+	    if (state == GG_STATE_CONT) {
+	    	uint prevTag = FT_face_getTag(face, p-1);
+	    	int nextP = (p == lastPoint ? firstPoint : p + 1);
+	    	uint nextTag = FT_face_getTag(face, nextP);
+
+	    	switch (tag) {
+	    	    case FT_CURVE_TAG_ON :
+	    	    	path.append("L");
+	    	    	gLibUstrAppendCoord(path, x);
+	    	        gLibUstrAppendCoord(path, y);
+	    	        p++;
+	    	    	break;
+
+	    	    case FT_CURVE_TAG_CONIC :
+	    	    	// simple curve
+	    	   		if (prevTag == FT_CURVE_TAG_ON and nextTag == FT_CURVE_TAG_ON) {
+	    			    path.append("Q");
+	    			    gLibUstrAppendCoord(path, x);
+	    			    gLibUstrAppendCoord(path, y);
+	    			    FT_Vector nextVector = face->glyph->outline.points[nextP];
+	    			    gLibUstrAppendCoord(path, nextVector.x);
+	    			    gLibUstrAppendCoord(path, nextVector.y);
+	    			    path.append("\n");
+	    			    p += 2;
+	    		    }
+	    	   		// first step from two step curve
+	    	    	if (prevTag == FT_CURVE_TAG_ON and nextTag == FT_CURVE_TAG_CONIC) {
+	    			    path.append("Q");
+	    			    gLibUstrAppendCoord(path, x);
+	    			    gLibUstrAppendCoord(path, y);
+	    			    FT_Vector nextVector = face->glyph->outline.points[nextP];
+	    			    // Calculate virtual point
+	    			    gLibUstrAppendCoord(path, (x + nextVector.x)/2);
+	    			    gLibUstrAppendCoord(path, (y + nextVector.y)/2);
+	    			    p += 2;
+	    			    // second step from two step curve
+	    			    if (p > lastPoint) nextVector = face->glyph->outline.points[firstPoint];
+	    			    else nextVector = face->glyph->outline.points[p];
+	    			    path.append("\nT");
+	    			    gLibUstrAppendCoord(path, nextVector.x);
+	    			    gLibUstrAppendCoord(path, nextVector.y);
+	    			    path.append("\n");
+	    			    p++;
+	    		    }
+	    		    break; // end of FT_CURVE_TAG_CONIC
+	    	    case FT_CURVE_TAG_CUBIC :
+	    	    	path.append("C");
+					gLibUstrAppendCoord(path, x);
+					gLibUstrAppendCoord(path, y);
+					FT_Vector nextVector = face->glyph->outline.points[nextP];
+					gLibUstrAppendCoord(path, nextVector.x);
+					gLibUstrAppendCoord(path, nextVector.y);
+					p += 2;
+					if (p > lastPoint) nextVector = face->glyph->outline.points[firstPoint];
+					else nextVector = face->glyph->outline.points[p];
+					gLibUstrAppendCoord(path, nextVector.x);
+					gLibUstrAppendCoord(path, nextVector.y);
+					path.append("\n");
+					p++;
+	    	    	break;
+	    	}
+
+	    	if (p > lastPoint) {
+	    		p = lastPoint + 1;
+	    	    countour++;
+	    	    path.append("Z \n");
+	    	    state = GG_STATE_START;
+	    	}
+	    	continue;
+	    }
+	    p++;
+	  }
+	}
+	return g_strdup_printf(path.c_str());
+}
+
+void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
+	Inkscape::XML::Node *ch = container->firstChild();
+	while(ch) {
+		if (strcmp(ch->name(), "svg:tspan") == 0) {
+			g_ptr_array_add(result, ch);
+			ch = ch->next();
+			continue;
+		}
+		if (ch->childCount() > 0)
+			lookUpTspans(ch, result);
+		ch = ch->next();
+	}
+}
+
+const char *SvgBuilder::generateClipsFormLetters(Inkscape::XML::Node *container) {
+	Inkscape::XML::Node *ch = container->firstChild();
+	Inkscape::XML::Node *clipNode = 0;
+	GPtrArray *listSpans = g_ptr_array_new();
+	lookUpTspans(container, listSpans);
+	char *tail;
+
+	Inkscape::XML::Node *tmpNode;
+	for(int i = 0; i < listSpans->len; i++) {
+		tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
+		const char *n_list = tmpNode->attribute("sodipodi:glyphs_list");
+		const char *listEnd = n_list + strlen(n_list);
+		tail = 0;
+
+		while(n_list <  listEnd) {
+			char *clipPath;
+			if (! clipNode) {
+				clipNode = _xml_doc->createElement("svg:clipPath");
+			    clipNode->setAttribute("clipPathUnits", "userSpaceOnUse");
+			}
+ 		    int idx = strtof(n_list, &tail); n_list = tail + 1;
+ 		    SvgGlyph *glyph = (SvgGlyph *)g_ptr_array_index(glyphs_for_clips, idx);
+ 		    clipPath = getGlyph(glyph, glyph->font);
+ 		    Inkscape::XML::Node *genPath = _xml_doc->createElement("svg:path");
+ 		    genPath->setAttribute("style", "clip-rule:evenodd");
+ 		    genPath->setAttribute("transform", glyph->transform);
+ 		    genPath->setAttribute("d", clipPath);
+ 		    clipNode->appendChild(genPath);
+ 		    //printf("%s\n\n\n", clipPath);
+ 		    free(clipPath);
+		}
+	}
+
+	g_ptr_array_free(listSpans, false);
+
+    if (clipNode) {
+    	_doc->getDefs()->getRepr()->appendChild(clipNode);
+    	return clipNode->attribute("id");
+    }
+    else return 0;
+}
+
 void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int height,
                           GfxImageColorMap *color_map, bool interpolate, int *mask_colors) {
 
      Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, interpolate, mask_colors);
-     if (image_node) {
-         _container->appendChild(image_node);
-        Inkscape::GC::release(image_node);
+     const char *clipId = generateClipsFormLetters(_container);
+     if (clipId && image_node) {
+    	 Inkscape::XML::Node *gNode = _xml_doc->createElement("svg:g");
+    	 gchar *urltext = g_strdup_printf ("url(#%s)", clipId);
+    	 gNode->setAttribute("clip-path", urltext);
+         free(urltext);
+         gNode->appendChild(image_node);
+         Inkscape::GC::release(image_node);
+         _container->appendChild(gNode);
+         Inkscape::GC::release(gNode);
+     } else {
+		 if (image_node) {
+			 _container->appendChild(image_node);
+			Inkscape::GC::release(image_node);
+		 }
      }
 }
 
