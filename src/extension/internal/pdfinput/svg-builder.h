@@ -27,6 +27,8 @@ namespace Inkscape {
 #include <2geom/point.h>
 #include <2geom/affine.h>
 #include <glibmm/ustring.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include "CharTypes.h"
 class GooString;
@@ -85,7 +87,6 @@ struct SvgGlyph {
     GfxFont *font; // reference to PDF font
     double fontSize;
     uint gidCode; // code of glyph in font stream
-    gchar *transform;
 };
 
 /**
@@ -111,7 +112,7 @@ public:
     Inkscape::XML::Node *getContainer();    // Returns current group node
     Inkscape::XML::Node *createElement(char const *name);
 
-    char *getGlyph(SvgGlyph * svgGlyph, GfxFont *font);
+    char *getGlyph(SvgGlyph * svgGlyph, FT_Face face);
     const char *generateClipsFormLetters(Inkscape::XML::Node *container);
 
     // Path adding

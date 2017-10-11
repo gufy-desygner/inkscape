@@ -1294,6 +1294,7 @@ void SvgBuilder::_flushText() {
     text_transform[5] = first_glyph.position[1];
     Geom::Affine clip_transform(text_transform);
     clip_transform[3] *= -1;
+    gchar *path_transform = sp_svg_transform_write(clip_transform);
     gchar *transform = sp_svg_transform_write(text_transform);
     text_node->setAttribute("transform", transform);
     g_free(transform);
@@ -1313,7 +1314,6 @@ void SvgBuilder::_flushText() {
     // Output all buffered glyphs
     while (1) {
         const SvgGlyph& glyph = (*i);
-        ((SvgGlyph *)(&glyph))->transform = sp_svg_transform_write(clip_transform);
         std::vector<SvgGlyph>::iterator prev_iterator = i - 1;
         // Check if we need to make a new tspan
         if (glyph.style_changed) {
@@ -1362,6 +1362,7 @@ void SvgBuilder::_flushText() {
                 Inkscape::GC::release(text_content);
                 text_node->appendChild(tspan_node);
                 tspan_node->setAttribute("sodipodi:glyphs_list", glyphs_buffer.c_str());
+                tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
                 // Clear temporary buffers
                 x_coords.clear();
                 dx_coords.clear();
@@ -1455,6 +1456,7 @@ void SvgBuilder::_flushText() {
     Inkscape::GC::release(text_node);
 
     _glyphs.clear();
+    g_free(path_transform);
 }
 
 void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
@@ -1835,20 +1837,12 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     Inkscape::CSSOStringStream coord; \
 	coord << D * GLYPH_SCALE; USTR.append(coord.str()); USTR.append(" "); \
 }
-char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, GfxFont *font) {
-	int len;
+char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	int firstPoint;
 	int lastPoint;
 	Glib::ustring path;
-	FT_Face       face;
 	FT_Error      error;
 	FT_GlyphSlot  slot;
-	FT_Library    ft_lib;
-	//FT_Glyph      glyph;
-	//FT_BBox      acbox;
-	FT_Init_FreeType(&ft_lib);
-	FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(_xref, &len);
-	error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
 
 	/* use 50pt at 100dpi */
 	error = FT_Set_Char_Size( face, 0, (uint)(svgGlyph->fontSize * 100000 * _font_scaling),
@@ -1858,13 +1852,6 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, GfxFont *font) {
 	uint state = 0;
 	uint countour = 0;
 	if (FT_Load_Glyph(face, (FT_UInt)svgGlyph->gidCode, FT_LOAD_NO_BITMAP) == 0) {
-	  /*for(int tPrn = 0; tPrn < face->glyph->outline.n_points; tPrn++) {
-		  printf("%i\t%i\t%i\n",
-				  face->glyph->outline.points[tPrn].x,
-				  face->glyph->outline.points[tPrn].y,
-				  face->glyph->outline.tags[tPrn]);
-	  }
-	  fflush(stdout);*/
 	  int p = 0;
 	  while(p < face->glyph->outline.n_points) {
 		FT_Pos x = face->glyph->outline.points[p].x;
@@ -1984,7 +1971,14 @@ const char *SvgBuilder::generateClipsFormLetters(Inkscape::XML::Node *container)
 	Inkscape::XML::Node *clipNode = 0;
 	GPtrArray *listSpans = g_ptr_array_new();
 	lookUpTspans(container, listSpans);
+	int len;
 	char *tail;
+	GfxFont      *font = 0;
+	FT_Face       face;
+    FT_Library    ft_lib;
+    FT_Byte      *buf = 0;
+    FT_Error      error;
+	FT_Init_FreeType(&ft_lib);
 
 	Inkscape::XML::Node *tmpNode;
 	for(int i = 0; i < listSpans->len; i++) {
@@ -2001,21 +1995,39 @@ const char *SvgBuilder::generateClipsFormLetters(Inkscape::XML::Node *container)
 			}
  		    int idx = strtof(n_list, &tail); n_list = tail + 1;
  		    SvgGlyph *glyph = (SvgGlyph *)g_ptr_array_index(glyphs_for_clips, idx);
- 		    clipPath = getGlyph(glyph, glyph->font);
+            // If current glyph have new font - init face
+ 		    if (font != glyph->font) {
+ 		    	if (buf) {
+ 		    		FT_Done_Face(face);
+ 		    		free(buf);
+ 		    		buf = 0;
+ 		    	}
+ 		    	font = glyph->font;
+ 			    FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(_xref, &len);
+ 			    error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+ 		    }
+ 		    clipPath = getGlyph(glyph, face);
  		    Inkscape::XML::Node *genPath = _xml_doc->createElement("svg:path");
  		    genPath->setAttribute("style", "clip-rule:evenodd");
- 		    genPath->setAttribute("transform", glyph->transform);
+ 		    genPath->setAttribute("transform", tmpNode->attribute("sodipodi:glyphs_transform"));
  		    genPath->setAttribute("d", clipPath);
  		    clipNode->appendChild(genPath);
- 		    //printf("%s\n\n\n", clipPath);
+ 		    Inkscape::GC::release(genPath);
  		    free(clipPath);
 		}
 	}
 
+	if (buf) {
+		FT_Done_Face(face);
+		free(buf);
+		buf = 0;
+	}
 	g_ptr_array_free(listSpans, false);
+	FT_Done_FreeType(ft_lib);
 
     if (clipNode) {
     	_doc->getDefs()->getRepr()->appendChild(clipNode);
+    	Inkscape::GC::release(clipNode);
     	return clipNode->attribute("id");
     }
     else return 0;
