@@ -2090,6 +2090,8 @@ void SvgBuilder::addImageMask(GfxState *state, Stream *str, int width, int heigh
 
     // Add the rectangle to the container
     _container->appendChild(rect);
+    if (sp_rect_how_path_sh)
+    	_countOfPath++;
     Inkscape::GC::release(rect);
 }
 

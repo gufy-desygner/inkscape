@@ -40,11 +40,13 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 
 	Inkscape::XML::Node *tmpNode = sourceTree->firstChild();
 	// Copy all no visual nodes from original doc
+	Inkscape::XML::Node *waitNode;
 	while(tmpNode) {
 		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
-			copyAsChild(_root, tmpNode, rebasePath);
+			waitNode = copyAsChild(_root, tmpNode, rebasePath);
 			if ( strcmp(tmpNode->name(),"svg:defs") == 0 ) {
 				_defs = tmpNode;
+				_myDefs = waitNode;
 			}
 		}
 		else {
@@ -441,8 +443,11 @@ void MergeBuilder::getMainClipSize(float *w, float *h) {
 
 }
 
-void MergeBuilder::removeOldImages(void) {
-	Inkscape::XML::Node *tmpNode = _mainVisual->firstChild();
+void MergeBuilder::removeOldImagesEx(Inkscape::XML::Node *startNode) {
+	if (! startNode) {
+		return;
+	}
+	Inkscape::XML::Node *tmpNode = startNode->firstChild();
 	Inkscape::XML::Node *toImageNode;
 	const char *tmpName;
 	while(tmpNode) {
@@ -462,8 +467,18 @@ void MergeBuilder::removeOldImages(void) {
 	}
 }
 
-Inkscape::XML::Node *MergeBuilder::getDefNodeById(char *nodeId) {
-	Inkscape::XML::Node *tmpNode = _defs->firstChild();
+void MergeBuilder::removeOldImages(void) {
+	removeOldImagesEx(_mainVisual);
+}
+
+Inkscape::XML::Node *MergeBuilder::getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef) {
+	Inkscape::XML::Node *tmpNode;
+	if (mydef) {
+		tmpNode = mydef->firstChild();
+	}
+	else {
+		tmpNode = _defs->firstChild();
+	}
 	Inkscape::XML::Node *resNode = NULL;
 	while(tmpNode) {
 	  if (strcmp(tmpNode->attribute("id"), nodeId) == 0) { //currect ID
@@ -489,25 +504,35 @@ const char *MergeBuilder::findAttribute(Inkscape::XML::Node *node, char *attribN
 
 void MergeBuilder::removeRelateDefNodes(Inkscape::XML::Node *node) {
   if (node) {
-	char *tags[] = {(char*)"style", (char*)"clip-path"};
-	for(int i = 0; i < 2; i++) {
-		const char* style = findAttribute(node, tags[i]);
-		if (style) {
-			const char *grIdStart = strstr(style, "url(#");
-			const char *grIdEnd;
-			if (grIdStart) {
-			  grIdStart += 5; // + len of "url(#"
-			  grIdEnd = strstr(grIdStart, ")");
+	char *tags[] = {(char*)"style", (char*)"clip-path", (char*)"mask"};
+	for(int i = 0; i < 3; i++) {
+		Inkscape::XML::Node *tmpNode = node;
+		while(tmpNode) {
+			const char* attrValue = tmpNode->attribute(tags[i]);
+			if (attrValue) {
+				const char *grIdStart = strstr(attrValue, "url(#");
+				const char *grIdEnd;
+				if (grIdStart) {
+				  grIdStart += 5; // + len of "url(#"
+				  grIdEnd = strstr(grIdStart, ")");
+				}
+				if (grIdStart && grIdEnd) {
+					char nodeId[100];
+					memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
+					nodeId[grIdEnd - grIdStart] = 0;
+					Inkscape::XML::Node *remNode = getDefNodeById(nodeId);
+					if (remNode) {
+						removeOldImagesEx(getDefNodeById(nodeId, _myDefs));
+						removeRelateDefNodes(remNode);
+						remNode->parent()->removeChild(remNode);
+						delete remNode;
+					}
+				}
 			}
-			if (grIdStart && grIdEnd) {
-				char nodeId[100];
-				memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
-				nodeId[grIdEnd - grIdStart] = 0;
-				Inkscape::XML::Node *remNode = getDefNodeById(nodeId);
-				removeRelateDefNodes(remNode);
-				remNode->parent()->removeChild(remNode);
-				delete remNode;
+			if (tmpNode->childCount() > 0) {
+				removeRelateDefNodes(tmpNode->firstChild());
 			}
+			tmpNode = tmpNode->next();
 		}
 	}
   }
@@ -547,6 +572,9 @@ uint mergePredictionCountImages(SvgBuilder *builder) {
 	}
 	if (sp_merge_path_sh) {
 		  mergeBuilder->addTagName(g_strdup_printf("svg:path"));
+	      if (sp_rect_how_path_sh) {
+	    	  mergeBuilder->addTagName(g_strdup_printf("svg:rect"));
+	      }
 	}
 	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
 	Inkscape::XML::Node *visualNode;
@@ -757,20 +785,6 @@ void mergeNearestTextToOnetag(SvgBuilder *builder) {
 
 	// search two nearest text node
 	mergeFindNearestNodes(_visualNode);
-/*	tmpNode = _visualNode->firstChild();
-	while(tmpNode) {
- 		if (strcmp(tmpNode->name(), "svg:text") == 0) {
-			// if we found two nearest text nodes
-			if (prevTextNode) {
-				sumNode = generateMergedTextNode(prevTextNode, tmpNode);
-			} else {
-				prevTextNode = tmpNode;
-			}
-		} else {
-			prevTextNode = 0;
-		}
-		tmpNode = tmpNode->next();
-	}*/
 }
 
 // do merge tags without text bitweene
@@ -797,8 +811,12 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 	if (sp_merge_images_sh) {
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 	}
+
 	if (sp_merge_path_sh) {
-		  mergeBuilder->addTagName(g_strdup_printf("svg:path"));
+      mergeBuilder->addTagName(g_strdup_printf("svg:path"));
+      if (sp_rect_how_path_sh) {
+    	  mergeBuilder->addTagName(g_strdup_printf("svg:rect"));
+      }
 	}
 	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
 	Inkscape::XML::Node *visualNode;
@@ -812,7 +830,6 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 			mergeNode = mergeNode->next();
-
 			mergeBuilder->removeRelateDefNodes(remNode);
 			remNode->parent()->removeChild(remNode);
 			delete remNode;
@@ -835,8 +852,8 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			// Insert node with merged image
 			Inkscape::XML::Node *sumNode = mergeBuilder->generateNode(fName, builder);
 			visualNode->addChild(sumNode, mergeNode);
+			mergeBuilder->removeRelateDefNodes(remNode);
 			visualNode->removeChild(remNode);
-			delete remNode;
 
 			mergeNode = sumNode->next();
 		}

@@ -14,5 +14,6 @@ gboolean sp_merge_mask_sh = FALSE;
 char *sp_font_postfix_sh = 0;
 gint sp_merge_limit_sh = 0;
 gint sp_merge_limit_path_sh = 0;
+gboolean sp_rect_how_path_sh = FALSE;
 gint sp_thumb_width_sh = 0;
 

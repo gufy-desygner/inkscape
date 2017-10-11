@@ -16,6 +16,7 @@ extern gboolean sp_merge_mask_sh;
 extern char *sp_font_postfix_sh;
 extern gint sp_merge_limit_sh;
 extern gint sp_merge_limit_path_sh;
+extern gboolean sp_rect_how_path_sh;
 extern gint sp_thumb_width_sh;
 #endif
 

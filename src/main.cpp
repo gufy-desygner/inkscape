@@ -171,6 +171,7 @@ enum {
 	SP_ARG_MERGE_IMAGES,
 	SP_ARG_MERGE_LIMIT,
 	SP_ARG_MERGE_LIMIT_PATH,
+	SP_ARG_RECT_HOW_PATH,
 	SP_ARG_THUMB_WIDTH,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
@@ -247,6 +248,7 @@ static gint sp_gradient_precision = 2;
 static gboolean sp_merge_images = FALSE;
 static gint sp_merge_limit = 0;
 static gint sp_merge_limit_path = 0;
+static gint sp_rect_how_path = 0;
 static gint sp_thumb_width = 0;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_cid_to_ttf = FALSE;
@@ -496,6 +498,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_merge_limit_path, SP_ARG_MERGE_LIMIT_PATH,
 	 N_("If number of path objects in the file more then mergeLimitPath inkscape will try merge nearest tag of path to one PNG image"),
 	 N_("MERGE_LIMIT_PATH")},
+
+	{"rectHowPath", 0,
+	 POPT_ARG_NONE, &sp_rect_how_path, SP_ARG_RECT_HOW_PATH,
+	 N_("Work only with --mergeLimitPath. Interpreter <rect> tags like <path> in merging process to PNG."),
+	 NULL},
 
 	{"generateThumbWidth", 0,
 	 POPT_ARG_INT, &sp_thumb_width, SP_ARG_THUMB_WIDTH,
@@ -799,6 +806,7 @@ main(int argc, char **argv)
 # ifdef ENABLE_BINRELOC
     bindtextdomain(GETTEXT_PACKAGE, BR_LOCALEDIR(""));
 # else
+
     bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
     // needed by Python/Gettext
     g_setenv("PACKAGE_LOCALE_DIR", PACKAGE_LOCALE_DIR, TRUE);
@@ -2433,6 +2441,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_MERGE_LIMIT_PATH: {
                 sp_merge_limit_path_sh = sp_merge_limit_path;
                 break;
+            }
+            case SP_ARG_RECT_HOW_PATH: {
+            	sp_rect_how_path_sh = true;
+            	break;
             }
             case SP_ARG_EXPORT_SVG: {
             	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);

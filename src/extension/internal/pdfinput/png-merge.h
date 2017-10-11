@@ -45,6 +45,7 @@ public:
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
+	void removeOldImagesEx(Inkscape::XML::Node *startNode);
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
 	void addTagName(char *tagName);
@@ -60,7 +61,7 @@ public:
 	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder);
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
-	Inkscape::XML::Node *getDefNodeById(char *nodeId);
+	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
@@ -69,6 +70,7 @@ private:
     SPDocument *_doc;
     Inkscape::XML::Node *_root;
     Inkscape::XML::Node *_defs;
+    Inkscape::XML::Node *_myDefs;
     Inkscape::XML::Node *_mainVisual;
     Inkscape::XML::Node *_sourceRoot;
     Inkscape::XML::Node *_sourceVisual;
