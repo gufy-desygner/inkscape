@@ -19,11 +19,11 @@
 
 #ifdef HAVE_POPPLER
 
+#include <png.h>
 #include "svg-builder.h"
 #include "pdf-parser.h"
 #include "shared_opt.h"
 
-#include <png.h>
 
 #include "document-private.h"
 #include "xml/document.h"
