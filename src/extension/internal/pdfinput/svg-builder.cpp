@@ -1844,7 +1844,6 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	FT_Error      error;
 	FT_GlyphSlot  slot;
 
-	/* use 50pt at 100dpi */
 	error = FT_Set_Char_Size( face, 0, (uint)(svgGlyph->fontSize * 100000 * _font_scaling),
 	                            0, 72);                /* set character size */
 	slot = face->glyph;

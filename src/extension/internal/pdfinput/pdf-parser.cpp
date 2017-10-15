@@ -63,6 +63,8 @@ extern "C" {
 #include "sp-item.h"
 #include "helper/png-write.h"
 #include <curl/curl.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 // the MSVC math.h doesn't define this
 #ifndef M_PI
@@ -2336,7 +2338,31 @@ void PdfParser::exportFont(GfxFont *font)
 				  FILE *fMap = fopen(mapFileName, "w");
 				  free(mapFileName);
 				  char buff[256];
-				  sprintf(buff, "[\n");
+#define write_map_file(F, STR)  sprintf(buff, STR);  fwrite(buff, 1, strlen(buff), F);
+				  write_map_file(fMap, "{\n");
+				  //=============== bbox of font =============
+				  FT_Library    ft_lib;
+				  FT_Error      error;
+				  FT_Face       face;
+				  int len;
+				  FT_Init_FreeType(&ft_lib);
+				  FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(xref, &len);
+				  error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+				  //error = FT_Set_Char_Size(face, 0, 320 << 6, 0, 300);
+				  FT_Set_Pixel_Sizes(face, 0, 10000);
+				  write_map_file(fMap, "\"font\" : {\n");
+
+				  write_map_file(fMap, "    \"yMax\" : ");
+				  sprintf(buff, "%i,\n", face->bbox.yMax);
+				  fwrite(buff, 1, strlen(buff), fMap);
+
+				  write_map_file(fMap, "    \"xMax\" : ");
+				  sprintf(buff, "%i\n", face->bbox.yMax);
+				  fwrite(buff, 1, strlen(buff), fMap);
+
+				  write_map_file(fMap, "},\n");
+				  //=============== write map array  ============
+				  sprintf(buff, "\"uniMap\" : [\n");
 				  fwrite(buff, 1, strlen(buff), fMap);
 
 				  bool jsonArrayStarted = false;
@@ -2346,15 +2372,34 @@ void PdfParser::exportFont(GfxFont *font)
 						    buff[0] = ','; buff[1] = 0;
 						    fwrite(buff, 1, strlen(buff), fMap);
 						 }
-					     sprintf(buff, "{\"%i\" : %u }\n", i, *u);
+
+
+					     sprintf(buff, "{\"%i\" : { \"uni\" : %u, ", i, *u);
 					     fwrite(buff, 1, strlen(buff), fMap);
 					     jsonArrayStarted = true;
+
+					     if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
+					    	 sprintf(buff, "\n         \"width\" : %u,\n", face->glyph->metrics.width);
+					    	 fwrite(buff, 1, strlen(buff), fMap);
+					    	 sprintf(buff, "         \"hAdvance\" : %u,\n", face->glyph->metrics.horiAdvance);
+					    	 fwrite(buff, 1, strlen(buff), fMap);
+					    	 sprintf(buff, "         \"xAdvance\" : %u,\n", face->glyph->advance.x >> 6);
+					    	 fwrite(buff, 1, strlen(buff), fMap);
+					    	 sprintf(buff, "         \"hBx\" : %i,\n", face->glyph->metrics.horiBearingX);
+					    	 fwrite(buff, 1, strlen(buff), fMap);
+					    	 sprintf(buff, "         \"hBy\" : %i", face->glyph->metrics.horiBearingY);
+		                     fwrite(buff, 1, strlen(buff), fMap);
+					     }
+					     write_map_file(fMap, "} }\n");
 					  }
 				  };
 
 				  sprintf(buff, "]\n");
 				  fwrite(buff, 1, strlen(buff), fMap);
+				  sprintf(buff, "}\n");
+				  fwrite(buff, 1, strlen(buff), fMap);
 				  fclose(fMap);
+				  free(buf);
 			  }
 
 			  // generate command for path names inside TTF file
@@ -2377,6 +2422,7 @@ void PdfParser::exportFont(GfxFont *font)
 	  free(fontExt);
 	  free(buf);
 	  free (curl);
+#undef write_map_file
 }
 
 

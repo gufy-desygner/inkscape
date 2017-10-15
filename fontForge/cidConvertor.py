@@ -25,7 +25,7 @@ def fixWidth(width, height, svgFileName):
     # get hight from viewBox
     vwidth = int(re.match(r'.+ ([\d-]+)\"$',viewBoxContent).group(1))
     # generate new value for viewBox
-    newViewBox = "viewBox=\"0 %i %i %i\"" % (0, int(width * vwidth/height), vwidth)
+    newViewBox = "viewBox=\"0 0 %i %i\"" % (int(width * vwidth/height), vwidth)
     # replace old values of viewBox
     content2 = re.sub(viewBoxContent, newViewBox, content)
     # save file back
@@ -41,12 +41,16 @@ def main(font_file):
     # load and parse matched MAP file
     mapJSON = loadJson("%s.map" % font_file)
     mapSize = 0
-    cids = [0] * 1000
-    cds = [0] * 1000
-    for pair in mapJSON:
-        for cid, code in pair.items():
-            cids[mapSize] = cid
-            cds[mapSize] = code
+    #cids = [0] * 1000
+    #cds = [0] * 1000
+    chars = []
+    for obj in mapJSON["uniMap"]:
+        #cid = obj.items()
+        for (cid, params) in obj.items():
+            chars.append({"gid" : cid,
+                          "uni" : params["uni"],
+                          "xAdvance" : params["xAdvance"],
+                          "size" : 1000 })
         mapSize = mapSize + 1
 
     # generate name for TTF file
@@ -106,11 +110,24 @@ def main(font_file):
             gId = gId
 
         # if we receive glyph ID and have it in map table
-        if gId > 0 and gId == int(cids[mapPos]):
-            uni = int(cds[mapPos])
+        #if gId > 0 and gId == int(chars[mapPos]["gid"]):
+        #    uni = int(chars[mapPos]["uni"])
 
-        if gId == int(cids[mapPos]) and mapPos < (mapSize - 1) :
-            mapPos = mapPos + 1
+        if gId > 0 :
+            isInMap = 0
+            uni = 0
+            mapPos = 0;
+            while(mapPos < mapSize):
+                if gId == int(chars[mapPos]["gid"]) :
+                    uni = int(chars[mapPos]["uni"])
+                    isInMap = 1
+                    break
+                mapPos = mapPos + 1
+
+
+        currMapPos = mapPos
+        #if gId == int(chars[mapPos]["gid"]) and mapPos < (mapSize - 1) :
+        #    mapPos = mapPos + 1
 
         # glyph have unicode inside
         if uni == 0 and glyph.unicode != -1 :
@@ -130,13 +147,13 @@ def main(font_file):
         except TypeError :
             hasUni = hasUni
 
-        if hasUni == 1 :
+        if hasUni == 1 and (isInMap == 0) :
             continue
         # processing convert one glyph
         glyph.export(glyphFileName)
-        #glyph.export("%i.svg" % glyph.originalgid)
+        # glyph.export("%i.svg" % gId)
         # FIX: issue of fontforge with widgt of SVG glyph
-        fixWidth(glyph.width, font.capHeight, glyphFileName)
+        fixWidth(chars[currMapPos]["xAdvance"], 10000, glyphFileName)
         # if font has not current code
 
         needGenerate = 1; # if add any plyph we must generate font
@@ -144,25 +161,33 @@ def main(font_file):
     
         g.importOutlines(glyphFileName, IMPORT_OPTIONS)
         g.removeOverlap()
+        g.width = chars[currMapPos]["xAdvance"]/10 * (fontTTF.em/1000)
         
-        # FIX: issue of fontforge with widgt of SVG glyph
-        if font.capHeight < 0 : # if width no defined
-            wNew = glyph.width/2.05
-        else :
-            wNew = int(glyph.width * fontTTF.capHeight/font.capHeight)
-        #if uni > 47 and uni < 57 : 
-        if wNew > 100000 or wNew < 0:
-           wNew = int(glyph.width / 2.05)
-        #print "%s %i %i %i/%i" % (uni, wNew, glyph.width, fontTTF.capHeight, font.capHeight)
-        g.width = wNew
- 
+        if g.unicode == 64256:
+            g.glyphname = "LATIN SMALL LIGATURE FF"
+        if g.unicode == 64257:
+            g.glyphname = "LATIN SMALL LIGATURE FI" 
+        if g.unicode == 64258:
+            g.glyphname = "LATIN SMALL LIGATURE FL"
+        if g.unicode == 64259:
+            g.glyphname = "LATIN SMALL LIGATURE FFI"
+        if g.unicode == 64260:
+            g.glyphname = "LATIN SMALL LIGATURE FFL"
+        if g.unicode == 64261:
+            g.glyphname = "LATIN SMALL LIGATURE LONG S T"
+        if g.unicode == 64262:
+            g.glyphname = "LATIN SMALL LIGATURE ST"
+
+  
 
     # remove temp file
+    not_removed = 1
     try:
         os.remove(glyphFileName)
+        not_removed = 0
     except:
-        wNew = wNew
-        #print('Can not remove temp file')
+         if (not_removed):
+              print('Can not remove temp file')
 
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname
