@@ -1419,7 +1419,10 @@ void SvgBuilder::_flushText() {
         os_x << delta_pos[0];
         if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
         	float calc_dx = (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
-        	if (calc_dx >0.001) dxIsDefault = false;
+            if (! glyph.font->getWMode()) {
+            	calc_dx += glyph.charSpace * _font_scaling;
+            }
+            if (calc_dx >0.001) dxIsDefault = false;
             os_dx << calc_dx;
         } else {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
@@ -1504,6 +1507,7 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     new_glyph.gidCode = code;
     new_glyph.font = state->getFont();
     new_glyph.fontSize = state->getFontSize();
+    new_glyph.charSpace = state->getCharSpace(); // used for dx calculate in _flushText
     Geom::Point delta(dx, dy);
     _text_position += delta;
 

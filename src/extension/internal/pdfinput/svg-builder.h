@@ -87,6 +87,7 @@ struct SvgGlyph {
     GfxFont *font; // reference to PDF font
     double fontSize;
     uint gidCode; // code of glyph in font stream
+    double charSpace; // used for dx calculate in _flushText (gap of text)
 };
 
 /**
