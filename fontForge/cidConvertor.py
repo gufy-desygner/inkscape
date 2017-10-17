@@ -143,11 +143,14 @@ def main(font_file):
         hasUni = 0;
         try : # if glyph is not to be it skeep line "hasUni = 1"
             name = fontTTF[uni].originalgid
-            hasUni = 1;
+            if (fontTTF[uni].layers[fontTTF[uni].activeLayer].isEmpty()) :
+                hasUni = 0
+            else:
+                hasUni = 1 # skeep letter
         except TypeError :
             hasUni = hasUni
 
-        if hasUni == 1 and (isInMap == 0) :
+        if hasUni == 1 : #and (isInMap == 0) :
             continue
         # processing convert one glyph
         glyph.export(glyphFileName)
