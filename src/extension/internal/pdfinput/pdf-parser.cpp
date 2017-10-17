@@ -2469,7 +2469,9 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  if (! alreadyDone) {
 		  //exportFont(font);
 		  // put font to passed list
-		  g_ptr_array_add(savedFontsList, font);
+		  void *tt;
+		  if (font->getEmbeddedFontID((Ref *)tt)) // we no need ref, only result of function
+		      g_ptr_array_add(savedFontsList, font);
 	  }
   }
 
