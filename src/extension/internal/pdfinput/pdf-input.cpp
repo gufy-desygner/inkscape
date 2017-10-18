@@ -878,7 +878,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 				for(int allFontN = 0; allFontN < pdf_parser->savedFontsList->len; allFontN++) {
 					// generate command for path names inside TTF file
 					GfxFont *font = (GfxFont *)g_ptr_array_index(pdf_parser->savedFontsList, allFontN);
-					pdf_parser->exportFont(font);
+					//pdf_parser->exportFont(font);
 				}
             }
 
