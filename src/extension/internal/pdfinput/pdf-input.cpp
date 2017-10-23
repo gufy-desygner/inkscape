@@ -900,6 +900,21 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					free(fontForgeCmd);
 				}
             }
+
+            //===================gnerate thumbs==================================
+            if (sp_thumb_width_sh) {
+          	  Inkscape::XML::Node *root = builder->getRoot();
+          	  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
+              mergeBuilder->mergeAll(sp_export_svg_path_sh);
+
+          	  gchar *fName = g_strdup_printf("%s%s_thumb.png",sp_export_svg_path_sh, builder->getDocName());
+              mergeBuilder->saveThumbW(sp_thumb_width_sh, fName);
+          	  delete mergeBuilder;
+
+              free(fName);
+            }
+
+
         }
 
         // Cleanup

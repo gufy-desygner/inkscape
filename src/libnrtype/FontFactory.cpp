@@ -19,9 +19,12 @@
 #include <glibmm/i18n.h>
 #include <pango/pangoft2.h>
 #include <pango/pango-ot.h>
+#include <pango/pangofc-fontmap.h>
+#include <fontconfig/fontconfig.h>
 #include "libnrtype/FontFactory.h"
 #include "libnrtype/font-instance.h"
 #include "util/unordered-containers.h"
+#include "shared_opt.h"
 #include <map>
 
 typedef INK_UNORDERED_MAP<PangoFontDescription*, font_instance*, font_descr_hash, font_descr_equal> FaceMapType;
@@ -102,15 +105,26 @@ font_factory::font_factory(void) :
     // std::cout << pango_version_string() << std::endl;
 #ifdef USE_PANGO_WIN32
 #else
+
+
+
     pango_ft2_font_map_set_resolution(PANGO_FT2_FONT_MAP(fontServer),
                                       72, 72);
-    
+	if (sp_export_fonts_sh && sp_fonts_dir_sh) {
+		FcConfig * fcConf = FcConfigCreate();
+		FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup(sp_export_svg_path_sh));
+		FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup(sp_fonts_dir_sh));
+		pango_fc_font_map_set_config((PangoFcFontMap *)fontServer, fcConf);
+		pango_fc_font_map_config_changed((PangoFcFontMap *)fontServer);
+		FcConfigSetCurrent(fcConf);
+	}
     fontContext = pango_font_map_create_context(fontServer);
 
     pango_ft2_font_map_set_default_substitute(PANGO_FT2_FONT_MAP(fontServer),
                                               FactorySubstituteFunc,
                                               this,
                                               NULL);
+
 #endif
 }
 

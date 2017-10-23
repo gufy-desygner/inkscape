@@ -175,6 +175,7 @@ enum {
 	SP_ARG_THUMB_WIDTH,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
+	SP_ARG_FONTS_DIR,
     SP_ARG_EXPORT_SVG,
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
@@ -252,6 +253,7 @@ static gint sp_rect_how_path = 0;
 static gint sp_thumb_width = 0;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_cid_to_ttf = FALSE;
+static gchar *sp_fonts_dir = NULL;
 static gboolean sp_original_fonts = FALSE;
 static gchar *sp_export_pdf = NULL;
 static gchar *sp_export_pdf_version = NULL;
@@ -506,7 +508,7 @@ struct poptOption options[] = {
 
 	{"generateThumbWidth", 0,
 	 POPT_ARG_INT, &sp_thumb_width, SP_ARG_THUMB_WIDTH,
-	 N_("Generate thumb with specified width and save proportion of document"),
+	 N_("Generate thumb with specified width and save proportion of document."),
 	 N_("GENERATE_THUMB_WIDTH")},
 
 	{"exportFonts", 0,
@@ -516,12 +518,17 @@ struct poptOption options[] = {
 
 	{"cid-to-ttf", 0,
 	 POPT_ARG_NONE, &sp_cid_to_ttf, SP_ARG_CID_TO_TTF,
-	 N_("After export font. Start process for converting CID fonts to TTF"),
+	 N_("After export font. Start process for converting CID fonts to TTF."),
 	 NULL},
 
 	{"originalFonts", 0,
 	 POPT_ARG_NONE, &sp_original_fonts, SP_ARG_ORIGINAL_FONTS,
-	 N_("use font names as they are in the PDF and skips font scan of system"),
+	 N_("use font names as they are in the PDF and skips font scan of system."),
+	 NULL},
+
+	{"fontsDir", 0,
+	 POPT_ARG_STRING, &sp_fonts_dir, SP_ARG_FONTS_DIR,
+	 N_("set folder with font which will useig for render thumb, work only with exportFonts option."),
 	 NULL},
 
     {"export-pdf", 'A',
@@ -2422,6 +2429,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_ORIGINAL_FONTS: {
               	sp_original_fonts_sh = TRUE;
               	break;
+            }
+            case SP_ARG_FONTS_DIR: {
+            	sp_fonts_dir_sh = g_strdup(sp_fonts_dir);
+            	break;
             }
             case SP_ARG_GRADIENT_PRECISION: {
             	if (sp_gradient_precision < 2 || sp_gradient_precision > 246) {

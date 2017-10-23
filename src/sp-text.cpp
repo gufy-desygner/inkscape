@@ -533,8 +533,8 @@ unsigned SPText::_buildLayoutInput(SPObject *root, Inkscape::Text::Layout::Optio
         layout.strut.reset();
         if (style) {
         	font_instance *font = NULL;
-        	if (! sp_original_fonts_sh)
-              font_instance *font = font_factory::Default()->FaceFromStyle( style );
+        	if (! sp_original_fonts_sh || sp_fonts_dir_sh)
+                font = font_factory::Default()->FaceFromStyle( style );
             if (font) {
                 font->FontMetrics(layout.strut.ascent, layout.strut.descent, layout.strut.xheight);
                 font->Unref();
@@ -623,7 +623,7 @@ void SPText::rebuildLayout()
     layout.clear();
     Inkscape::Text::Layout::OptionalTextTagAttrs optional_attrs;
     _buildLayoutInput(this, optional_attrs, 0, false);
-    if (! sp_original_fonts_sh) {
+    if (! sp_original_fonts_sh || sp_fonts_dir_sh) {
       layout.calculateFlow();
     }
     for (SPObject *child = firstChild() ; child ; child = child->getNext() ) {

@@ -532,7 +532,7 @@ void PdfParser::go(GBool /*topLevel*/)
 
 
   //===================gnerate thumbs==================================
-  if (sp_thumb_width_sh) {
+ /* if (sp_thumb_width_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
     mergeBuilder->mergeAll(sp_export_svg_path_sh);
@@ -552,11 +552,11 @@ void PdfParser::go(GBool /*topLevel*/)
 					NULL, // callback for progress bar
 					NULL, // struct SPEBP
 					true, // override file
-					x);*/
+					x);*
 	delete mergeBuilder;
 
     free(fName);
-  }
+  }*/
 }
 
 void PdfParser::pushOperator(const char *name)

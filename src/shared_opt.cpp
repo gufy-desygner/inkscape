@@ -5,6 +5,7 @@ gboolean sp_cid_to_ttf_sh = FALSE;
 char* sp_export_svg_path_sh;
 gint sp_gradient_precision_sh = 2;
 gboolean sp_original_fonts_sh = FALSE;
+gchar *sp_fonts_dir_sh = NULL;
 gboolean sp_merge_images_sh = FALSE;
 gboolean sp_merge_path_sh = FALSE;
 gboolean sp_add_background_sh = FALSE;
