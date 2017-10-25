@@ -240,7 +240,8 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  bool additionCond = TRUE;
 					  const char *styleValue = tmpNode->attribute(attrName);
 					  if (strcmp(attrName, "style") == 0) {
-						  additionCond = (strstr(styleValue, "Gradient") > 0);
+						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
+								  (strstr(styleValue, "url(#pattern") > 0);
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;
@@ -968,32 +969,8 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 			Inkscape::XML::Node *sumNode = mergeBuilder->generateNode(fName, builder);
 			visualNode->addChild(sumNode, mergeNode);
 			visualNode->removeChild(remNode);
+			mergeBuilder->removeRelateDefNodes(remNode);
 	        delete remNode;
-
-			// serch and remove main relation node (<def> region)
-			remNode = mergeBuilder->getDefNodeById(mergeBuilder->linkedID);
-
-			if (remNode) {
-				const char* style = mergeBuilder->findAttribute(remNode, (char*)"style");
-				if (style) {
-					const char *grIdStart = strstr(style, "url(#");
-					const char *grIdEnd;
-					if (grIdStart) {
-					  grIdStart += 5; // + len of "url(#"
-					  grIdEnd = strstr(grIdStart, ");");
-					}
-					if (grIdStart && grIdEnd) {
-						char nodeId[100];
-						memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
-						nodeId[grIdEnd - grIdStart] = 0;
-						Inkscape::XML::Node *remNode2 = mergeBuilder->getDefNodeById(nodeId);
-						remNode2->parent()->removeChild(remNode2);
-						delete remNode2;
-					}
-				}
-				remNode->parent()->removeChild(remNode);
-				delete remNode;
-			}
 			mergeNode = sumNode->next();
 			//free(buf);
 			free(fName);
