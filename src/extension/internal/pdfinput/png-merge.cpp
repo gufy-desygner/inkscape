@@ -505,34 +505,37 @@ const char *MergeBuilder::findAttribute(Inkscape::XML::Node *node, char *attribN
 void MergeBuilder::removeRelateDefNodes(Inkscape::XML::Node *node) {
   if (node) {
 	char *tags[] = {(char*)"style", (char*)"clip-path", (char*)"mask"};
+	if (node->childCount() > 0) {
+		Inkscape::XML::Node *ch = node->firstChild();
+		while(ch) {
+			removeRelateDefNodes(ch);
+			ch = ch->next();
+		}
+	}
 	for(int i = 0; i < 3; i++) {
 		Inkscape::XML::Node *tmpNode = node;
-		while(tmpNode) {
-			const char* attrValue = tmpNode->attribute(tags[i]);
-			if (attrValue) {
-				const char *grIdStart = strstr(attrValue, "url(#");
-				const char *grIdEnd;
-				if (grIdStart) {
-				  grIdStart += 5; // + len of "url(#"
-				  grIdEnd = strstr(grIdStart, ")");
-				}
-				if (grIdStart && grIdEnd) {
-					char nodeId[100];
-					memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
-					nodeId[grIdEnd - grIdStart] = 0;
-					Inkscape::XML::Node *remNode = getDefNodeById(nodeId);
-					if (remNode) {
-						removeOldImagesEx(getDefNodeById(nodeId, _myDefs));
-						removeRelateDefNodes(remNode);
-						remNode->parent()->removeChild(remNode);
-						delete remNode;
-					}
+		const char* attrValue = tmpNode->attribute(tags[i]);
+		if (attrValue) {
+			const char *grIdStart = strstr(attrValue, "url(#");
+			const char *grIdEnd;
+			if (grIdStart) {
+			  grIdStart += 5; // + len of "url(#"
+			  grIdEnd = strstr(grIdStart, ")");
+			}
+			if (grIdStart && grIdEnd) {
+				char nodeId[100];
+				memcpy(nodeId, grIdStart, grIdEnd - grIdStart);
+				nodeId[grIdEnd - grIdStart] = 0;
+				Inkscape::XML::Node *remNode = getDefNodeById(nodeId);
+				if (remNode) {
+					//printf(">>>%s\n", nodeId);
+					removeOldImagesEx(getDefNodeById(nodeId, _myDefs));
+					removeRelateDefNodes(remNode);
+					//printf("<<<%s\n", nodeId);
+					remNode->parent()->removeChild(remNode);
+					delete remNode;
 				}
 			}
-			if (tmpNode->childCount() > 0) {
-				removeRelateDefNodes(tmpNode->firstChild());
-			}
-			tmpNode = tmpNode->next();
 		}
 	}
   }
@@ -830,6 +833,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 			mergeNode = mergeNode->next();
+			//print_node(remNode,2);
 			mergeBuilder->removeRelateDefNodes(remNode);
 			remNode->parent()->removeChild(remNode);
 			delete remNode;
