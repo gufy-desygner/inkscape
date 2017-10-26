@@ -866,10 +866,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
             // post processing
             mergeMaskGradientToLayer(builder);
-            if ((sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
-            	(sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
+            if ((sp_create_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
+            	(sp_create_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
             	mergePredictionCountImages(builder) > 15) {
-              mergeImagePathToOneLayer(builder);
+
+                mergeImagePathToOneLayer(builder);
             } else {
             	mergeImagePathToLayerSave(builder);
             }

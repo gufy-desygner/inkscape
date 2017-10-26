@@ -924,16 +924,22 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
 			mergeBuilder->save(mergedImagePath);
 			mergeBuilder->removeOldImages();
-			gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
-        		                     mergedImagePath, fName_jpg);
-			system(cmd);
-			remove(mergedImagePath);
-			free(cmd);
+			if (sp_create_jpeg_sp) {
+				gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
+										 mergedImagePath, fName_jpg);
+				system(cmd);
+				remove(mergedImagePath);
+				free(cmd);
+			}
 			free(mergedImagePath);
 			free(fName_jpg);
-			fName_jpg = g_strdup_printf("%s_img%s.jpg", builder->getDocName(), tmpName);
-        	visualNode->addChild(mergeBuilder->generateNode(fName_jpg, builder), NULL);
-			free(fName_jpg);
+			gchar *linkName;
+			if (sp_create_jpeg_sp)
+			  linkName = g_strdup_printf("%s_img%s.jpg", builder->getDocName(), tmpName);
+			else
+			  linkName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
+        	visualNode->addChild(mergeBuilder->generateNode(linkName, builder), NULL);
+			free(linkName);
 			free(fName);
 		}
 		else { // if do not have two nearest images - can not merge
