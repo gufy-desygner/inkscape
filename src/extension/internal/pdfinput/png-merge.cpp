@@ -358,7 +358,7 @@ void MergeBuilder::saveThumbW(int w, gchar const *filename){
 					0, 0, width, height, // crop of document x,y,W,H
 					width/zoom, height/zoom, // size of png
 					150, 150, // dpi x & y
-					0xFFFFFF00,
+					0x00000000,
 					NULL, // callback for progress bar
 					NULL, // struct SPEBP
 					true, // override file
@@ -918,14 +918,22 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			}
 
 			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
+			char *fName_jpg = g_strdup_printf("%s%s_img%s.jpg", sp_export_svg_path_sh, builder->getDocName(), tmpName);
 
 			// Save merged image
 			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
 			mergeBuilder->save(mergedImagePath);
 			mergeBuilder->removeOldImages();
+			gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
+        		                     mergedImagePath, fName_jpg);
+			system(cmd);
+			remove(mergedImagePath);
+			free(cmd);
 			free(mergedImagePath);
-
-			visualNode->addChild(mergeBuilder->generateNode(fName, builder), NULL);
+			free(fName_jpg);
+			fName_jpg = g_strdup_printf("%s_img%s.jpg", builder->getDocName(), tmpName);
+        	visualNode->addChild(mergeBuilder->generateNode(fName_jpg, builder), NULL);
+			free(fName_jpg);
 			free(fName);
 		}
 		else { // if do not have two nearest images - can not merge

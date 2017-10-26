@@ -1620,20 +1620,25 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
     Inkscape::IO::StringOutputStream base64_string;
     Inkscape::IO::Base64OutputStream base64_stream(base64_string);
     FILE *fp = NULL;
-    gchar *file_name = NULL;
+    gchar *file_name = NULL; // href file name
+    gchar *file_name_png = NULL;
+    gchar *file_name_jpg = NULL;
     if (embed_image) {
         base64_stream.setColumnWidth(0);   // Disable line breaks
         png_set_write_fn(png_ptr, &base64_stream, png_write_base64stream, png_flush_base64stream);
     } else {
         static int counter = 0;
         // build path of file for linking image
-        file_name = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter++);
-        fp = fopen(file_name, "wb");
+        file_name_png = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter);
+        file_name_jpg = g_strdup_printf("%s%s_img%d.jpg", sp_export_svg_path_sh, _docname, counter);
+        fp = fopen(file_name_png, "wb");
         // build link value for image
-        file_name = g_strdup_printf("%s_img%d.png", _docname, counter-1);
+        file_name = g_strdup_printf("%s_img%d.jpg", _docname, counter++);
         if ( fp == NULL ) {
             png_destroy_write_struct(&png_ptr, &info_ptr);
             g_free(file_name);
+            g_free(file_name_png);
+            g_free(file_name_jpg);
             return NULL;
         }
         png_init_io(png_ptr, fp);
@@ -1791,7 +1796,14 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
     } else {
         fclose(fp);
         image_node->setAttribute("xlink:href", file_name);
+        gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
+        		                     file_name_png, file_name_jpg);
+        system(cmd);
+        remove(file_name_png);
+        g_free(cmd);
         g_free(file_name);
+        g_free(file_name_png);
+        g_free(file_name_jpg);
     }
 
     return image_node;
