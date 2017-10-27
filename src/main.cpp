@@ -161,6 +161,7 @@ enum {
     SP_ARG_EXPORT_USE_HINTS,
 	SP_ARG_USE_DX,
 	SP_ARG_CREATE_JPEG,
+	SP_ARG_MERGE_JPEG,
 	SP_ARG_MAPPING_OFF,
 	SP_ARG_MERGE_MASK,
 	SP_ARG_FONT_POSTFIX,
@@ -237,6 +238,7 @@ static gboolean sp_export_area_snap = FALSE;
 static gboolean sp_export_use_hints = FALSE;
 static gboolean sp_use_dx = FALSE;
 static gboolean sp_create_jpeg = FALSE;
+static gboolean sp_merge_jpeg = FALSE;
 static gboolean sp_mapping_off = FALSE;
 static gboolean sp_merge_mask = FALSE;
 static gchar *sp_font_postfix = NULL;
@@ -430,6 +432,11 @@ struct poptOption options[] = {
 	{"jpeg", 0,
 	  POPT_ARG_NONE, &sp_create_jpeg, SP_ARG_CREATE_JPEG,
 	  N_("try convert PNG images to JPG images."),
+	  NULL},
+
+    {"mergeToJpeg", 0,
+	  POPT_ARG_NONE, &sp_merge_jpeg, SP_ARG_MERGE_JPEG,
+	  N_("If number of images more then limit - merge all to one JPEG layer"),
 	  NULL},
 
     {"mappingOff", 0,
@@ -920,7 +927,7 @@ main(int argc, char **argv)
 #endif // WIN32
 
     int retcode;
-    sp_export_svg_path_sh = "";
+    sp_export_svg_path_sh = (char*)"";
     if (use_gui) {
         retcode = sp_main_gui(argc, (const char **) argv);
     } else {
@@ -2416,6 +2423,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_CREATE_JPEG: {
             	sp_create_jpeg_sp = TRUE;
             	break;
+            }
+            case SP_ARG_MERGE_JPEG: {
+				sp_merge_jpeg_sp = TRUE;
+				break;
             }
             case SP_ARG_MAPPING_OFF: {
                 sp_mapping_off_sh = TRUE;

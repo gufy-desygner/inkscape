@@ -924,7 +924,7 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
 			mergeBuilder->save(mergedImagePath);
 			mergeBuilder->removeOldImages();
-			if (sp_create_jpeg_sp) {
+			if (sp_merge_jpeg_sp) {
 				gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
 										 mergedImagePath, fName_jpg);
 				system(cmd);
@@ -934,7 +934,7 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			free(mergedImagePath);
 			free(fName_jpg);
 			gchar *linkName;
-			if (sp_create_jpeg_sp)
+			if (sp_merge_jpeg_sp)
 			  linkName = g_strdup_printf("%s_img%s.jpg", builder->getDocName(), tmpName);
 			else
 			  linkName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
