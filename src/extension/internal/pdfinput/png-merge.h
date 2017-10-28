@@ -41,7 +41,8 @@ public:
 	void addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
 	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
-	void save(gchar const *filename);
+	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder);
+	Geom::Rect save(gchar const *filename);
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
@@ -58,7 +59,7 @@ public:
 	Inkscape::XML::Node *findFirstAttrNode(void);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
-	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder);
+	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt = 0);
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);

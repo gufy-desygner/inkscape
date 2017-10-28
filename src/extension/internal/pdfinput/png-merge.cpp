@@ -14,6 +14,8 @@
 #include "helper/png-write.h"
 #include <regex.h>
 #include "shared_opt.h"
+#include "sp-item.h"
+#include "sp-root.h"
 
 
 namespace Inkscape {
@@ -141,16 +143,29 @@ Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 	return resNode;
 }
 
-Inkscape::XML::Node *MergeBuilder::generateNode(char* imgPath, SvgBuilder *builder) {
+Inkscape::XML::Node *MergeBuilder::generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt) {
 	// Insert node with merged image
 		char *buf;
 		float clipW , clipH;
 		long double tempD;
+		float coeffE;
+		float coeffF;
 
 		Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
-		getMainSize(&clipW, &clipH);
-		float coeffE = mainMatrix[4]/mainMatrix[0] * (-1);
-		float coeffF = mainMatrix[5]/mainMatrix[3] * (-1) - clipH;
+		if (rt) {
+			char *c;
+			float width = strtof(_root->attribute("width"), &c);
+			float height = strtof(_root->attribute("height"), &c);
+			clipW = ((*rt)[Geom::X].max() - (*rt)[Geom::X].min())/1.333333;
+			clipH = ((*rt)[Geom::Y].max() - (*rt)[Geom::Y].min())/1.333333;
+			coeffE = (*rt)[Geom::X].min()/1.333333;
+			coeffF = (height - (*rt)[Geom::Y].max())/1.333333;
+		} else {
+		    getMainSize(&clipW, &clipH);
+		    coeffE = mainMatrix[4]/mainMatrix[0] * (-1);
+		    coeffF = mainMatrix[5]/mainMatrix[3] * (-1) - clipH;
+		}
+
 
 		buf = g_strdup_printf("matrix(%i.%i,0,0,%i.%i,%i.%i,%i.%i)",
 					(int)clipW, (int)abs(modfl(clipW, &tempD)*1000),
@@ -331,21 +346,79 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	return tempNode;
 }
 
-void MergeBuilder::save(gchar const *filename) {
+bool isTrans(char *patch) {
+	char out[10];
+	gchar *cmd = g_strdup_printf("convert %s -channel alpha -fx \"(a>0.9)\" "\
+			                      "-alpha extract -fill black +opaque \"rgb(255,255,255)\" "
+			            		  "-format \"%[fx:w*h*mean/(w*h)*100 > 99]\" info:",
+								  patch);
+	FILE *f = popen(cmd,"r");
+
+	/* Read the output a line at a time - output it. */
+	if (fgets(out, sizeof(out)-1, f) != NULL && out[0] == '1') {
+		pclose(f);
+		return true;
+	} else {
+		pclose(f);
+		return false;
+	}
+}
+
+Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder) {
+
+	// Save merged image
+	gchar* mergedImagePath = g_strdup_printf("%s%s.png", sp_export_svg_path_sh, name);
+	gchar *fName;
+	Geom::Rect rct = save(mergedImagePath);
+	removeOldImages();
+	//try convert to jpeg
+	if (sp_create_jpeg_sp && isTrans(mergedImagePath)) {
+		fName = g_strdup_printf("%s.jpg", name);
+		gchar *jpgName =
+			g_strdup_printf("%s%s",
+				             sp_export_svg_path_sh,
+							 fName);
+		gchar *cmd =
+			g_strdup_printf("convert %s -channel alpha -fx \"(a=1)\"  %s",
+				             mergedImagePath,
+							 jpgName);
+		system(cmd);
+		remove(mergedImagePath);
+		g_free(jpgName);
+		g_free(cmd);
+	} else {
+		fName = g_strdup_printf("%s.png", name);
+	}
+	free(mergedImagePath);
+	Inkscape::XML::Node *node = generateNode(fName, builder, &rct);
+	g_free(fName);
+	return node;
+}
+
+Geom::Rect MergeBuilder::save(gchar const *filename) {
 	std::vector<SPItem*> x;
 	char *c;
 	float width = strtof(_root->attribute("width"), &c);
 	float height = strtof(_root->attribute("height"), &c);
+
+	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
+	Geom::OptRect::reference_type sq = _doc->getRoot()->documentVisualBounds().get();
+	double x1 = sq[Geom::X][0];
+	double x2 = sq[Geom::X][1];
+	double y1 = sq[Geom::Y][0];
+	double y2 = sq[Geom::Y][1];
+	//_doc->setViewBox(Geom::Rect(sq));
+
 	sp_export_png_file(_doc, filename,
-					0, 0, width, height, // crop of document x,y,W,H
-					width * 3, height * 3, // size of png
-					150, 150, // dpi x & y
+					round(x1), height - round(y1), round(x2), height - round(y2), // crop of document x,y,W,H
+					(x2-x1) * 3, (y2-y1) * 3, // size of png
+					600, 600, // dpi x & y
 					0xFFFFFF00,
 					NULL, // callback for progress bar
 					NULL, // struct SPEBP
 					true, // override file
 					x);
-
+    return sq;
 }
 
 void MergeBuilder::saveThumbW(int w, gchar const *filename){
@@ -791,6 +864,7 @@ void mergeNearestTextToOnetag(SvgBuilder *builder) {
 	mergeFindNearestNodes(_visualNode);
 }
 
+
 // do merge tags without text bitweene
 void mergeImagePathToLayerSave(SvgBuilder *builder) {
   //================== merge paths and images ==================
@@ -804,7 +878,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 	//Inkscape::XML::Node *mergeNode = builder->getRoot();
 	Inkscape::XML::Node *remNode;
 	Inkscape::XML::Node *toImageNode;
-	const gchar *tmpName;
+	gchar *tmpName;
 
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
 
@@ -845,17 +919,11 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 
-			tmpName = mergeNode->attribute("id");
-			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
-
-			// Save merged image
-			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
-			mergeBuilder->save(mergedImagePath);
-			mergeBuilder->removeOldImages();
-			free(mergedImagePath);
+			tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
+			//char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
 
 			// Insert node with merged image
-			Inkscape::XML::Node *sumNode = mergeBuilder->generateNode(fName, builder);
+			Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
 			visualNode->addChild(sumNode, mergeNode);
 			mergeBuilder->removeRelateDefNodes(remNode);
 			visualNode->removeChild(remNode);
@@ -917,29 +985,8 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			  remNode = mergeNode;
 			}
 
-			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
-			char *fName_jpg = g_strdup_printf("%s%s_img%s.jpg", sp_export_svg_path_sh, builder->getDocName(), tmpName);
-
-			// Save merged image
-			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
-			mergeBuilder->save(mergedImagePath);
-			mergeBuilder->removeOldImages();
-			if (sp_merge_jpeg_sp) {
-				gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
-										 mergedImagePath, fName_jpg);
-				system(cmd);
-				remove(mergedImagePath);
-				free(cmd);
-			}
-			free(mergedImagePath);
-			free(fName_jpg);
-			gchar *linkName;
-			if (sp_merge_jpeg_sp)
-			  linkName = g_strdup_printf("%s_img%s.jpg", builder->getDocName(), tmpName);
-			else
-			  linkName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
-        	visualNode->addChild(mergeBuilder->generateNode(linkName, builder), NULL);
-			free(linkName);
+			char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
+			visualNode->addChild(mergeBuilder->saveImage(fName, builder), NULL);
 			free(fName);
 		}
 		else { // if do not have two nearest images - can not merge
@@ -972,15 +1019,11 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 			remNode = mergeNode;
 			// generate name of new image
 			tmpName = mergeNode->attribute("id");
-			char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
+			char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
 
 			// Save merged image
-			gchar* mergedImagePath = g_strdup_printf("%s%s", sp_export_svg_path_sh, fName);
-			mergeBuilder->save(mergedImagePath);
-			mergeBuilder->removeOldImages();
-			free(mergedImagePath);
 
-			Inkscape::XML::Node *sumNode = mergeBuilder->generateNode(fName, builder);
+			Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder);
 			visualNode->addChild(sumNode, mergeNode);
 			visualNode->removeChild(remNode);
 			mergeBuilder->removeRelateDefNodes(remNode);

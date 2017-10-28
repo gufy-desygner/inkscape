@@ -916,8 +916,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
               free(fName);
             }
-
-
         }
 
         // Cleanup
