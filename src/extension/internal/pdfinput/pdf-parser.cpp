@@ -2329,7 +2329,7 @@ void PdfParser::exportFont(GfxFont *font)
 
 			  CharCodeToUnicode *ctu;
 			  // Generate MAP file
-			  if (font->isCIDFont()) {
+			  if (font->isCIDFont() || true) {
 				  ctu = font->getToUnicode();
 				  int mapLen = ctu->getLength();
 				  Unicode *u;
@@ -2369,17 +2369,15 @@ void PdfParser::exportFont(GfxFont *font)
 				  for(int i = 0; i < mapLen; i++) {
 					  if (ctu->mapToUnicode(i, &u)) {
 						 if (jsonArrayStarted) {
-						    buff[0] = ','; buff[1] = 0;
-						    fwrite(buff, 1, strlen(buff), fMap);
+							buff[0] = ','; buff[1] = 0;
+							fwrite(buff, 1, strlen(buff), fMap);
 						 }
+						 sprintf(buff, "{\"%i\" : { \"uni\" : %u ", i, *u);
+						 fwrite(buff, 1, strlen(buff), fMap);
+						 jsonArrayStarted = true;
 
-
-					     sprintf(buff, "{\"%i\" : { \"uni\" : %u, ", i, *u);
-					     fwrite(buff, 1, strlen(buff), fMap);
-					     jsonArrayStarted = true;
-
-					     if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
-					    	 sprintf(buff, "\n         \"width\" : %u,\n", face->glyph->metrics.width);
+						  if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
+					    	 sprintf(buff, ",\n         \"width\" : %u,\n", face->glyph->metrics.width);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
 					    	 sprintf(buff, "         \"hAdvance\" : %u,\n", face->glyph->metrics.horiAdvance);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
@@ -2390,7 +2388,7 @@ void PdfParser::exportFont(GfxFont *font)
 					    	 sprintf(buff, "         \"hBy\" : %i", face->glyph->metrics.horiBearingY);
 		                     fwrite(buff, 1, strlen(buff), fMap);
 					     }
-					     write_map_file(fMap, "} }\n");
+						 write_map_file(fMap, "} }\n");
 					  }
 				  };
 
@@ -2402,18 +2400,26 @@ void PdfParser::exportFont(GfxFont *font)
 				  free(buf);
 			  }
 
-			  // generate command for path names inside TTF file
-			  gchar *fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
-							exeDir, // path to script, without name
-							fname,  // name of TTF file for path
-						    font->getName()->getCString(), //postscriptname
-							fontName2->getCString()); //family
-			  system(fontForgeCmd);
-
+			  gchar *fontForgeCmd;
 			  if (font->isCIDFont()) {
 				  char *cidName = g_strdup_printf(fname);
 				  g_ptr_array_add(cidFontList, cidName);
+				  fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
+				  								exeDir, // path to script, without name
+				  								fname,  // name of TTF file for path
+				  								font->getName()->getCString(), //postscriptname
+				  								fontName2->getCString()); //family
+			  } else {
+			     // generate command for path names inside TTF file
+				  fontForgeCmd = g_strdup_printf("%sfontAdapter.py %s \"%s\" \"%s\" 2>/dev/null",
+								exeDir, // path to script, without name
+								fname,  // name of TTF file for path
+								font->getName()->getCString(), //postscriptname
+								fontName2->getCString()); //family
+
 			  }
+			  system(fontForgeCmd);
+
 			  delete(fontName2);
 			  g_free(fontForgeCmd);
 		  }
