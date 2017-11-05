@@ -398,15 +398,22 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder) {
 Geom::Rect MergeBuilder::save(gchar const *filename) {
 	std::vector<SPItem*> x;
 	char *c;
+	Geom::Rect sq = Geom::Rect();
+	double x1, x2, y1, y2;
 	float width = strtof(_root->attribute("width"), &c);
 	float height = strtof(_root->attribute("height"), &c);
 
 	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
-	Geom::OptRect::reference_type sq = _doc->getRoot()->documentVisualBounds().get();
-	double x1 = sq[Geom::X][0];
-	double x2 = sq[Geom::X][1];
-	double y1 = sq[Geom::Y][0];
-	double y2 = sq[Geom::Y][1];
+	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
+	if (visualBound) {
+		sq = _doc->getRoot()->documentVisualBounds().get();
+	} else {
+		sq = Geom::Rect(Geom::Point(0, 0),Geom::Point(width, height));
+	}
+	x1 = sq[Geom::X][0];
+	x2 = sq[Geom::X][1];
+	y1 = sq[Geom::Y][0];
+	y2 = sq[Geom::Y][1];
 	//_doc->setViewBox(Geom::Rect(sq));
 
 	sp_export_png_file(_doc, filename,
