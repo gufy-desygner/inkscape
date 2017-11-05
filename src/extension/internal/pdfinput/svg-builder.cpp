@@ -1873,7 +1873,10 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	uint countour = 0;
 	if (FT_Load_Glyph(face, (FT_UInt)svgGlyph->gidCode, FT_LOAD_NO_BITMAP) == 0) {
 	  int p = 0;
+	  int pStub = -1; // If p do not changed during one loop mind it can not build curve so we must go out
 	  while(p < face->glyph->outline.n_points) {
+		if (p == pStub) return g_strdup("");
+		pStub = p;
 		FT_Pos x = face->glyph->outline.points[p].x;
 		FT_Pos y = face->glyph->outline.points[p].y;
 		char tag = FT_CURVE_TAG(face->glyph->outline.tags[p]);
@@ -1900,7 +1903,9 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    	uint prevTag = FT_face_getTag(face, p-1);
 	    	int nextP = (p == lastPoint ? firstPoint : p + 1);
 	    	uint nextTag = FT_face_getTag(face, nextP);
+            // https://www.freetype.org/freetype2/docs/glyphs/glyphs-6.html
 
+	    	// Build current curve and skip used points
 	    	switch (tag) {
 	    	    case FT_CURVE_TAG_ON :
 	    	    	path.append("L");
@@ -1911,7 +1916,8 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 
 	    	    case FT_CURVE_TAG_CONIC :
 	    	    	// simple curve
-	    	   		if (prevTag == FT_CURVE_TAG_ON and nextTag == FT_CURVE_TAG_ON) {
+	    	   		if ((prevTag == FT_CURVE_TAG_ON || prevTag == FT_CURVE_TAG_CONIC)  &&
+	    	   				nextTag == FT_CURVE_TAG_ON) {
 	    			    path.append("Q");
 	    			    gLibUstrAppendCoord(path, x);
 	    			    gLibUstrAppendCoord(path, y);
@@ -1922,7 +1928,8 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    			    p += 2;
 	    		    }
 	    	   		// first step from two step curve
-	    	    	if (prevTag == FT_CURVE_TAG_ON and nextTag == FT_CURVE_TAG_CONIC) {
+	    	    	if ((prevTag == FT_CURVE_TAG_ON || prevTag == FT_CURVE_TAG_CONIC)  &&
+	    	    			nextTag == FT_CURVE_TAG_CONIC) {
 	    			    path.append("Q");
 	    			    gLibUstrAppendCoord(path, x);
 	    			    gLibUstrAppendCoord(path, y);
@@ -1932,14 +1939,24 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    			    gLibUstrAppendCoord(path, (y + nextVector.y)/2);
 	    			    p += 2;
 	    			    // second step from two step curve
-	    			    if (p > lastPoint) nextVector = face->glyph->outline.points[firstPoint];
-	    			    else nextVector = face->glyph->outline.points[p];
-	    			    path.append("\nT");
-	    			    gLibUstrAppendCoord(path, nextVector.x);
-	    			    gLibUstrAppendCoord(path, nextVector.y);
-	    			    path.append("\n");
-	    			    p++;
+	    			    int endVecNum = (p > lastPoint) ? firstPoint : p;
+	    			    char endPointTag = FT_CURVE_TAG(face->glyph->outline.tags[p]);
+	    			    FT_Vector nextVector2 = face->glyph->outline.points[endVecNum];
+	    			    if (endPointTag == FT_CURVE_TAG_ON) {
+							path.append("\nT");
+							gLibUstrAppendCoord(path, nextVector2.x);
+							gLibUstrAppendCoord(path, nextVector2.y);
+							path.append("\n");
+							p++;
+	    			    }
+	    			    // if next point is CONIC curve we must have middle virtual point
+	    			    if (endPointTag == FT_CURVE_TAG_CONIC) {
+	    			    	// Calculate virtual point
+	    			        gLibUstrAppendCoord(path, (nextVector.x + nextVector2.x)/2);
+	    			        gLibUstrAppendCoord(path, (nextVector.y + nextVector2.y)/2);
+	    			    }
 	    		    }
+
 	    		    break; // end of FT_CURVE_TAG_CONIC
 	    	    case FT_CURVE_TAG_CUBIC :
 	    	    	path.append("C");
