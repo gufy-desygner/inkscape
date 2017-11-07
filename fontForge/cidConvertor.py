@@ -72,14 +72,12 @@ def main(font_file):
         # serch current glyph in CID font
         name = findGlyph(font, int(cell["gid"]))
         if name == "" :
-            print "x%s" % cell["gid"]
             continue
         try:
             glyph = font[name]
             uni = cell["uni"] # unecode for puting glyph
             gId = cell["gid"] # try receive CID of glyph
         except:
-            print "x%s" % cell["gid"]
             continue
 
         # processing convert one glyph
