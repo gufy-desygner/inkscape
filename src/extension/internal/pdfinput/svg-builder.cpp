@@ -1872,29 +1872,52 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	uint state = 0;
 	uint countour = 0;
 	if (FT_Load_Glyph(face, (FT_UInt)svgGlyph->gidCode, FT_LOAD_NO_BITMAP) == 0) {
+	  /*int ptest = 0;
+	  printf("-=%i=-", svgGlyph->gidCode);
+	  while(ptest < face->glyph->outline.n_points) {
+		FT_Pos x = face->glyph->outline.points[ptest].x;
+		FT_Pos y = face->glyph->outline.points[ptest].y;
+	    printf("%i\t%i\t%i\n", x, y, FT_face_getTag(face, ptest));
+	    ptest++;
+	  }*/
 	  int p = 0;
 	  int pStub = -1; // If p do not changed during one loop mind it can not build curve so we must go out
+
 	  while(p < face->glyph->outline.n_points) {
 		if (p == pStub) return g_strdup("");
 		pStub = p;
 		FT_Pos x = face->glyph->outline.points[p].x;
 		FT_Pos y = face->glyph->outline.points[p].y;
 		char tag = FT_CURVE_TAG(face->glyph->outline.tags[p]);
-	    /*printf("%i\t%i\t%i\n",
-				x, y,
-				FT_face_getTag(face, p));*/
 
 	    if (state == GG_STATE_START) {
+	    	// TODO: if first point is not FT_CURVE_TAG_ON need calculate virtual start point or
+	    	//       take last point in contur
 	    	path.append("M");
-	    	gLibUstrAppendCoord(path, x);
-	    	gLibUstrAppendCoord(path, y);
 	    	firstPoint = p;
+
 	    	if (face->glyph->outline.n_contours > countour)
 	    	  lastPoint = face->glyph->outline.contours[countour];
 	    	else
 	    	  lastPoint = face->glyph->outline.n_points - 1;
+
+
+	    	if (tag != FT_CURVE_TAG_CONIC) {
+				gLibUstrAppendCoord(path, x);
+				gLibUstrAppendCoord(path, y);
+				p++;
+	    	} else {
+	    		pStub = -1;
+	    		char tag2 = FT_CURVE_TAG(face->glyph->outline.tags[lastPoint]);
+	    		if (tag2 != FT_CURVE_TAG_CONIC) {
+					gLibUstrAppendCoord(path, face->glyph->outline.points[lastPoint].x);
+					gLibUstrAppendCoord(path, face->glyph->outline.points[lastPoint].y);
+	    		} else {
+	    			gLibUstrAppendCoord(path, (face->glyph->outline.points[lastPoint].x + x)/2);
+	    			gLibUstrAppendCoord(path, (face->glyph->outline.points[lastPoint].y + y)/2);
+	    		}
+	    	}
 	    	state++;
-	    	p++;
 	    	continue;
 	    }
 
@@ -1903,8 +1926,8 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    	uint prevTag = FT_face_getTag(face, p-1);
 	    	int nextP = (p == lastPoint ? firstPoint : p + 1);
 	    	uint nextTag = FT_face_getTag(face, nextP);
-            // https://www.freetype.org/freetype2/docs/glyphs/glyphs-6.html
 
+            // https://www.freetype.org/freetype2/docs/glyphs/glyphs-6.html
 	    	// Build current curve and skip used points
 	    	switch (tag) {
 	    	    case FT_CURVE_TAG_ON :
@@ -1951,6 +1974,7 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    			    }
 	    			    // if next point is CONIC curve we must have middle virtual point
 	    			    if (endPointTag == FT_CURVE_TAG_CONIC) {
+	    			    	path.append("\nT");
 	    			    	// Calculate virtual point
 	    			        gLibUstrAppendCoord(path, (nextVector.x + nextVector2.x)/2);
 	    			        gLibUstrAppendCoord(path, (nextVector.y + nextVector2.y)/2);
