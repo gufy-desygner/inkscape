@@ -406,7 +406,7 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
 	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
 	if (visualBound) {
-		sq = _doc->getRoot()->documentVisualBounds().get();
+		sq = visualBound.get();
 	} else {
 		sq = Geom::Rect(Geom::Point(0, 0),Geom::Point(width, height));
 	}
@@ -414,6 +414,15 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 	x2 = sq[Geom::X][1];
 	y1 = sq[Geom::Y][0];
 	y2 = sq[Geom::Y][1];
+
+	// todo: if width*height is zero - need remove this node. Now set virtual minimum size 1x1
+	if (((round(x2)-round(x1)) * (round(y2)-round(y1))) < 1) {
+		sq = Geom::Rect(Geom::Point(0, 0),Geom::Point(1, 1));
+	    x1 = sq[Geom::X][0];
+		x2 = sq[Geom::X][1];
+		y1 = sq[Geom::Y][0];
+		y2 = sq[Geom::Y][1];
+	}
 	//_doc->setViewBox(Geom::Rect(sq));
 
 	sp_export_png_file(_doc, filename,
