@@ -404,6 +404,9 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 	float height = strtof(_root->attribute("height"), &c);
 
 	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
+	double addY = height - item->transform[5];
+	double addX = item->transform[4] * (-1);
+
 	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
 	if (visualBound) {
 		sq = visualBound.get();
@@ -434,6 +437,10 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 					NULL, // struct SPEBP
 					true, // override file
 					x);
+	sq.setLeft(sq[Geom::X][0] + addX);
+	sq.setRight(sq[Geom::X][1] + addX);
+	sq.setTop(sq[Geom::Y][0] + addY);
+	sq.setBottom(sq[Geom::Y][1] + addY);
     return sq;
 }
 
