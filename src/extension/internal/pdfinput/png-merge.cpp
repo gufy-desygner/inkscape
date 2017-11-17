@@ -379,9 +379,12 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder) {
 				             sp_export_svg_path_sh,
 							 fName);
 		gchar *cmd =
-			g_strdup_printf("convert %s -channel alpha -fx \"(a=1)\"  %s",
-				             mergedImagePath,
-							 jpgName);
+			//g_strdup_printf("convert %s -channel alpha -fx \"(a=1)\"  %s",
+			//	             mergedImagePath,
+			//				 jpgName);
+		    g_strdup_printf("convert %s -background white -flatten %s",
+		    		mergedImagePath,
+		    		jpgName);
 		system(cmd);
 		remove(mergedImagePath);
 		g_free(jpgName);
