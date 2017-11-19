@@ -2785,6 +2785,9 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
+      if (printCommands) {
+    		  printf("%04x ", *u);
+      }
       if (actualMarkerBegin) {
     	  actualMarkerPosition++;
     	  if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {

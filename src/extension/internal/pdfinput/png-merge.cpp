@@ -1022,6 +1022,28 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 	  delete mergeBuilder;
 }
 
+void moveTextNode(Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0) {
+	Inkscape::XML::Node *pos = mainNode; // position for inserting new node
+	Inkscape::XML::Node *nextNode;
+	if (! currNode) {
+		currNode = mainNode;
+	}
+	Inkscape::XML::Node *chNode = currNode->firstChild();
+	while(chNode) {
+		nextNode = chNode->next();
+		if (strcmp(chNode->name(), "svg:text") == 0) {
+			chNode->parent()->removeChild(chNode);
+			mainNode->parent()->addChild(chNode, pos);
+			pos = chNode;
+		} else {
+			if (chNode->childCount() > 0) {
+				moveTextNode(pos, chNode);
+			}
+		}
+		chNode = nextNode;
+	}
+}
+
 void mergeMaskGradientToLayer(SvgBuilder *builder) {
 	  //================== merge images with masks =================
 	  if (sp_merge_mask_sh) {
@@ -1040,9 +1062,14 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 		  if (mergeNode) visualNode = mergeNode->parent();
 		  const gchar *tmpName;
 		  while(mergeNode) {
+			// find text nodes and save it
+			moveTextNode(mergeNode);
+			// merge
 			mergeBuilder->clearMerge();
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
+
+
 			// generate name of new image
 			tmpName = mergeNode->attribute("id");
 			char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
