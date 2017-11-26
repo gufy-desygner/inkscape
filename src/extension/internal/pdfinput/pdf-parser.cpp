@@ -2785,6 +2785,9 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
+      // is not printable symbol
+      // maybe no the best solution write it directly to map table
+      if (*u < 0x20) *u = (Unicode)0x20;
       if (printCommands) {
     		  printf("%04x ", *u);
       }
