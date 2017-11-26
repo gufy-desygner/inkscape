@@ -16,7 +16,10 @@
 #include "shared_opt.h"
 #include "sp-item.h"
 #include "sp-root.h"
-
+#include "2geom/transforms.h"
+#include "svg/svg.h"
+//#include <extension/system.h>
+//#include <extension/db.h>
 
 namespace Inkscape {
 namespace Extension {
@@ -67,6 +70,31 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 		  attrList++;
 		}
 	}
+	_sourceSubVisual =  _sourceVisual;
+	_mainSubVisual = _mainVisual;
+
+	SPItem *spSubVisual = (SPItem*) _doc->getRoot()->get_child_by_repr(_mainVisual);
+	affine = spSubVisual->transform.inverse();
+	//SPItem *spSubVisual = (SPItem*)spRoot->get_child_by_repr(_sourceSubVisual);
+	// todo : calculate affine transforms
+	while((_sourceSubVisual->childCount() == 1) && ( strcmp(_sourceSubVisual->firstChild()->name(),"svg:g") == 0 )){
+		subVisualDeep++;
+		_sourceSubVisual = _sourceSubVisual->firstChild();
+		Inkscape::XML::Node *subNode = _xml_doc->createElement("svg:g");
+		Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = _sourceSubVisual->attributeList();
+		while( attrList ) {
+		  subNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+		  attrList++;
+		}
+		_mainSubVisual->appendChild(subNode);
+		spSubVisual = (SPItem*) spSubVisual->get_child_by_repr(subNode);
+		affine *= spSubVisual->transform.inverse();
+		_mainSubVisual = subNode;
+	}
+    //ret = i2doc_affine()
+    //    * Geom::Scale(1, -1)
+    //    * Geom::Translate(0, document->getHeight().value("px"));
+	//affine = spSubVisual->transform;
 }
 
 void MergeBuilder::addTagName(char *tagName) {
@@ -81,12 +109,12 @@ void MergeBuilder::addAttrName(char *attrName) {
 	_sizeListMergeAttr++;
 }
 
-Inkscape::XML::Node *MergeBuilder::findFirstNode(void) {
-	return findNode(_sourceVisual->firstChild(), 2);
+Inkscape::XML::Node *MergeBuilder::findFirstNode(int *count) {
+	return findNode(_sourceSubVisual->firstChild(), subVisualDeep, count);
 }
 
 Inkscape::XML::Node *MergeBuilder::findFirstAttrNode(void) {
-	return findAttrNode(_sourceVisual->firstChild());
+	return findAttrNode(_sourceSubVisual->firstChild());
 }
 
 Inkscape::XML::Node *MergeBuilder::findNextNode(Inkscape::XML::Node *node, int level) {
@@ -98,16 +126,16 @@ Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
 }
 
 void MergeBuilder::clearMerge(void) {
-    while(_mainVisual->firstChild()){
-    	_mainVisual->removeChild(_mainVisual->firstChild());
+    while(_mainSubVisual->firstChild()){
+    	_mainSubVisual->removeChild(_mainSubVisual->firstChild());
     }
 }
 
-Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level) {
+Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level, int *count) {
 	Inkscape::XML::Node *tmpNode;
 	Inkscape::XML::Node *resNode = NULL;
-	if (level > 2) return (Inkscape::XML::Node *) NULL;
-	if (level < 2) {
+	if (level > subVisualDeep) return (Inkscape::XML::Node *) NULL;
+	if (level < subVisualDeep) {
 		if (node->childCount()){
 		  tmpNode = node->firstChild();
 		  while( tmpNode ) {
@@ -117,10 +145,10 @@ Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level
 		  }
 		}
 	}
-	if (level == 2) {
+	if (level == subVisualDeep) {
 		tmpNode = node;
 		while(tmpNode) {
-			if (haveTagFormList(tmpNode)) {
+			if (haveTagFormList(tmpNode, count)) {
 				return tmpNode;
 			}
 			tmpNode = tmpNode->next();
@@ -145,43 +173,27 @@ Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 
 Inkscape::XML::Node *MergeBuilder::generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt) {
 	// Insert node with merged image
-		char *buf;
-		float clipW , clipH;
-		long double tempD;
-		float coeffE;
-		float coeffF;
+	Geom::Affine aff;
 
-		Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
-		if (rt) {
-			char *c;
-			float width = strtof(_root->attribute("width"), &c);
-			float height = strtof(_root->attribute("height"), &c);
-			clipW = ((*rt)[Geom::X].max() - (*rt)[Geom::X].min())/1.333333;
-			clipH = ((*rt)[Geom::Y].max() - (*rt)[Geom::Y].min())/1.333333;
-			coeffE = (*rt)[Geom::X].min()/1.333333;
-			coeffF = (height - (*rt)[Geom::Y].max())/1.333333;
-		} else {
-		    getMainSize(&clipW, &clipH);
-		    coeffE = mainMatrix[4]/mainMatrix[0] * (-1);
-		    coeffF = mainMatrix[5]/mainMatrix[3] * (-1) - clipH;
-		}
+	aff.setExpansionX(rt->width());
+	aff.setExpansionY(rt->height());
+	aff.setTranslation(Geom::Point(rt->left(), rt->top()));
+	aff *= affine;
+	char *buf = sp_svg_transform_write(aff);
 
+	Inkscape::XML::Node *sumNode = builder->createElement("svg:g");
+	sumNode->setAttribute("transform", buf);
 
-		buf = g_strdup_printf("matrix(%i.%i,0,0,%i.%i,%i.%i,%i.%i)",
-					(int)clipW, (int)abs(modfl(clipW, &tempD)*1000),
-					(int)clipH, (int)abs(modfl(clipH, &tempD)*1000),
-					(int)coeffE, (int)abs(modfl(coeffE, &tempD)*1000),
-					(int)coeffF, (int)abs(modfl(coeffF, &tempD)*1000));
-		sumNode->setAttribute("transform", buf);
-		Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
-		sumNode->appendChild(tmpNode);
-		tmpNode->setAttribute("xlink:href", imgPath);
-		tmpNode->setAttribute("transform", "matrix(1,0,0,-1,0,1)");
-		tmpNode->setAttribute("width", "1");
-		tmpNode->setAttribute("height", "1");
-		tmpNode->setAttribute("preserveAspectRatio", "none");
-		free(buf);
-		return sumNode;
+	Inkscape::XML::Node *tmpNode = builder->createElement("svg:image");
+	tmpNode->setAttribute("xlink:href", imgPath);
+	tmpNode->setAttribute("width", "1");
+	tmpNode->setAttribute("height", "1");
+	tmpNode->setAttribute("preserveAspectRatio", "none");
+
+	sumNode->appendChild(tmpNode);
+
+	free(buf);
+	return sumNode;
 }
 
 bool MergeBuilder::haveContent(Inkscape::XML::Node *node) {
@@ -199,39 +211,37 @@ bool MergeBuilder::haveContent(Inkscape::XML::Node *node) {
 	return false;
 }
 
-bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node) {
+bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int level) {
 	  Inkscape::XML::Node *tmpNode = node;
+	  int countOfnodes = 0;
 	  if (node == 0) return false;
 	  if (haveContent(node)) return false;
-	  bool res = FALSE;
-	  uint coun = 0;
-	  // print_node(node, 3);
 	  // Calculate count of right svg:g before image
-	  while(  (coun < 10) &&
-			  (tmpNode != NULL) &&
-			  (tmpNode->childCount() > 0)/* &&
-			  (strcmp(tmpNode->name(), "svg:g") == 0)*/) {
-		  coun++;
-		  if (strcmp(tmpNode->name(), "svg:g") == 0 &&
-			  tmpNode->childCount() == 0  ) {
-			  tmpNode = tmpNode->next();
+	  while(tmpNode) {
+		  if (strcmp(tmpNode->name(), "svg:g") == 0 ||
+			  tmpNode->childCount() > 0  ) {
+			  haveTagFormList(tmpNode->firstChild(), &countOfnodes, level + 1);
 		  } else {
-		      tmpNode = tmpNode->firstChild();
+			  for(int i = 0; i < _sizeListMergeTag; i++) {
+				  if ((strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
+					  countOfnodes++;
+				  }
+			  }
 		  }
-		  if (! tmpNode ) break;
+		  if (level == 0) break;
+	      tmpNode = tmpNode->next();
 	  }
 
-	  if (tmpNode == 0) return false;
+      if (count) {
+    	  (*count) += countOfnodes;
+      }
 
-	  for(int i = 0; i < _sizeListMergeTag; i++) {
-		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
-			  res = TRUE;
-		  }
-	  }
-
-	  return res;
+	  return (countOfnodes > 0);
 }
 
+
+// Try found attribute in any tag
+// then try found ordered tag in current or child
 bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode = node;
 	  if (tmpNode == 0) return false;
@@ -254,6 +264,7 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 				  if (strcmp(attrName, _listMergeAttr[i]) == 0 && (! attr)) {
 					  bool additionCond = TRUE;
 					  const char *styleValue = tmpNode->attribute(attrName);
+					  // style tag is right only if it have some parametrs
 					  if (strcmp(attrName, "style") == 0) {
 						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
 								  (strstr(styleValue, "url(#pattern") > 0);
@@ -300,14 +311,14 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 }
 
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
-	copyAsChild(_mainVisual, imageNode, rebasePath);
+	copyAsChild(_mainSubVisual, imageNode, rebasePath);
 }
 
 void MergeBuilder::mergeAll(char* rebasePath) {
 	Inkscape::XML::Node *node;
-	node = _sourceVisual->firstChild();
+	node = _sourceSubVisual->firstChild();
 	while(node) {
-		copyAsChild(_mainVisual, node, rebasePath);
+		copyAsChild(_mainSubVisual, node, rebasePath);
 		node = node->next();
 	}
 }
@@ -379,9 +390,6 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder) {
 				             sp_export_svg_path_sh,
 							 fName);
 		gchar *cmd =
-			//g_strdup_printf("convert %s -channel alpha -fx \"(a=1)\"  %s",
-			//	             mergedImagePath,
-			//				 jpgName);
 		    g_strdup_printf("convert %s -background white -flatten %s",
 		    		mergedImagePath,
 		    		jpgName);
@@ -407,8 +415,6 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 	float height = strtof(_root->attribute("height"), &c);
 
 	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
-	double addY = height - item->transform[5];
-	double addX = item->transform[4] * (-1);
 
 	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
 	if (visualBound) {
@@ -431,6 +437,8 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 	}
 	//_doc->setViewBox(Geom::Rect(sq));
 
+	//Inkscape::Extension::save(Inkscape::Extension::db.get("org.inkscape.output.svg.plain"), _doc, "1.svg", false,
+	//                            false, false, Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY);
 	sp_export_png_file(_doc, filename,
 					round(x1), height - round(y1), round(x2), height - round(y2), // crop of document x,y,W,H
 					(x2-x1) * 3, (y2-y1) * 3, // size of png
@@ -440,10 +448,6 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 					NULL, // struct SPEBP
 					true, // override file
 					x);
-	sq.setLeft(sq[Geom::X][0] + addX);
-	sq.setRight(sq[Geom::X][1] + addX);
-	sq.setTop(sq[Geom::Y][0] + addY);
-	sq.setBottom(sq[Geom::Y][1] + addY);
     return sq;
 }
 
@@ -552,23 +556,19 @@ void MergeBuilder::removeOldImagesEx(Inkscape::XML::Node *startNode) {
 	const char *tmpName;
 	while(tmpNode) {
 		toImageNode = tmpNode;
-		while(toImageNode && (strcmp(toImageNode->name(), "svg:image") != 0)) {
-			if ((toImageNode->childCount() == 0) && toImageNode->next()) {
-			  toImageNode = toImageNode->next();
-			} else {
-			  toImageNode = toImageNode->firstChild();
-			}
-		}
-		if (toImageNode) { // if it is image node
-			tmpName = toImageNode->attribute("xlink:href");
+
+		if (strcmp(tmpNode->name(), "svg:image") == 0) { // if it is image node
+			tmpName = tmpNode->attribute("xlink:href");
 			remove(tmpName);
+		} else {
+			removeOldImagesEx(tmpNode);
 		}
 	    tmpNode = tmpNode->next();
 	}
 }
 
 void MergeBuilder::removeOldImages(void) {
-	removeOldImagesEx(_mainVisual);
+	removeOldImagesEx(_mainSubVisual);
 }
 
 Inkscape::XML::Node *MergeBuilder::getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef) {
@@ -908,7 +908,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
 
-	uint countMergedNodes = 0;
+	int countMergedNodes = 0;
 	//find image nodes
 	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
 
@@ -922,15 +922,17 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
     	  mergeBuilder->addTagName(g_strdup_printf("svg:rect"));
       }
 	}
-	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
+	int numberInNode = 0;
+	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode(&numberInNode);
 	Inkscape::XML::Node *visualNode;
 	if (mergeNode) visualNode = mergeNode->parent();
 	//print_node(visualNode, 2);
+
 	while(mergeNode) {
-		countMergedNodes = 0;
+		countMergedNodes = numberInNode - 1;
 		mergeBuilder->clearMerge();
-		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next())) {
-			countMergedNodes++;
+		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next(), &countMergedNodes)) {
+			//countMergedNodes += numberInNode;
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 			mergeNode = mergeNode->next();
@@ -960,7 +962,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			mergeNode = mergeNode->next();
 		}
 
-		while( mergeNode && (! mergeBuilder->haveTagFormList(mergeNode))) {
+		while( mergeNode && (! mergeBuilder->haveTagFormList(mergeNode, &numberInNode))) {
 			mergeNode = mergeNode->next();
 		}
 	}
@@ -1052,6 +1054,7 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 				  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:rect"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
 

@@ -50,16 +50,16 @@ public:
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
 	void addTagName(char *tagName);
-	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level);
+	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
-	bool haveTagFormList(Inkscape::XML::Node *node);
+	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
 	void clearMerge(void);
-	Inkscape::XML::Node *findFirstNode(void);
+	Inkscape::XML::Node *findFirstNode(int *count=0);
 	Inkscape::XML::Node *findFirstAttrNode(void);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
-	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt = 0);
+	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt);
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
@@ -73,13 +73,17 @@ private:
     Inkscape::XML::Node *_defs;
     Inkscape::XML::Node *_myDefs;
     Inkscape::XML::Node *_mainVisual;
+    Inkscape::XML::Node *_mainSubVisual;
     Inkscape::XML::Node *_sourceRoot;
+    Inkscape::XML::Node *_sourceSubVisual;
+    int subVisualDeep = 2;
     Inkscape::XML::Node *_sourceVisual;
     Inkscape::XML::Document *_xml_doc;
     char *_listMergeTags[10];
     int _sizeListMergeTag;
     char *_listMergeAttr[10];
     int _sizeListMergeAttr;
+    Geom::Affine affine;
 };
 
 } // namespace Internal
