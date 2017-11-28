@@ -1064,29 +1064,35 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 		  Inkscape::XML::Node *visualNode;
 		  if (mergeNode) visualNode = mergeNode->parent();
 		  const gchar *tmpName;
+		  mergeBuilder->clearMerge();
 		  while(mergeNode) {
 			// find text nodes and save it
 			moveTextNode(mergeNode);
 			// merge
-			mergeBuilder->clearMerge();
+
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
 
 
-			// generate name of new image
-			tmpName = mergeNode->attribute("id");
-			char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
+			if ( ! mergeBuilder->haveTagAttrFormList(mergeNode->next())) {
+				// generate name of new image
+				tmpName = mergeNode->attribute("id");
+				char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
 
-			// Save merged image
+				// Save merged image
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder);
+				visualNode->addChild(sumNode, mergeNode);
+				mergeBuilder->clearMerge();
+				mergeNode = sumNode->next();
+				free(fName);
+			} else {
+				mergeNode = mergeNode->next();
+			}
 
-			Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder);
-			visualNode->addChild(sumNode, mergeNode);
 			visualNode->removeChild(remNode);
 			mergeBuilder->removeRelateDefNodes(remNode);
 	        delete remNode;
-			mergeNode = sumNode->next();
-			//free(buf);
-			free(fName);
+
 			mergeNode = mergeBuilder->findNextAttrNode(mergeNode);
 		  }
 		  delete mergeBuilder;
