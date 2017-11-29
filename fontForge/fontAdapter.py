@@ -76,17 +76,24 @@ def main(font_file):
     #for gl in font.glyphs():
     #    if gl.unicode > 0 :
     #        print "%i %i %s \n" % (gl.originalgid, gl.unicode, gl.glyphname)
+    #        gl.export("__%s.svg" % gl.unicode)
 
     for cell in chars :
         ex = 1
         try:
-            gg = font[int(cell['gid'])]
+            try:
+                gg = font[int(cell['gid'])]
+            except TypeError as ex:
+                name = findGlyph(font, int(cell["gid"]))
+                gg = font[name]
+            # sometimes do not have exception but glyph is empty
             if gg.originalgid == 0 :
                 name = findGlyph(font, int(cell["gid"]))
                 if name == "" :
                     font2.createChar(cell['uni'])
                     continue
-                gg = font[name]               
+                gg = font[name]  
+            #print "%i %i %s %i" % (gg.originalgid, gg.unicode, gg.glyphname, cell['uni'])             
             gg.unicode = cell['uni']
             gg.glyphname = "glyph%s" % cell['uni']
             font.selection.select(gg)
@@ -103,6 +110,7 @@ def main(font_file):
             gg2.glyphname = "glyph%s" % cell['uni']       
             ex = 0
         except Exception as exception:
+            #print type(exception).__name__
             if ex == 1 :
                 font2.createChar(cell['uni'])
            
