@@ -1075,7 +1075,7 @@ void SvgBuilder::updateFont(GfxState *state) {
 		// format font name
 		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
 		  if (fontName2->getChar(strPos) == '-'){
-		    fontName2->setChar(strPos, ' ');
+		    //fontName2->setChar(strPos, ' ');
 		  }
 		  if (fontName2->getChar(strPos) == '+') {
 		    fontName2->del(0, strPos+1);
