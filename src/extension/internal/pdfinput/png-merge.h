@@ -33,6 +33,7 @@ void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 uint mergePredictionCountImages(SvgBuilder *builder);
 void mergeImagePathToLayerSave(SvgBuilder *builder);
+void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
 
 class MergeBuilder {
@@ -64,6 +65,7 @@ public:
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
+	Inkscape::XML::Node *mergeTspan(Inkscape::XML::Node *firstNode, Inkscape::XML::Node *secondNode);
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
 	~MergeBuilder(void);

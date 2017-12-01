@@ -641,6 +641,12 @@ void MergeBuilder::removeRelateDefNodes(Inkscape::XML::Node *node) {
   }
 }
 
+
+Inkscape::XML::Node *MergeBuilder::mergeTspan(Inkscape::XML::Node *firstNode, Inkscape::XML::Node *secondNode) {
+
+	return 0;
+}
+
 MergeBuilder::~MergeBuilder(void){
   delete _doc;
   for(int i = 0; i < _sizeListMergeTag; i++) {
@@ -827,6 +833,7 @@ Inkscape::XML::Node *generateMergedTextNode(
     }
 }
 
+// try find <text> node and start merge
 void mergeFindNearestNodes(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode = node->firstChild();
 	Inkscape::XML::Node *sumNode;
@@ -856,6 +863,26 @@ void mergeFindNearestNodes(Inkscape::XML::Node *node) {
 	}
 }
 
+void mergeTspan (SvgBuilder *builder) {
+	Inkscape::XML::Node *root = builder->getRoot();
+	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+			new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
+	mergeBuilder->addTagName(g_strdup("svg:text"));
+	int count;
+	Inkscape::XML::Node *textNode = mergeBuilder->findFirstNode(&count);
+	Inkscape::XML::Node *tspanNode = textNode->firstChild();
+	while(tspanNode && strcmp(tspanNode->name(), "svg:tspan") == 0) {
+		Inkscape::XML::Node *nextTspanNode = tspanNode->next();
+		if (nextTspanNode && strcmp(nextTspanNode->name(), "svg:tspan") == 0) {
+			Inkscape::XML::Node *newTspanNode = mergeBuilder->mergeTspan(tspanNode, nextTspanNode);
+			if (! newTspanNode)
+				break;
+		} else {
+			break;
+		}
+	}
+}
+
 void mergeNearestTextToOnetag(SvgBuilder *builder) {
 	Inkscape::XML::Node *_root = builder->getRoot();
 	Inkscape::XML::Node *_defNode = NULL;
@@ -864,6 +891,8 @@ void mergeNearestTextToOnetag(SvgBuilder *builder) {
 	Inkscape::XML::Node *prevTextNode = NULL;
 
 	// parse top struct of SVG.
+
+	// searsh <def>
 	Inkscape::XML::Node *tmpNode = _root->firstChild();
 	while(tmpNode) {
 		if (strcmp(tmpNode->name(), "svg:defs") == 0) {
@@ -873,6 +902,7 @@ void mergeNearestTextToOnetag(SvgBuilder *builder) {
 		tmpNode = tmpNode->next();
 	}
 
+	// search main <g>
 	tmpNode = tmpNode->next();
 	while(tmpNode) {
 		if (strcmp(tmpNode->name(), "svg:g") == 0) {

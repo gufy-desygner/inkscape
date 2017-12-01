@@ -2732,7 +2732,7 @@ void PdfParser::doShowText(GooString *s) {
 			    &dx, &dy, &originX, &originY);
       dx = dx * state->getFontSize() + state->getCharSpace();
       if (n == 1 && *p == ' ') {
-	dx += state->getWordSpace();
+    	  dx += state->getWordSpace();
       }
       dx *= state->getHorizScaling();
       dy *= state->getFontSize();

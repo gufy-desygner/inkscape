@@ -16,6 +16,7 @@
 #endif
 
 #include <string> 
+#include <math.h>
 
 #ifdef HAVE_POPPLER
 
@@ -1320,10 +1321,13 @@ void SvgBuilder::_flushText() {
             new_tspan = true;
         } else if ( i != _glyphs.begin() ) {
             const SvgGlyph& prev_glyph = (*prev_iterator);
+            float calc_dx = glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx;
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
-                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) ) {
+                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
+            		// negative dx attribute can't be showing in mozilla
+            		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())) {
             	new_tspan = true;
             }
         }
@@ -1422,7 +1426,7 @@ void SvgBuilder::_flushText() {
             if (! glyph.font->getWMode()) {
             	calc_dx += glyph.charSpace * _font_scaling;
             }
-            if (calc_dx >0.001) dxIsDefault = false;
+            if (fabs(calc_dx) >0.001) dxIsDefault = false;
             os_dx << calc_dx;
         } else {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
