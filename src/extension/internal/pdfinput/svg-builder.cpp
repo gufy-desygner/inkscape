@@ -1272,6 +1272,7 @@ void SvgBuilder::_flushText() {
     }
     double lastDeltaX = 0;
     double first_glyphX = 0;
+    double tspanEndXPos = 0;
     int glipCount = 0;
     std::vector<SvgGlyph>::iterator i = _glyphs.begin();
     const SvgGlyph& first_glyph = (*i);
@@ -1367,6 +1368,9 @@ void SvgBuilder::_flushText() {
                 text_node->appendChild(tspan_node);
                 tspan_node->setAttribute("sodipodi:glyphs_list", glyphs_buffer.c_str());
                 tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
+                Inkscape::CSSOStringStream os_endX;
+                os_endX << tspanEndXPos;
+                tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
                 // Clear temporary buffers
                 x_coords.clear();
                 dx_coords.clear();
@@ -1432,6 +1436,7 @@ void SvgBuilder::_flushText() {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
         }
         lastDeltaX = delta_pos[0];
+        tspanEndXPos = delta_pos[0] + glyph.dx * _font_scaling;
         if (glipCount == 0)
           first_glyphX = delta_pos[0];
         glipCount++;

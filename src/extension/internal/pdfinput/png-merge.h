@@ -64,8 +64,9 @@ public:
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
+	Inkscape::XML::Node *getSourceSubVisual() { return _sourceSubVisual; };
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
-	Inkscape::XML::Node *mergeTspan(Inkscape::XML::Node *firstNode, Inkscape::XML::Node *secondNode);
+	Inkscape::XML::Node *mergeTspan(Inkscape::XML::Node *textNode);
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
 	~MergeBuilder(void);

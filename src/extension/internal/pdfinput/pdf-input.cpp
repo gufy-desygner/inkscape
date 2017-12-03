@@ -874,7 +874,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             } else {
             	mergeImagePathToLayerSave(builder);
             }
-            //mergeTspan(builder);
+            mergeTspan(builder);
             mergeNearestTextToOnetag(builder);
 
             // export fonts savedFontsList
