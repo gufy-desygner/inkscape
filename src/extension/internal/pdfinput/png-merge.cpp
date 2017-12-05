@@ -444,9 +444,15 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 
 	//Inkscape::Extension::save(Inkscape::Extension::db.get("org.inkscape.output.svg.plain"), _doc, "1.svg", false,
 	//                            false, false, Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY);
+	double aproxW = (x2-x1);
+	double aproxH = (y2-y1);
+	if ( aproxW < 2048 && aproxH < 2048 ) {
+		aproxW = (x2-x1) * 3;
+		aproxH = (y2-y1) * 3;
+	}
 	sp_export_png_file(_doc, filename,
 					round(x1), height - round(y1), round(x2), height - round(y2), // crop of document x,y,W,H
-					(x2-x1) * 3, (y2-y1) * 3, // size of png
+					aproxW, aproxH, // size of png
 					600, 600, // dpi x & y
 					0xFFFFFF00,
 					NULL, // callback for progress bar
@@ -675,29 +681,36 @@ int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **se
 			if (firstX < secondX) return -1;
 			else return 1;
 	} else {
-		if (firstY < secondY) return 1;
+		if (firstY < secondY) return -1;
 		else return 1;
 	}
 }
 
-
-//todo: sodipodi:endx for tspan
-//todo: regenerate dx attrib
-//todo: merge data attribs
 void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	gchar const *firstContent = first->firstChild()->content();
 	gchar const *secondContent = second->firstChild()->content();
 
 	double firstEndX;
 	double secondX;
+	double spaceSize;
+
+	if (! sp_repr_get_double(first, "sodipodi:space_size", &spaceSize)) spaceSize = 0;
 	if (! sp_repr_get_double(first, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
 	if (! sp_repr_get_double(second, "x", &secondX)) secondX = 0;
+
+	gchar const *firstEnd_x = first->attribute("sodipodi:space_size");
 
 	gchar *firstDx = g_strdup(first->attribute("dx"));
 	gchar *secondDx = g_strdup(second->attribute("dx"));
 	double different = secondX - firstEndX; // gap for second content
+	// Will put space between tspan
+	gchar addSpace[2] = {0, 0};
+	if (different > spaceSize) {
+		different = different - spaceSize;
+		addSpace[0] = ' ';
+	}
 
-	if (different != 0 || strlen(secondDx) > 0) {
+	if (different > 0 || (secondDx && strlen(secondDx) > 0)) {
 		// represent different to string
 		Inkscape::CSSOStringStream os_diff;
 		os_diff << different;
@@ -722,16 +735,36 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 				secondDx[i+2] = 0;
 			}
 		}
-		// first value of dx always 0
-		gchar *mergedDx = g_strdup_printf("%s%s%s", firstDx, os_diff.str().c_str(), (secondDx + 1));
+
+		gchar *mergedDx;
+		// We put additional space between tspan
+		if (addSpace[0]) {
+			mergedDx = g_strdup_printf("%s%s %s ", firstDx, os_diff.str().c_str(), secondDx);
+		} else {
+			// first value of dx always 0
+			mergedDx = g_strdup_printf("%s%s", firstDx, (secondDx + 1));
+		}
 		first->setAttribute("dx", mergedDx);
 		first->setAttribute("sodipodi:end_x", second->attribute("sodipodi:end_x"));
 		free(mergedDx);
 	}
 
+	gchar const *firstDataX = first->attribute("data-x");
+	gchar const *secondDataX = second->attribute("data-x");
+	gchar *mergeDataX;
+	if (addSpace[0]) {
+		mergeDataX = g_strdup_printf("%s %s %s", firstDataX, firstEnd_x, secondDataX);
+	} else {
+		mergeDataX = g_strdup_printf("%s %s", firstDataX, secondDataX);
+	}
+	first->setAttribute("data-x", mergeDataX);
+	free(mergeDataX);
+
+
 	gchar *mergedContent =
-			g_strdup_printf("%s%s",
+			g_strdup_printf("%s%s%s",
 				first->firstChild()->content(),
+				addSpace,
 				second->firstChild()->content());
 	first->firstChild()->setContent(mergedContent);
 	free(mergedContent);
@@ -754,14 +787,19 @@ void mergeTspanList(GPtrArray *tspanArray) {
 	for(int i = 0; i < tspanArray->len - 1; i++) {
 		double firstY;
 	    double secondY;
+	    double firstEndX;
+	    double secondX;
 		Inkscape::XML::Node *tspan1 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i);
 		Inkscape::XML::Node *tspan2 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i + 1);
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
 
+		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
+		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
+
 		// round Y to 20% of font size and compare
 		if (textSize == 0) textSize = 0.00001;
-		if (fabs(firstY - secondY)/textSize < 0.2) {
+		if (fabs(firstY - secondY)/textSize < 0.2 && firstEndX <= secondX && (secondX - firstEndX < textSize * 5)) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);
 			g_ptr_array_remove_index(tspanArray, i+1);
