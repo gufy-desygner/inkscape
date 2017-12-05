@@ -253,6 +253,7 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	  Inkscape::XML::Node *tmpNode2 = NULL;
 	  bool tag = FALSE;
 	  bool attr = FALSE;
+	  bool haveMask = FALSE;
 	  uint coun = 0;
 	  // print_node(node, 3);
 	  // Calculate count of right svg:g before other tag
@@ -273,6 +274,9 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  if (strcmp(attrName, "style") == 0) {
 						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
 								  (strstr(styleValue, "url(#pattern") > 0);
+					  }
+					  if (strcmp(attrName, "mask") == 0) {
+					  	  return true;
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;
@@ -312,7 +316,6 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	  }
 
 	  return tag && attr;
-
 }
 
 void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
@@ -1281,6 +1284,7 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:rect"));
+
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
 
