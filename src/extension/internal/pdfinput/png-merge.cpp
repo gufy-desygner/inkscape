@@ -443,10 +443,7 @@ Geom::Rect MergeBuilder::save(gchar const *filename) {
 		y1 = sq[Geom::Y][0];
 		y2 = sq[Geom::Y][1];
 	}
-	//_doc->setViewBox(Geom::Rect(sq));
 
-	//Inkscape::Extension::save(Inkscape::Extension::db.get("org.inkscape.output.svg.plain"), _doc, "1.svg", false,
-	//                            false, false, Inkscape::Extension::FILE_SAVE_METHOD_SAVE_COPY);
 	double aproxW = (x2-x1);
 	double aproxH = (y2-y1);
 	if ( aproxW < 2048 && aproxH < 2048 ) {
@@ -1396,6 +1393,8 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
+		  // queue for delete
+		  std::vector<Inkscape::XML::Node *> remNodes;
 
 		  // merge masked images
 		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNode();
@@ -1407,11 +1406,10 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 		  while(mergeNode) {
 			// find text nodes and save it
 			moveTextNode(mergeNode);
-			// merge
 
+			// merge
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNode = mergeNode;
-
 
 			if ( ! mergeBuilder->haveTagAttrFormList(mergeNode->next())) {
 				// generate name of new image
@@ -1429,11 +1427,18 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 			}
 
 			visualNode->removeChild(remNode);
-			mergeBuilder->removeRelateDefNodes(remNode);
-	        delete remNode;
+			//mergeBuilder->removeRelateDefNodes(remNode);
+	        //delete remNode;
+			remNodes.push_back(remNode);
 
 			mergeNode = mergeBuilder->findNextAttrNode(mergeNode);
 		  }
+		  // remove old nodes
+		  for(int i = 0; i < remNodes.size(); i++) {
+			  mergeBuilder->removeRelateDefNodes(remNodes[i]);
+			  delete remNodes[i];
+		  }
+
 		  delete mergeBuilder;
 	  }
 
