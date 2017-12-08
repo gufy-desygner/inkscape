@@ -2376,7 +2376,7 @@ void PdfParser::exportFont(GfxFont *font)
 						 fwrite(buff, 1, strlen(buff), fMap);
 						 jsonArrayStarted = true;
 
-						  if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
+						 if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
 					    	 sprintf(buff, ",\n         \"width\" : %u,\n", face->glyph->metrics.width);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
 					    	 sprintf(buff, "         \"hAdvance\" : %u,\n", face->glyph->metrics.horiAdvance);

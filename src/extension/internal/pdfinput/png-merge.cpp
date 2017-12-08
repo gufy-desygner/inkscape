@@ -1122,7 +1122,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 				// if it no TSPAN = something is wrong - go to next text node
                 // need check style too
 				if (strcmp(currentTspan->name(), "svg:tspan") == 0) {
-					// we must adjust position of tspan
+					// we must adjust position data of tspan for new text transform
 					double adjX;
 					if (! sp_repr_get_double(currentTspan, "x", &adjX)) adjX = 0;
 					double adjY;
@@ -1134,6 +1134,24 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 					adjPoint *= currentAffine;
 					adjPoint *= mainAffine.inverse();
 					endPoint = (endPoint * currentAffine) * mainAffine.inverse();
+
+					// adjast data-x attribute
+					Glib::ustring strDataX;
+					std::vector<SVGLength> data_x = sp_svg_length_list_read(currentTspan->attribute("data-x"));
+					strDataX.clear();
+					for(int i = 0; i < data_x.size(); i++) {
+						if (data_x[i]._set) {
+							Geom::Point adjDataX = Geom::Point(data_x[i].value, adjY);
+							adjDataX = (adjDataX * currentAffine) * mainAffine.inverse();
+							Inkscape::CSSOStringStream os_x;
+							os_x << adjDataX.x();
+							strDataX.append(os_x.str());
+							strDataX.append(" ");
+						}
+					}
+					currentTspan->setAttribute("data-x", strDataX.c_str());
+
+					// save adjasted data
 					sp_repr_set_svg_double(currentTspan, "sodipodi:end_x", endPoint.x());
 					sp_repr_set_svg_double(currentTspan, "x", adjPoint.x());
 					sp_repr_set_svg_double(currentTspan, "y", adjPoint.y());

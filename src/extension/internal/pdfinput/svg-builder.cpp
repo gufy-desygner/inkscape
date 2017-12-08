@@ -1371,11 +1371,6 @@ void SvgBuilder::_flushText() {
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
                 tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
-                //Inkscape::CSSOStringStream space_size;
-                //gchar const *fntStrSize = sp_repr_css_property((*prev_iterator).style, "font-size", "0.0001");
-                // space about 1/3 of font size
-                // space_size << (g_ascii_strtod(fntStrSize, NULL) * _font_scaling)/3;
-                //tspan_node->setAttribute("sodipodi:space_size", space_size.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();
