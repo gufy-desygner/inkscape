@@ -2329,7 +2329,7 @@ void PdfParser::exportFont(GfxFont *font)
 
 			  CharCodeToUnicode *ctu;
 			  // Generate MAP file
-			  if (font->isCIDFont() || true) {
+			 //if (font->isCIDFont() || true) {
 				  ctu = font->getToUnicode();
 				  int mapLen = ctu->getLength();
 				  Unicode *u;
@@ -2398,7 +2398,7 @@ void PdfParser::exportFont(GfxFont *font)
 				  fwrite(buff, 1, strlen(buff), fMap);
 				  fclose(fMap);
 				  free(buf);
-			  }
+			  //}
 
 			  gchar *fontForgeCmd;
 			  if (font->isCIDFont()) {
@@ -2460,6 +2460,22 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   font->incRefCnt();
   state->setFont(font, args[1].getNum());
 
+  CharCodeToUnicode *ctu = font->getToUnicode();
+  builder->spaceWidth = 0;
+  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
+	  Unicode *u;
+	  ctu->mapToUnicode(i, &u);
+	  if (*u == 32) {
+		  if (font->isCIDFont()) {
+			  builder->spaceWidth = ((GfxCIDFont *)font)->getWidth((char *)&i, 1) * state->getFontSize();
+		  } else {
+			  builder->spaceWidth = ((Gfx8BitFont *)font)->getWidth(i) *  state->getFontSize();
+		  }
+
+	  }
+  }
+
+
   if (sp_export_fonts_sh)
   {
 	  // Save font file
@@ -2475,15 +2491,10 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  if (! alreadyDone) {
 		  //exportFont(font);
 		  // put font to passed list
-		  //GfxFontLoc *locate = font->locateFont(xref, NULL);
 		  if (font->getID() && font->getID()->num >= 0) {
-		  //if (locate && locate->locType == gfxFontLocEmbedded) {
 			  g_ptr_array_add(savedFontsList, font);
 			  exportFont(font);
 		  }
-
-
-		  //free(locate);
 	  }
   }
 
@@ -2846,6 +2857,7 @@ void PdfParser::doShowText(GooString *s) {
       originX *= state->getFontSize();
       originY *= state->getFontSize();
       state->textTransformDelta(originX, originY, &tOriginX, &tOriginY);
+
       builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
                        dx, dy, tOriginX, tOriginY, code, n, u, uLen);
       state->shift(tdx, tdy);

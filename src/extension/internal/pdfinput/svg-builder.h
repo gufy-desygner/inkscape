@@ -76,6 +76,7 @@ struct SvgGlyph {
     Geom::Point text_position; // Absolute glyph coords in text space
     double dx;  // X advance value
     double dy;  // Y advance value
+    double spaceWidth;
     double rise;    // Text rise parameter
     Glib::ustring code;   // UTF-8 coded character
     bool is_space;
@@ -88,6 +89,7 @@ struct SvgGlyph {
     double fontSize;
     uint gidCode; // code of glyph in font stream
     double charSpace; // used for dx calculate in _flushText (gap of text)
+    double wordSpace;
 };
 
 /**
@@ -183,6 +185,7 @@ public:
     gint getCountOfPath(void) { return _countOfPath;};
     SPDocument *getSpDocument(void){ return _doc;};
     double glipEndX, glipEndY;
+    double spaceWidth;
 private:
     void _init();
 

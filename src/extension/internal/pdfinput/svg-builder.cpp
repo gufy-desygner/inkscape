@@ -1372,6 +1372,7 @@ void SvgBuilder::_flushText() {
                 os_endX << tspanEndXPos;
                 tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
 
+
                 // Clear temporary buffers
                 x_coords.clear();
                 dx_coords.clear();
@@ -1386,7 +1387,13 @@ void SvgBuilder::_flushText() {
                 break;
             } else {
                 tspan_node = _xml_doc->createElement("svg:tspan");
-                dxIsDefault = true;
+                Inkscape::CSSOStringStream os_spaceW;
+                Inkscape::CSSOStringStream os_wordSpaceW;
+                os_spaceW << glyph.spaceWidth * _font_scaling;
+                os_wordSpaceW << glyph.wordSpace * _font_scaling;
+                tspan_node->setAttribute("sodipodi:spaceWidth", os_spaceW.str().c_str());
+                tspan_node->setAttribute("sodipodi:wordSpace", os_spaceW.str().c_str());
+                dxIsDefault = true; // default dx will empty when all gaps is 0
                 ///////
                 // Create a font specification string and save the attribute in the style
                 PangoFontDescription *descr = pango_font_description_from_string(glyph.font_specification);
@@ -1428,6 +1435,9 @@ void SvgBuilder::_flushText() {
         os_x << delta_pos[0];
         if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
         	float calc_dx = (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
+        	if (prev_glyph.is_space) {
+        		calc_dx = calc_dx + prev_glyph.wordSpace * _font_scaling;
+        	}
             if (! glyph.font->getWMode()) {
             	calc_dx += glyph.charSpace * _font_scaling;
             }
@@ -1518,6 +1528,8 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     new_glyph.font = state->getFont();
     new_glyph.fontSize = state->getFontSize();
     new_glyph.charSpace = state->getCharSpace(); // used for dx calculate in _flushText
+    new_glyph.spaceWidth = spaceWidth;
+    new_glyph.wordSpace = state->getWordSpace();
     Geom::Point delta(dx, dy);
     _text_position += delta;
 

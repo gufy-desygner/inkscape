@@ -693,11 +693,18 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	double firstEndX;
 	double secondX;
 	double spaceSize;
+	double wordSpace; // additional distantion betweene words
 
 	// calculate space size
 	SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
 	gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
-	spaceSize = g_ascii_strtod(fntStrSize, NULL) / 3;
+	if (! sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize)) {
+		spaceSize = g_ascii_strtod(fntStrSize, NULL) / 3;
+	} else {
+		spaceSize *= g_ascii_strtod(fntStrSize, NULL);
+	}
+
+	if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
 	delete style;
 
 
@@ -711,7 +718,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 
 	// if we have some space between space - we can put space to it
 	if (different < spaceSize) {
-		if ((spaceSize - different)/spaceSize < 0.4) {
+		if ((spaceSize - different)/spaceSize < 0.7) {
 			spaceSize = different;
 		}
 	}
@@ -765,10 +772,10 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	gchar *mergeDataX;
 	if (addSpace[0]) {
 		Inkscape::CSSOStringStream os;
-		os << spaceSize;
-		mergeDataX = g_strdup_printf("%s %s %s", firstDataX, os.str().c_str(), secondDataX);
+		os << firstEndX;
+		mergeDataX = g_strdup_printf("%s  %s %s", firstDataX, os.str().c_str(), secondDataX);
 	} else {
-		mergeDataX = g_strdup_printf("%s %s", firstDataX, secondDataX);
+		mergeDataX = g_strdup_printf("%s  %s", firstDataX, secondDataX);
 	}
 	first->setAttribute("data-x", mergeDataX);
 	free(mergeDataX);
@@ -803,6 +810,7 @@ void mergeTspanList(GPtrArray *tspanArray) {
 	    double secondY;
 	    double firstEndX;
 	    double secondX;
+	    double spaceSize;
 		Inkscape::XML::Node *tspan1 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i);
 		Inkscape::XML::Node *tspan2 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i + 1);
 		sp_repr_get_double(tspan1, "y", &firstY);
@@ -810,13 +818,15 @@ void mergeTspanList(GPtrArray *tspanArray) {
 
 		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
-
+		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
 		// if gap more then 3.5 of text size - mind other column
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
-				firstEndX <= secondX && (secondX - firstEndX < textSize * 3.5)) {
+				firstEndX <= secondX &&
+				(secondX - firstEndX < textSize * 3.5) &&
+				spaceSize > 0) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);
 			g_ptr_array_remove_index(tspanArray, i+1);
@@ -917,158 +927,6 @@ uint mergePredictionCountImages(SvgBuilder *builder) {
   }
   return resultCount;
 }
-
-/*void mergerParseStyle(const char *style, char **names, char values[][100], int count) {
-	const char *begin;
-	const char *end;
-	for(int i = 0; i < count; i++) {
-		begin = strstr(style, names[i]);
-		if (! begin) {
-			values[i][0] = 0;
-			continue;
-		}
-		begin += strlen(names[i]);
-		end = strstr(begin, ";");
-		if (! end) end = begin + strlen(begin);
-		if (end - begin > 100) end = begin + 100;
-		memcpy(values[i], begin, end - begin);
-		values[i][end-begin] = 0;
-	}
-}*/
-
-/*void mergerParseMatrixString(const char *matrix, double *values) {
-	char mat[1024];
-	char *pos;
-	char *tail;
-	strcpy(mat, matrix);
-	//prepareStringForFloat(mat);
-	pos = strstr(mat, "(") + 1;
-	for(int i = 0; i < 6; i++) {
-		values[i] = round(g_ascii_strtod(pos, &tail) * 100)/100;//strtod(pos, &tail);
-		pos = tail + 1;
-	}
-}*/
-
-/**
- * Merge two node if they have content then remove second node
- * return: if merge success return merged node (same: prevNode)
- *         if do not merge return NULL.
- */
-/*Inkscape::XML::Node *generateMergedTextNode(
-	Inkscape::XML::Node *prevTextNode,
-	Inkscape::XML::Node *currTextNode)
-{
-	const char *currContent;
-	const char *prevContent;
-	Inkscape::XML::Node *_tspanPrevNode = prevTextNode->firstChild();
-	Inkscape::XML::Node *_tspanCurrNode = currTextNode->firstChild();
-	Inkscape::XML::Node *contentPrevNode = prevTextNode->firstChild();
-    char *tmpPointer;
-
-
-    SPObject *fff = ((SPDocument *) prevTextNode->document())->getObjectByRepr(prevTextNode);
-
-	// search text inside nodes
-	if (_tspanCurrNode->childCount()) {
-	    currContent = _tspanCurrNode->firstChild()->content();
-	} else {
-		currContent = _tspanCurrNode->content();
-	}
-	if (_tspanPrevNode->childCount()) {
-	    prevContent = _tspanPrevNode->firstChild()->content();
-	    contentPrevNode = _tspanPrevNode->firstChild();
-	} else {
-		prevContent = _tspanPrevNode->content();
-		contentPrevNode = _tspanCurrNode;
-	}
-
-
-	char *styleAttribList[] = {
-			(char*)"font-weight:",
-			(char*)"font-size:",
-			(char*)"font-family:"
-	};
-
-	char styleValuePrev[3][100];
-	char styleValueCurr[3][100];
-
-	// is not text - is not merge
-	if (!(prevContent && currContent)) {
-		return NULL;
-	}
-
-	const char *prevNodeStyle = prevTextNode->attribute("style");
-	const char *currNodeStyle = currTextNode->attribute("style");
-
-	const char *prevNodeMatrix = prevTextNode->attribute("transform");
-    const char *currNodeMatrix = currTextNode->attribute("transform");
-    double prevMatrix[6];
-    double currMatrix[6];
-    double prevEndGlipX;
-
-    mergerParseStyle(prevNodeStyle, styleAttribList, styleValuePrev,  3);
-    mergerParseStyle(currNodeStyle, styleAttribList, styleValueCurr,  3);
-
-    // if font style different we can't merge it
-    if ( !(
-    		strcmp(styleValuePrev[0], styleValueCurr[0]) == 0 &&
-    		strcmp(styleValuePrev[1], styleValueCurr[1]) == 0 &&
-			strcmp(styleValuePrev[2], styleValueCurr[2]) == 0 )
-       ) {
-    	return NULL;
-    }
-
-    mergerParseMatrixString(prevNodeMatrix, prevMatrix);
-    mergerParseMatrixString(currNodeMatrix, currMatrix);
-
-    // different line position
-    if (prevMatrix[5] != currMatrix[5]) {
-    	return NULL;
-    }
-
-    prevEndGlipX = g_ascii_strtod(prevTextNode->attribute("data-endGlipX"), &tmpPointer);
-    double avrWidthOfChar = (prevEndGlipX - prevMatrix[4])/strlen(prevContent);
-    if (abs(currMatrix[4] - prevEndGlipX) < (avrWidthOfChar/20)) {
-    	// do merge
-    	contentPrevNode->setContent(g_strdup_printf("%s%s", prevContent, currContent));
-    	currTextNode->parent()->removeChild(currTextNode);
-    	delete currTextNode;
-
-    	return prevTextNode;
-    } else {
-    	return NULL;
-    }
-}*/
-
-// try find <text> node and start merge
-/*void mergeFindNearestNodes(Inkscape::XML::Node *node) {
-	Inkscape::XML::Node *tmpNode = node->firstChild();
-	Inkscape::XML::Node *sumNode;
-	Inkscape::XML::Node *prevTextNode = NULL;
-	bool textLevel = false;
-	while(tmpNode) {
-		if (strcmp(tmpNode->name(), "svg:text") == 0) {
-			if (prevTextNode) {
-				sumNode = generateMergedTextNode(prevTextNode, tmpNode);
-				if (sumNode) {
-					prevTextNode = sumNode;
-					tmpNode = sumNode;
-				} else {
-					prevTextNode = tmpNode;
-				}
-			} else {
-				prevTextNode = tmpNode;
-			}
-			textLevel = true;
-		} else {
-			prevTextNode = 0;
-			if (! textLevel) {
-				mergeFindNearestNodes(tmpNode);
-			}
-		}
-		tmpNode = tmpNode->next();
-	}
-}*/
 
 
 // TSPAN merger
