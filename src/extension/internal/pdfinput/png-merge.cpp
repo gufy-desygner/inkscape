@@ -701,7 +701,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	if (! sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize)) {
 		spaceSize = g_ascii_strtod(fntStrSize, NULL) / 3;
 	} else {
-		spaceSize *= g_ascii_strtod(fntStrSize, NULL);
+		//spaceSize *= g_ascii_strtod(fntStrSize, NULL);
 	}
 
 	if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
