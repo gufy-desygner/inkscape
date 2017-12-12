@@ -1,5 +1,6 @@
 #include "shared_opt.h"
 gboolean sp_embed_images_sh = TRUE;
+gboolean sp_log_font_sh = FALSE;
 gboolean sp_export_fonts_sh = FALSE;
 gboolean sp_cid_to_ttf_sh = FALSE;
 char* sp_export_svg_path_sh;

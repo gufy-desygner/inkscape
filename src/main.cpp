@@ -175,6 +175,7 @@ enum {
 	SP_ARG_MERGE_LIMIT_PATH,
 	SP_ARG_RECT_HOW_PATH,
 	SP_ARG_THUMB_WIDTH,
+	SP_ARG_LOG_FONT,
 	SP_ARG_EXPORT_FONTS,
 	SP_ARG_ORIGINAL_FONTS,
 	SP_ARG_FONTS_DIR,
@@ -255,6 +256,7 @@ static gint sp_merge_limit = 0;
 static gint sp_merge_limit_path = 0;
 static gint sp_rect_how_path = 0;
 static gint sp_thumb_width = 0;
+static gboolean sp_log_font = FALSE;
 static gboolean sp_export_fonts = FALSE;
 static gboolean sp_cid_to_ttf = FALSE;
 static gchar *sp_fonts_dir = NULL;
@@ -524,6 +526,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_thumb_width, SP_ARG_THUMB_WIDTH,
 	 N_("Generate thumb with specified width and save proportion of document."),
 	 N_("GENERATE_THUMB_WIDTH")},
+
+	{"fontLog", 0,
+	 POPT_ARG_NONE, &sp_log_font, SP_ARG_LOG_FONT,
+	 N_("put log of font convertor to SVG"),
+	 NULL},
 
 	{"exportFonts", 0,
 	 POPT_ARG_NONE, &sp_export_fonts, SP_ARG_EXPORT_FONTS,
@@ -2439,6 +2446,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_FONT_POSTFIX: {
                 sp_font_postfix_sh = g_strdup_printf("%s", sp_font_postfix);
                 break;
+            }
+            case SP_ARG_LOG_FONT: {
+            	sp_log_font_sh = TRUE;
+            	break;
             }
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;

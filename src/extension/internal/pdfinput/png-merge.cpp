@@ -1422,3 +1422,23 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level) {
 	return resNode;
 }
 
+char *readLineFromFile(FILE *fl) {
+	char buff[512];
+	int n = 0;
+	int c;
+	c = fgetc(fl);
+	while(c == '\n' || c == '\r') {
+		c = fgetc(fl);
+	}
+	while(c != EOF && c != '\n' && c != '\r') {
+		buff[n++] = (char)c;
+		buff[n] = 0;
+		c = fgetc(fl);
+	}
+	if (n == 0) {
+		return 0;
+	}
+	char *res = strdup(buff);
+	return res;
+}
+

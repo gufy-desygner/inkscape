@@ -2418,7 +2418,29 @@ void PdfParser::exportFont(GfxFont *font)
 								fontName2->getCString()); //family
 
 			  }
-			  system(fontForgeCmd);
+
+			  char *inBuff;
+			  FILE *f = popen(fontForgeCmd,"r");
+			  static int errcount = 0;
+			  if (sp_log_font_sh) {
+				  while ((inBuff = readLineFromFile(f)) > 0) {
+					  // if it formated message
+					  if (strncmp(inBuff, "FFE-", 4) == 0) {
+						  char *errcode = strndup(inBuff, 7);
+						  char *attrName = g_strdup_printf("data-E%i%s", errcount, errcode);
+						  builder->getRoot()->setAttribute(attrName, inBuff);
+						  free(attrName);
+
+						  attrName = g_strdup_printf("data-E%i%sex", errcount++, errcode);
+						  builder->getRoot()->setAttribute(attrName, fontName2->getCString());
+						  free(attrName);
+						  free(errcode);
+					  }
+					  if (inBuff) free(inBuff);
+				  }
+			  }
+			  //system(fontForgeCmd);
+
 
 			  delete(fontName2);
 			  g_free(fontForgeCmd);
