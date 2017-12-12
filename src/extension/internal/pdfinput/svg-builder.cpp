@@ -1371,7 +1371,7 @@ void SvgBuilder::_flushText() {
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
                 tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
-
+                //tspan_node->setAttribute("data-end_x", os_endX.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();
@@ -1435,9 +1435,9 @@ void SvgBuilder::_flushText() {
         os_x << delta_pos[0];
         if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
         	float calc_dx = (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
-        	if (prev_glyph.is_space) {
-        		calc_dx = calc_dx + prev_glyph.wordSpace * _font_scaling;
-        	}
+        	//if (prev_glyph.is_space) {
+        	//	calc_dx = calc_dx + prev_glyph.wordSpace * _font_scaling;
+        	//}
             if (! glyph.font->getWMode()) {
             	calc_dx += glyph.charSpace * _font_scaling;
             }
@@ -1447,7 +1447,11 @@ void SvgBuilder::_flushText() {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
         }
         lastDeltaX = delta_pos[0];
-        tspanEndXPos = delta_pos[0] + glyph.dx * _font_scaling;
+        double originalDx = glyph.dx - prev_glyph.wordSpace;
+        if (! glyph.font->getWMode()) {
+        	originalDx -= glyph.charSpace;
+        }
+        tspanEndXPos = delta_pos[0] + originalDx * _font_scaling;
         if (glipCount == 0)
           first_glyphX = delta_pos[0];
         glipCount++;
