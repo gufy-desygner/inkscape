@@ -31,8 +31,7 @@ def findGlyph(font, inGid) :
                else:
                    gId = int(re.match(r"[^\d]*(\d+)$", gl.glyphname).group(1))
                    if gl.glyphname != "" and gId == inGid :
-                       glname = gl.glyphname
-                       
+                       glname = gl.glyphname                       
             else:
                gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", gl.glyphname).group(1), 16)
                if gl.glyphname != "" and gId == inGid :
@@ -59,6 +58,7 @@ def main(font_file):
     # load and parse matched MAP file
     mapJSON = loadJson("%s.map" % font_file)
     chars = []
+    filled = []
     for obj in mapJSON["uniMap"]:
         for (cid, params) in obj.items():
             chars.append({"gid" : cid,
@@ -73,13 +73,14 @@ def main(font_file):
     # load font from file
     font = fontforge.open(font_file) #current font 
 
-    #for gl in font.glyphs():
-    #    if gl.unicode > 0 :
-    #        print "%i %i %s \n" % (gl.originalgid, gl.unicode, gl.glyphname)
-    #        gl.export("__%s.svg" % gl.unicode)
-
     for cell in chars :
         ex = 1
+        exist = 0;
+        for ob in filled :
+            if ob == cell['uni'] :
+                exist = 1;
+                break
+            
         try:
             try:
                 gg = font[int(cell['gid'])]
@@ -93,17 +94,22 @@ def main(font_file):
                     font2.createChar(cell['uni'])
                     continue
                 gg = font[name]  
-            #print "%i %i %s %i" % (gg.originalgid, gg.unicode, gg.glyphname, cell['uni'])             
+            #print "%i %i %s %i" % (gg.originalgid, gg.unicode, gg.glyphname, cell['uni'])  
+
             gg.unicode = cell['uni']
             gg.glyphname = "glyph%s" % cell['uni']
             font.selection.select(gg)
             font.copy()
             font.selection.none()
+            if exist  and (not isEmptyGlyph(gg)) :
+                # FontForge error
+                print "FFE-001: duble of code %s replaced" % cell['uni']
+            if exist  and isEmptyGlyph(gg) :
+                print "FFE-002: emty duble for code %s skiped" % cell['uni']
+                continue
             gg2 = font2.createChar(cell['uni'])
-            #if isEmptyGlyph(gg) and (not isEmptyGlyph(gg2)):
-            #    print "skiped"
-            #    ex = 0
-            #    continue
+            if not isEmptyGlyph(gg) :
+                filled.append(cell['uni'])
             font2.selection.select(gg2)
             font2.paste();         
             font2.selection.none() 
