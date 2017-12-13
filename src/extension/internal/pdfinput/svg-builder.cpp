@@ -1326,9 +1326,9 @@ void SvgBuilder::_flushText() {
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
-                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
+                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) /*||
             		// negative dx attribute can't be showing in mozilla
-            		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())) {
+            		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
             	new_tspan = true;
             }
         }
