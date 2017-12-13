@@ -824,7 +824,8 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		// round Y to 20% of font size and compare
 		// if gap more then 3.5 of text size - mind other column
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
-			fabs(firstEndX - secondX)/textSize < 0.2 &&
+			// litle negative gap
+				((firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
 				(secondX - firstEndX < textSize * 3.5) &&
 				spaceSize > 0) {
 			mergeTwoTspan(tspan1, tspan2);
