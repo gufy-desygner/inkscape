@@ -736,7 +736,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 		//fill dx if empty
 		if ((! firstDx) || strlen(firstDx) == 0) {
 			if (firstDx) free(firstDx);
-			firstDx = (gchar*)malloc(strlen(firstContent) * 2 + 1);
+			firstDx = (gchar*)malloc(strlen(firstContent) * 2 + 2);
 			firstDx[0] = 0;
 			for(int i = 0; i < (strlen(firstContent) * 2); i = i + 2) {
 				firstDx[i] = '0';
@@ -746,7 +746,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 		}
 		if ((! secondDx) || strlen(secondDx) == 0) {
 			if (secondDx) free(secondDx);
-			secondDx = (gchar*)malloc(strlen(secondContent) * 2);
+			secondDx = (gchar*)malloc(strlen(secondContent) * 2 + 2);
 			secondDx[0] = 0;
 			for(int i = 0; i < (strlen(secondContent) * 2); i = i + 2) {
 				secondDx[i] = '0';
