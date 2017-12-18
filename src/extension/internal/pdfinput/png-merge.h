@@ -31,6 +31,8 @@ namespace Internal {
 
 void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
+void enumerationTagsStart(SvgBuilder *builder);
+void enumerationTags(Inkscape::XML::Node *inNode);
 uint mergePredictionCountImages(SvgBuilder *builder);
 void mergeImagePathToLayerSave(SvgBuilder *builder);
 void mergeTspan (SvgBuilder *builder);

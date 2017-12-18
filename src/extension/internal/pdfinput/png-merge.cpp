@@ -1321,6 +1321,27 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 
 }
 
+void enumerationTagsStart(SvgBuilder *builder){
+	Inkscape::XML::Node *visualNode = ((SPObject*) builder->getSpDocument()->getDefs())->getRepr();
+	while(visualNode && strcmp(visualNode->name(), "svg:g") !=0 ) {
+		visualNode = visualNode->next();
+	}
+	enumerationTags(visualNode);
+}
+
+void enumerationTags(Inkscape::XML::Node *inNode) {
+	Inkscape::XML::Node *tmpNode = inNode;
+	int num = 0;
+	while(tmpNode) {
+		sp_repr_set_int(tmpNode, "data-layer", num);
+		if (tmpNode->childCount()) {
+			enumerationTags(tmpNode->firstChild());
+		}
+		num++;
+		tmpNode = tmpNode->next();
+	}
+}
+
 } } } /* namespace Inkscape, Extension, Internal */
 
 void print_prefix(uint level) {

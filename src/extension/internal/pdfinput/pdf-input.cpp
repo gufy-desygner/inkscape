@@ -876,6 +876,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             }
             mergeNearestTextToOnetag(builder);
             mergeTspan(builder);
+            enumerationTagsStart(builder);
 
 
             // export fonts savedFontsList
