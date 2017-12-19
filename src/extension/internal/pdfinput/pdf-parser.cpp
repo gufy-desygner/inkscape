@@ -2422,8 +2422,9 @@ void PdfParser::exportFont(GfxFont *font)
 			  char *inBuff;
 			  FILE *f = popen(fontForgeCmd,"r");
 			  static int errcount = 0;
-			  if (sp_log_font_sh) {
-				  while ((inBuff = readLineFromFile(f)) > 0) {
+
+			  while ((inBuff = readLineFromFile(f)) > 0) {
+				  if (sp_log_font_sh) {
 					  // if it formated message
 					  if (strncmp(inBuff, "FFE-", 4) == 0) {
 						  char *errcode = strndup(inBuff, 7);
