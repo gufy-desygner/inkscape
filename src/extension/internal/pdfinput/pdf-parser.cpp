@@ -2821,7 +2821,8 @@ void PdfParser::doShowText(GooString *s) {
 			    &dx, &dy, &originX, &originY);
       // is not printable symbol
       // maybe no the best solution write it directly to map table
-      if (*u < 0x20) *u = (Unicode)0x20;
+      if (u && *u < 0x20)
+    	  *u = (Unicode)0x20;
       if (printCommands) {
     		  printf("%04x ", *u);
       }
@@ -2843,7 +2844,7 @@ void PdfParser::doShowText(GooString *s) {
     	  *u = p[0];
       }
       //try remove span with ZERO WITCH SPACE only
-      if (*u == 8203) {
+      if (u  && *u == 8203) {
     	  int _len = s->getLength();
     	  char *_p = s->getCString();
     	  bool onlySpase = true;
