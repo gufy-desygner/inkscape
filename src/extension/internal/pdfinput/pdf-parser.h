@@ -159,6 +159,7 @@ public:
 
   GPtrArray *cidFontList;
   GPtrArray *savedFontsList;
+  GPtrArray *exportFontThreads;
 
 private:
 
@@ -334,6 +335,13 @@ private:
   void pushResources(Dict *resDict);
   void popResources();
 };
+
+struct RecExportFont {
+	GfxFont *font;
+	PdfParser *parser;
+};
+
+void* exportFontStatic(void *args);
 
 #endif /* HAVE_POPPLER */
 

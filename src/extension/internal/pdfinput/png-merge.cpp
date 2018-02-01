@@ -1102,6 +1102,76 @@ void mergeNearestTextToOnetag(SvgBuilder *builder) {
 	delete mergeBuilder;
 }
 
+Inkscape::XML::Node *MergeBuilder::compressGNode(Inkscape::XML::Node *gNode){
+
+	return 0;
+}
+
+void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
+	Inkscape::XML::Node *tmpNode = mainNode->firstChild();
+	Inkscape::XML::Node *posNode;
+	while(tmpNode) {
+		bool fl = false;
+		posNode = tmpNode;
+		if (strcmp(tmpNode->name(), "svg:g") == 0) {
+			fl = true;
+			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
+			while( attrList ) {
+				// if one from compare is right (== 0) if = false
+				if (strncmp(g_quark_to_string(attrList->key), "sodipodi:", 8) &&
+				    strcmp(g_quark_to_string(attrList->key), "data-layer") &&
+					strcmp(g_quark_to_string(attrList->key), "transform") &&
+					strcmp(g_quark_to_string(attrList->key), "id")
+				) {
+					fl = false;
+					break;
+				}
+			    attrList++;
+			}
+			if (fl) {
+				//SPItem *spGTag = (SPItem *)builder->getSpDocument()->getObjectById(tmpNode->attribute("id"));
+				Geom::Affine mainAffine; //= spGTag->transform;
+				sp_svg_transform_read(tmpNode->attribute("transform"), &mainAffine);
+				if (tmpNode->childCount()) {
+					Inkscape::XML::Node *tmpChild = tmpNode->firstChild();
+					while(tmpChild) {
+						//SPItem *spChild = (SPItem *)builder->getSpDocument()->getObjectByRepr(tmpChild);
+						Geom::Affine childAffine;// = spChild->transform;
+						sp_svg_transform_read(tmpChild->attribute("transform"), &childAffine);
+						char *buf = sp_svg_transform_write(childAffine * mainAffine);
+						tmpChild->setAttribute("transform", buf);
+						free(buf);
+						// move it to the main text node
+						posNode->parent()->addChild(tmpChild->duplicate(tmpChild->document()) ,posNode);
+						posNode = posNode->next();
+
+						tmpChild = tmpChild->next();
+					}
+				}
+				Inkscape::XML::Node *remNode = tmpNode;
+				tmpNode = tmpNode->next();
+				remNode->parent()->removeChild(remNode);
+			}
+		}
+		if (tmpNode && tmpNode->childCount()) {
+			scanGtagForCompress(tmpNode, builder);
+		}
+		if ((!fl) && tmpNode)
+			tmpNode = tmpNode->next();
+	}
+}
+
+void compressGtag(SvgBuilder *builder){
+	// init variables
+	Inkscape::XML::Node *root = builder->getRoot();
+	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+			new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
+
+	scanGtagForCompress(mergeBuilder->getSourceSubVisual(), builder);
+
+	delete mergeBuilder;
+}
+
 
 // do merge tags without text bitweene
 void mergeImagePathToLayerSave(SvgBuilder *builder) {
@@ -1342,6 +1412,15 @@ void enumerationTags(Inkscape::XML::Node *inNode) {
 	}
 }
 
+
+double GetTickCount(void)
+{
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now))
+    return 0;
+  return now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
+}
+
 } } } /* namespace Inkscape, Extension, Internal */
 
 void print_prefix(uint level) {
@@ -1463,4 +1542,5 @@ char *readLineFromFile(FILE *fl) {
 	char *res = strdup(buff);
 	return res;
 }
+
 

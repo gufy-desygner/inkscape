@@ -37,7 +37,11 @@ uint mergePredictionCountImages(SvgBuilder *builder);
 void mergeImagePathToLayerSave(SvgBuilder *builder);
 void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
+void compressGtag(SvgBuilder *builder);
 
+#define logTime
+//#define logTime(message)  printf("%.9f : %s\n", Inkscape::Extension::Internal::GetTickCount(), message);
+double GetTickCount(void);
 
 class MergeBuilder {
 public:
@@ -70,6 +74,7 @@ public:
 	Inkscape::XML::Node *getSourceSubVisual() { return _sourceSubVisual; };
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
 	Inkscape::XML::Node *mergeTspan(Inkscape::XML::Node *textNode);
+	Inkscape::XML::Node *compressGNode(Inkscape::XML::Node *gNode);
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
 	~MergeBuilder(void);

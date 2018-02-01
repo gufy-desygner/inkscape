@@ -49,6 +49,7 @@
 #include "Page.h"
 #include "UnicodeMap.h"
 #include "GlobalParams.h"
+#include "png-merge.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -1234,7 +1235,9 @@ void SvgBuilder::updateTextPosition(double tx, double ty) {
  * \brief Flushes the buffered characters
  */
 void SvgBuilder::updateTextMatrix(GfxState *state) {
+	logTime(" start _flush");
     _flushText();
+    logTime(" start _flush");
     // Update text matrix
     double *text_matrix = state->getTextMat();
     double w_scale = sqrt( text_matrix[0] * text_matrix[0] + text_matrix[2] * text_matrix[2] );

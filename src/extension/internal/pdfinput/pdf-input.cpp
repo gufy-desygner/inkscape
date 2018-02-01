@@ -17,6 +17,7 @@
 #endif
 
 #include "pdf-input.h"
+#include <time.h>
 
 #ifdef HAVE_POPPLER
 #include <poppler/goo/GooString.h>
@@ -63,6 +64,7 @@
 #include "png-merge.h"
 
 #include <gdkmm/general.h>
+#include <pthread.h>
 
 namespace Inkscape {
 namespace Extension {
@@ -860,12 +862,16 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         // Parse the document structure
         Object obj;
+        logTime("Start getContent");
         page->getContents(&obj);
         if (!obj.isNull()) {
+        	logTime("Start parse pdf");
             pdf_parser->parse(&obj);
 
             // post processing
+            logTime("Start merge gradients");
             mergeMaskGradientToLayer(builder);
+            logTime("Start merge layer");
             if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
             	(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
             	mergePredictionCountImages(builder) > 15) {
@@ -874,11 +880,16 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             } else {
             	mergeImagePathToLayerSave(builder);
             }
+            compressGtag(builder);
+            logTime("Start merge text");
             mergeNearestTextToOnetag(builder);
+            logTime("Start merge tspan");
             mergeTspan(builder);
+            logTime("End merge tspan");
             enumerationTagsStart(builder);
 
 
+            logTime("Start export fonts");
             // export fonts savedFontsList
             if (sp_export_fonts_sh) {
 				for(int allFontN = 0; allFontN < pdf_parser->savedFontsList->len; allFontN++) {
@@ -888,6 +899,16 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 				}
             }
 
+            //wait threads for FontForge
+            for(int fontThredN = 0; fontThredN < pdf_parser->exportFontThreads->len; fontThredN++) {
+            	void *p;
+            	pthread_t *pId = (pthread_t *) g_ptr_array_index(pdf_parser->exportFontThreads, fontThredN);
+            	pthread_join(*pId, &p);
+            }
+
+            g_ptr_array_free(pdf_parser->exportFontThreads, true);
+
+            logTime("Start CID converter");
             // CID font convertor
             if (sp_cid_to_ttf_sh) {
 				char exeDir[1024];
@@ -908,6 +929,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             }
 
             //===================gnerate thumbs==================================
+            logTime("Generate thumb");
             if (sp_thumb_width_sh) {
           	  Inkscape::XML::Node *root = builder->getRoot();
           	  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
@@ -919,6 +941,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
               free(fName);
             }
+            logTime("End thumb generator");
         }
 
         // Cleanup

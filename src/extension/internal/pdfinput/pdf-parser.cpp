@@ -64,6 +64,7 @@ extern "C" {
 #include "helper/png-write.h"
 #include <curl/curl.h>
 #include <ft2build.h>
+#include <pthread.h>
 #include FT_FREETYPE_H
 
 // the MSVC math.h doesn't define this
@@ -365,6 +366,7 @@ PdfParser::PdfParser(XRef *xrefA,
   pushOperator("startPage");
   cidFontList = g_ptr_array_new();
   savedFontsList = g_ptr_array_new();
+  exportFontThreads = g_ptr_array_new();
 }
 
 PdfParser::PdfParser(XRef *xrefA,
@@ -399,6 +401,7 @@ PdfParser::PdfParser(XRef *xrefA,
   formDepth = 0;
   cidFontList = g_ptr_array_new();
   savedFontsList = g_ptr_array_new();
+  exportFontThreads = g_ptr_array_new();
 }
 
 PdfParser::~PdfParser() {
@@ -482,10 +485,12 @@ void PdfParser::go(GBool /*topLevel*/)
 	printf("\n");
 	fflush(stdout);
       }
-
+//obj.print(stdout);
+//printf("\n");
+//logTime("execOp");
       // Run the operation
       execOp(&obj, args, numArgs);
-
+//logTime("End execOp");
       obj.free();
       for (int i = 0; i < numArgs; ++i)
 	args[i].free();
@@ -2256,6 +2261,13 @@ void PdfParser::opSetCharSpacing(Object args[], int /*numArgs*/)
   state->setCharSpace(args[0].getNum());
 }
 
+void* exportFontStatic(void *args)
+{
+	RecExportFont *argRec = (RecExportFont *)args;
+	argRec->parser->exportFont(argRec->font);
+	return 0;
+}
+
 void PdfParser::exportFont(GfxFont *font)
 {
 	int len;
@@ -2297,7 +2309,7 @@ void PdfParser::exportFont(GfxFont *font)
 		fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
 		free(encodeName);
 	  }
-		num++;
+	  num++;
 	  char *buf = font->readEmbFontFile(xref, &len);
 
 	  if (len > 0) {
@@ -2483,6 +2495,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   font->incRefCnt();
   state->setFont(font, args[1].getNum());
 
+  // calculate comfortable space width
   CharCodeToUnicode *ctu = font->getToUnicode();
   builder->spaceWidth = 0;
   for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
@@ -2516,9 +2529,16 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  // put font to passed list
 		  if (font->getID() && font->getID()->num >= 0) {
 			  g_ptr_array_add(savedFontsList, font);
-			  exportFont(font);
+			  pthread_t *thredID = (pthread_t *)malloc(sizeof(pthread_t));
+			  g_ptr_array_add(exportFontThreads, thredID);
+			  RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
+			  params->parser = this;
+			  params->font = font;
+			  pthread_create(thredID, NULL, exportFontStatic, params);
+			  //exportFont(font);
 		  }
 	  }
+
   }
 
   fontChanged = gTrue;
@@ -2935,7 +2955,7 @@ void PdfParser::opXObject(Object args[], int /*numArgs*/)
 }
 
 void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
-{
+{logTime("Start image export");
     Dict *dict;
     int width, height;
     int bits;
@@ -3297,7 +3317,7 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         maskObj.free();
         smaskObj.free();
     }
-
+    logTime("End image export");
     return;
 
  err2:
