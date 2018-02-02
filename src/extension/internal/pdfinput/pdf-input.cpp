@@ -890,6 +890,14 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
 
             logTime("Start export fonts");
+
+            //wait threads for FontForge
+            for(int fontThredN = 0; fontThredN < pdf_parser->exportFontThreads->len; fontThredN++) {
+            	void *p;
+            	RecExportFont *pId = (RecExportFont *) g_ptr_array_index(pdf_parser->exportFontThreads, fontThredN);
+            	pthread_join(pId->thredID, &p);
+            }
+
             // export fonts savedFontsList
             if (sp_export_fonts_sh) {
 				for(int allFontN = 0; allFontN < pdf_parser->savedFontsList->len; allFontN++) {
@@ -897,13 +905,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					GfxFont *font = (GfxFont *)g_ptr_array_index(pdf_parser->savedFontsList, allFontN);
 					//pdf_parser->exportFont(font);
 				}
-            }
-
-            //wait threads for FontForge
-            for(int fontThredN = 0; fontThredN < pdf_parser->exportFontThreads->len; fontThredN++) {
-            	void *p;
-            	pthread_t *pId = (pthread_t *) g_ptr_array_index(pdf_parser->exportFontThreads, fontThredN);
-            	pthread_join(*pId, &p);
             }
 
             g_ptr_array_free(pdf_parser->exportFontThreads, true);

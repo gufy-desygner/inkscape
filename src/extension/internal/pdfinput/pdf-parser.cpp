@@ -2528,13 +2528,20 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  //exportFont(font);
 		  // put font to passed list
 		  if (font->getID() && font->getID()->num >= 0) {
+			  //If we are doing export for font with same name we want wait.
+			  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
+				  void *p;
+				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
+				  if (strcmp(param->font->getName()->getCString(), font->getName()->getCString()) == 0){
+					  pthread_join(param->thredID, &p);
+			  	  }
+			  }
 			  g_ptr_array_add(savedFontsList, font);
-			  pthread_t *thredID = (pthread_t *)malloc(sizeof(pthread_t));
-			  g_ptr_array_add(exportFontThreads, thredID);
 			  RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
+			  g_ptr_array_add(exportFontThreads, params);
 			  params->parser = this;
 			  params->font = font;
-			  pthread_create(thredID, NULL, exportFontStatic, params);
+			  pthread_create(&params->thredID, NULL, exportFontStatic, params);
 			  //exportFont(font);
 		  }
 	  }

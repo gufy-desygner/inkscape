@@ -339,6 +339,7 @@ private:
 struct RecExportFont {
 	GfxFont *font;
 	PdfParser *parser;
+	pthread_t thredID;
 };
 
 void* exportFontStatic(void *args);

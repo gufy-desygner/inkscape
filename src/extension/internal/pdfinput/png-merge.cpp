@@ -1116,7 +1116,11 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 		if (strcmp(tmpNode->name(), "svg:g") == 0) {
 			fl = true;
 			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
-			while( attrList ) {
+			// Remove only group with <text> tag
+			if (tmpNode->childCount() > 0 && strcmp(tmpNode->firstChild()->name(), "svg:text") != 0) {
+				fl = false;
+			}
+			while( attrList && fl) {
 				// if one from compare is right (== 0) if = false
 				if (strncmp(g_quark_to_string(attrList->key), "sodipodi:", 8) &&
 				    strcmp(g_quark_to_string(attrList->key), "data-layer") &&
@@ -1128,15 +1132,14 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 				}
 			    attrList++;
 			}
+			// Adjust children and remove group
 			if (fl) {
-				//SPItem *spGTag = (SPItem *)builder->getSpDocument()->getObjectById(tmpNode->attribute("id"));
-				Geom::Affine mainAffine; //= spGTag->transform;
+				Geom::Affine mainAffine;
 				sp_svg_transform_read(tmpNode->attribute("transform"), &mainAffine);
 				if (tmpNode->childCount()) {
 					Inkscape::XML::Node *tmpChild = tmpNode->firstChild();
 					while(tmpChild) {
-						//SPItem *spChild = (SPItem *)builder->getSpDocument()->getObjectByRepr(tmpChild);
-						Geom::Affine childAffine;// = spChild->transform;
+						Geom::Affine childAffine;
 						sp_svg_transform_read(tmpChild->attribute("transform"), &childAffine);
 						char *buf = sp_svg_transform_write(childAffine * mainAffine);
 						tmpChild->setAttribute("transform", buf);
@@ -1153,9 +1156,12 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 				remNode->parent()->removeChild(remNode);
 			}
 		}
+		// repeat all for children nodes
 		if (tmpNode && tmpNode->childCount()) {
 			scanGtagForCompress(tmpNode, builder);
 		}
+		// If we don't remove <g> node in this cycle - go to next node.
+		// else we have next node already
 		if ((!fl) && tmpNode)
 			tmpNode = tmpNode->next();
 	}
