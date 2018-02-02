@@ -2532,9 +2532,10 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 			  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
 				  void *p;
 				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
-				  if (strcmp(param->font->getName()->getCString(), font->getName()->getCString()) == 0){
-					  pthread_join(param->thredID, &p);
-			  	  }
+				  if (param->font->getName() && font->getName())
+					  if (strcmp(param->font->getName()->getCString(), font->getName()->getCString()) == 0){
+						  pthread_join(param->thredID, &p);
+					  }
 			  }
 			  g_ptr_array_add(savedFontsList, font);
 			  RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
