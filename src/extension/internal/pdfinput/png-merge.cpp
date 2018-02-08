@@ -729,6 +729,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 		addSpace[0] = ' ';
 	}
 
+	// check: need dx attribute or it is empty
 	if (different > 0 || (secondDx && strlen(secondDx) > 0) || (firstDx && strlen(firstDx) > 0)) {
 		// represent different to string
 		Inkscape::CSSOStringStream os_diff;
@@ -761,7 +762,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 			mergedDx = g_strdup_printf("%s %s %s ", firstDx, os_diff.str().c_str(), secondDx);
 		} else {
 			// first value of dx always 0
-			mergedDx = g_strdup_printf("%s%s", firstDx, (secondDx + 1));
+			mergedDx = g_strdup_printf("%s %s%s", firstDx, os_diff.str().c_str(), (secondDx + 1));
 		}
 		first->setAttribute("dx", mergedDx);
 		free(mergedDx);
