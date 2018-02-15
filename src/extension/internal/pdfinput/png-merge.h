@@ -13,6 +13,8 @@
 #include "util/list.h"
 #include "svg-builder.h"
 
+#define PROFILER_ENABLE 0
+
 void print_node(Inkscape::XML::Node *node, uint level);
 
 void print_node_attribs(Inkscape::XML::Node *node, uint level);
@@ -23,7 +25,6 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
-
 
 namespace Inkscape {
 namespace Extension {
@@ -39,8 +40,33 @@ void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
 
+#if PROFILER_ENABLE == 1
+#define TIMER_NUMBER 50
+
+extern double profiler_timer[];
+extern double profiler_timer_up[];
+
+// print current tickcount value with message
+#define logTime(message)  printf("%.9f : %s\n", Inkscape::Extension::Internal::GetTickCount(), message);
+// save value of current tickcount
+#define upTimer(num) Inkscape::Extension::Internal::profiler_timer_up[num] = Inkscape::Extension::Internal::GetTickCount()
+// add different for saved value and carrent tickcount to timer counter
+#define incTimer(num) profiler_timer[num] += Inkscape::Extension::Internal::GetTickCount() - \
+		Inkscape::Extension::Internal::profiler_timer_up[num]; \
+		Inkscape::Extension::Internal::profiler_timer_up[num] = Inkscape::Extension::Internal::GetTickCount()
+// erase timercounter for this timer
+#define initTimer(num) Inkscape::Extension::Internal::profiler_timer[num] = 0; \
+		Inkscape::Extension::Internal::profiler_timer_up[num] = Inkscape::Extension::Internal::GetTickCount()
+// print timer counter with message
+#define prnTimer(num, message) printf("%.9f : %s\n", Inkscape::Extension::Internal::profiler_timer[num], message);
+#else
 #define logTime
-//#define logTime(message)  printf("%.9f : %s\n", Inkscape::Extension::Internal::GetTickCount(), message);
+#define upTimer
+#define incTimer
+#define initTimer
+#define prnTimer
+#endif
+
 double GetTickCount(void);
 
 class MergeBuilder {

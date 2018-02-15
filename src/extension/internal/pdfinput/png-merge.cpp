@@ -1419,6 +1419,10 @@ void enumerationTags(Inkscape::XML::Node *inNode) {
 	}
 }
 
+#if PROFILER_ENABLE == 1
+double profiler_timer[TIMER_NUMBER];
+double profiler_timer_up[TIMER_NUMBER];
+#endif
 
 double GetTickCount(void)
 {

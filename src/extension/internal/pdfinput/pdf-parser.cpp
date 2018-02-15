@@ -2274,7 +2274,7 @@ void PdfParser::exportFont(GfxFont *font)
 	char *fname;
 	static int num = 0;
 	CURL *curl = curl_easy_init();
-	GooString *fontName = font->getFamily();
+	//GooString *fontName = font->getFamily();
 	char *fontExt;
 	  if (font->isCIDFont()) {
 		  fontExt = g_strdup_printf("%s", "cff");
@@ -2323,7 +2323,20 @@ void PdfParser::exportFont(GfxFont *font)
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  GooString *fontName2= new GooString(font->getName());
+			  static int noname_num = 0;
+			  GooString *fontName2;
+			  int tmpLen;
+			  try {
+			  	  tmpLen = font->getName()->getLength();
+			  } catch(...) {
+				  tmpLen = 0;
+			  }
+
+			  if (tmpLen < 1) {
+				  fontName2 = new GooString(g_strdup_printf("%s%i", "noname_font", noname_num));
+				  noname_num++;
+			  } else
+     			  fontName2 = new GooString(font->getName());
 		      if (sp_font_postfix_sh) {
 				fontName2->append("-");
 				fontName2->append(sp_font_postfix_sh);
@@ -2512,7 +2525,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   }
 
 
-  if (sp_export_fonts_sh)
+  if (sp_export_fonts_sh  && font->getName() && font->getName()->getLength() > 0)
   {
 	  // Save font file
 	  // if we have saved this file. We do not do it again
@@ -2528,12 +2541,12 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 		  //exportFont(font);
 		  // put font to passed list
 		  if (font->getID() && font->getID()->num >= 0) {
-			  //If we are doing export for font with same name we want wait.
+			  //If we are doing export for font with same name we must wait.
 			  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
 				  void *p;
 				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
-				  if (param->font->getName() && font->getName())
-					  if (strcmp(param->font->getName()->getCString(), font->getName()->getCString()) == 0){
+				  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0)
+					  if (strcmp(param->fontName, font->getName()->getCString()) == 0){
 						  pthread_join(param->thredID, &p);
 					  }
 			  }
@@ -2542,6 +2555,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 			  g_ptr_array_add(exportFontThreads, params);
 			  params->parser = this;
 			  params->font = font;
+			  params->fontName = g_strdup(font->getName()->getCString());
 			  pthread_create(&params->thredID, NULL, exportFontStatic, params);
 			  //exportFont(font);
 		  }

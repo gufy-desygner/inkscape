@@ -340,6 +340,7 @@ struct RecExportFont {
 	GfxFont *font;
 	PdfParser *parser;
 	pthread_t thredID;
+	char *fontName;
 };
 
 void* exportFontStatic(void *args);
