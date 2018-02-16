@@ -698,7 +698,8 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	// calculate space size
 	SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
 	gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
-	if (! sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize)) {
+	sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize);
+	if ( spaceSize <= 0 ) {
 		spaceSize = g_ascii_strtod(fntStrSize, NULL) / 3;
 	} else {
 		//spaceSize *= g_ascii_strtod(fntStrSize, NULL);
@@ -730,7 +731,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	}
 
 	// check: need dx attribute or it is empty
-	if (different > 0 || (secondDx && strlen(secondDx) > 0) || (firstDx && strlen(firstDx) > 0)) {
+	if (fabs(different) > 0 || (secondDx && strlen(secondDx) > 0) || (firstDx && strlen(firstDx) > 0)) {
 		// represent different to string
 		Inkscape::CSSOStringStream os_diff;
 		os_diff << different;
@@ -761,7 +762,6 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 		if (addSpace[0]) {
 			mergedDx = g_strdup_printf("%s %s %s ", firstDx, os_diff.str().c_str(), secondDx);
 		} else {
-			// first value of dx always 0
 			mergedDx = g_strdup_printf("%s %s%s", firstDx, os_diff.str().c_str(), (secondDx + 1));
 		}
 		first->setAttribute("dx", mergedDx);
@@ -769,7 +769,13 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	}
 
 	gchar const *firstDataX = first->attribute("data-x");
+	if (! firstDataX || strlen(firstDataX) == 0) {
+		firstDataX = first->attribute("x");
+	}
 	gchar const *secondDataX = second->attribute("data-x");
+	if (! secondDataX || strlen(secondDataX) == 0) {
+		secondDataX = second->attribute("x");
+	}
 	gchar *mergeDataX;
 	if (addSpace[0]) {
 		Inkscape::CSSOStringStream os;
@@ -826,9 +832,9 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		// if gap more then 3.5 of text size - mind other column
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
 			// litle negative gap
-				((firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < textSize * 3.5) &&
-				spaceSize > 0) {
+				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
+				(secondX - firstEndX < textSize * 3.5)/* &&
+				spaceSize > 0*/) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);
 			g_ptr_array_remove_index(tspanArray, i+1);
