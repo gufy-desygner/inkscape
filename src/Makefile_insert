@@ -65,7 +65,7 @@ ink_common_sources +=	\
 	knot-ptr.h knot-ptr.cpp						\
 	layer-fns.cpp layer-fns.h					\
 	layer-manager.cpp layer-manager.h				\
-  layer-model.cpp layer-model.h         \
+	layer-model.cpp layer-model.h         \
 	line-geometry.cpp line-geometry.h				\
 	line-snapper.cpp line-snapper.h					\
 	macros.h							\
@@ -103,6 +103,7 @@ ink_common_sources +=	\
 	selection-describer.cpp selection-describer.h			\
 	seltrans.cpp seltrans.h						\
 	seltrans-handles.cpp seltrans-handles.h				\
+	shared_opt.cpp shared_opt.h					\
 	shortcuts.cpp shortcuts.h					\
 	snap.cpp snap.h							\
 	snap-enums.h snap-candidate.h					\

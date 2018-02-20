@@ -99,7 +99,7 @@ if test "$GCC" = "yes"; then
   # Test for -Werror=... (introduced some time post-4.0)
   AC_MSG_CHECKING([compiler support for -Werror=...])
   ink_svd_CPPFLAGS="$CPPFLAGS"
-  CPPFLAGS="-Werror=format-security -Wswitch -Werror=return-type $CPPFLAGS"
+  CPPFLAGS=" $CPPFLAGS"
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])], [ink_opt_ok=yes], [ink_opt_ok=no])
   AC_MSG_RESULT([$ink_opt_ok])
   if test "x$ink_opt_ok" != "xyes"; then
@@ -208,6 +208,7 @@ if test "x$ac_cv_prog_cxx_openmp" != "xunsupported"; then
 	AC_DEFINE(HAVE_OPENMP, 1, [Use OpenMP])
 fi
 
+LIBS="-lcurl $LIBS"
 dnl ********************
 dnl Check for libpotrace
 dnl ********************
