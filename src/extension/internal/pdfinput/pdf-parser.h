@@ -117,6 +117,15 @@ struct OpHistoryEntry {
 #define pdfPatchMeshShading 5
 #define pdfNumShadingTypes 5
 
+struct RecExportFont {
+	GfxFont *font;
+	PdfParser *parser;
+	pthread_t thredID;
+	char *fontName;
+	bool isCIDFont;
+};
+
+void* exportFontStatic(void *args);
 
 
 /**
@@ -145,7 +154,7 @@ public:
   void restoreState();
 
   // save stream of font to the file
-  void exportFont(GfxFont *font);
+  void exportFont(GfxFont *font, RecExportFont *args = 0);
 
   // Get the current graphics state object.
   GfxState *getState() { return state; }
@@ -335,15 +344,6 @@ private:
   void pushResources(Dict *resDict);
   void popResources();
 };
-
-struct RecExportFont {
-	GfxFont *font;
-	PdfParser *parser;
-	pthread_t thredID;
-	char *fontName;
-};
-
-void* exportFontStatic(void *args);
 
 #endif /* HAVE_POPPLER */
 
