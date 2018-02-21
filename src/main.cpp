@@ -35,7 +35,7 @@
 
 #include "path-prefix.h"
 
-#include "shared_opt.cpp"
+#include "shared_opt.h"
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -139,6 +139,7 @@
 #include "sp-text.h"
 #include "sp-flowtext.h"
 #include "text-editing.h"
+#include "extension/internal/pdfinput/png-merge.h"
 
 enum {
     SP_ARG_NONE,
@@ -834,6 +835,7 @@ main(int argc, char **argv)
 # ifdef ENABLE_BINRELOC
     bindtextdomain(GETTEXT_PACKAGE, BR_LOCALEDIR(""));
 # else
+    logTime("main function");
 
     bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
     // needed by Python/Gettext

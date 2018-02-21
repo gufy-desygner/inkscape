@@ -10,7 +10,7 @@
  * Released under GNU GPL, read the file 'COPYING' for more information
  *
  */
-#include "shared_opt.cpp"
+#include "shared_opt.h"
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -865,6 +865,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         logTime("Start getContent");
         page->getContents(&obj);
         if (!obj.isNull()) {
+        	initTimer(1);
+        	initTimer(2);
+        	initTimer(3);
+        	initTimer(4);
+        	initTimer(5);
         	logTime("Start parse pdf");
             pdf_parser->parse(&obj);
 
@@ -943,6 +948,12 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
               free(fName);
             }
             logTime("End thumb generator");
+            incTimer(2);
+            prnTimer(2, "full time");
+            prnTimer(1, "flushText time");
+            prnTimer(3, "flushText time3");
+            prnTimer(4, "flushText time4");
+            prnTimer(5, "flushText time5");
         }
 
         // Cleanup
