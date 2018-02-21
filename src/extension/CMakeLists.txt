@@ -65,7 +65,6 @@ set(extension_SRC
 	internal/pdfinput/pdf-parser.cpp
 	internal/pdfinput/svg-builder.cpp
 	internal/pdfinput/png-merge.cpp
-	shared_opt.cpp
 
 	# ------
 	# Header
@@ -137,7 +136,6 @@ set(extension_SRC
 	internal/pdfinput/pdf-parser.h
 	internal/pdfinput/svg-builder.h
 	internal/pdfinput/png-merge.h
-	shared_opt.h
 	internal/pov-out.h
 	internal/svg.h
 	internal/svgz.h
