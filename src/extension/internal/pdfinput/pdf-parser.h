@@ -123,6 +123,10 @@ struct RecExportFont {
 	pthread_t thredID;
 	char *fontName;
 	bool isCIDFont;
+	//gooString *fontName;
+	char *buf;
+	int len;
+	void *ctu;
 };
 
 void* exportFontStatic(void *args);
@@ -154,6 +158,7 @@ public:
   void restoreState();
 
   // save stream of font to the file
+  void exportFontAsync(GfxFont *font);
   void exportFont(GfxFont *font, RecExportFont *args = 0);
 
   // Get the current graphics state object.

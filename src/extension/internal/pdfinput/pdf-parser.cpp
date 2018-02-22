@@ -2268,21 +2268,52 @@ void* exportFontStatic(void *args)
 	return 0;
 }
 
+void PdfParser::exportFontAsync(GfxFont *font)
+{
+	  // put font to passed list
+	  if (font->getID() && font->getID()->num >= 0) {
+		  //If we are doing export for font with same name we must wait.
+		  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
+			  void *p;
+			  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
+			  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0)
+				  if (strcmp(param->fontName, font->getName()->getCString()) == 0){
+					  pthread_join(param->thredID, &p);
+				  }
+		  }
+		  g_ptr_array_add(savedFontsList, font);
+		  RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
+		  g_ptr_array_add(exportFontThreads, params);
+		  params->parser = this;
+		  params->font = font;
+		  params->fontName = g_strdup(font->getName()->getCString());
+		  params->isCIDFont = font->isCIDFont();
+		  params->buf = font->readEmbFontFile(xref, &params->len);
+		  params->ctu = font->getToUnicode();
+		  pthread_create(&params->thredID, NULL, exportFontStatic, params);
+	  } else return;
+}
+
 void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 {
 	int len;
 	char *fname;
 	static int num = 0;
+	char *fontName = args ? args->fontName : font->getName()->getCString();
+	bool isCIDFont = args ? args->isCIDFont : font->isCIDFont();
+	char *buf = args ? args->buf : font->readEmbFontFile(xref, &len);
+	if (args) len = args->len;
+	CharCodeToUnicode *ctu = args ? (CharCodeToUnicode *)args->ctu : font->getToUnicode();
+
 	CURL *curl = curl_easy_init();
-	//GooString *fontName = font->getFamily();
 	char *fontExt;
-	  if ((args && args->isCIDFont) || ((! args) && font->isCIDFont())) {
+	  if ((args && args->isCIDFont) || ((! args) && isCIDFont)) {
 		  fontExt = g_strdup_printf("%s", "cff");
 	  } else {
 		  fontExt = g_strdup_printf("%s", "ttf");
 	  }
-	  if (font->getName()) {
-		GooString *fontName2= new GooString(font->getName());
+	  if (fontName) {
+		GooString *fontName2= new GooString(fontName);
 		if (sp_font_postfix_sh) {
 			fontName2->append("-");
 			fontName2->append(sp_font_postfix_sh);
@@ -2310,38 +2341,22 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 		free(encodeName);
 	  }
 	  num++;
-	  char *buf = font->readEmbFontFile(xref, &len);
+
 
 	  if (len > 0) {
 		  char exeDir[1024];
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
 		  fclose(fl);
-		  if (font->getName()) {
+		  if (fontName) {
 			  // get path to inkscape
 			  readlink("/proc/self/exe", exeDir, 1024);
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
 			  static int noname_num = 0;
-			  GooString *fontName2;
-			  int tmpLen;
-			  if (args) {
-				  tmpLen = strlen(args->fontName);
-			  } else {
-			  	  tmpLen = font->getName()->getLength();
-			  }
+			  GooString *fontName2 = args ? new GooString(args->fontName) : fontName2 = new GooString(font->getName());
 
-
-			  if (tmpLen < 1) {
-				  fontName2 = new GooString(g_strdup_printf("%s%i", "noname_font", noname_num));
-				  noname_num++;
-			  } else
-				  if (args) {
-					  fontName2 = new GooString(args->fontName);
-				  } else {
-					  fontName2 = new GooString(font->getName());
-				  }
 		      if (sp_font_postfix_sh) {
 				fontName2->append("-");
 				fontName2->append(sp_font_postfix_sh);
@@ -2357,10 +2372,10 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  }
 			  }
 
-			  CharCodeToUnicode *ctu;
+
 			  // Generate MAP file
 			 //if (font->isCIDFont() || true) {
-				  ctu = font->getToUnicode();
+
 				  int mapLen = ctu->getLength();
 				  Unicode *u;
 				  //make JSON map file
@@ -2374,10 +2389,8 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  FT_Library    ft_lib;
 				  FT_Error      error;
 				  FT_Face       face;
-				  int len;
 				  FT_Init_FreeType(&ft_lib);
-				  FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(xref, &len);
-				  error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+				  error = FT_New_Memory_Face(ft_lib, (FT_Byte*)buf, len, 0, &face);
 				  //error = FT_Set_Char_Size(face, 0, 320 << 6, 0, 300);
 				  FT_Set_Pixel_Sizes(face, 0, 10000);
 				  write_map_file(fMap, "\"font\" : {\n");
@@ -2427,11 +2440,10 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  sprintf(buff, "}\n");
 				  fwrite(buff, 1, strlen(buff), fMap);
 				  fclose(fMap);
-				  free(buf);
 			  //}
 
 			  gchar *fontForgeCmd;
-			  if (font->isCIDFont()) {
+			  if (isCIDFont) {
 				  char *cidName = g_strdup_printf(fname);
 				  g_ptr_array_add(cidFontList, cidName);
 				  fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
@@ -2444,7 +2456,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  fontForgeCmd = g_strdup_printf("%sfontAdapter.py %s \"%s\" \"%s\" 2>/dev/null",
 								exeDir, // path to script, without name
 								fname,  // name of TTF file for path
-								font->getName()->getCString(), //postscriptname
+								fontName, //postscriptname
 								fontName2->getCString()); //family
 
 			  }
@@ -2470,8 +2482,6 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 					  if (inBuff) free(inBuff);
 				  }
 			  }
-			  //system(fontForgeCmd);
-
 
 			  delete(fontName2);
 			  g_free(fontForgeCmd);
@@ -2543,30 +2553,9 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  }
 
 	  if (! alreadyDone) {
-		  //exportFont(font);
-		  // put font to passed list
-		  if (font->getID() && font->getID()->num >= 0) {
-			  //If we are doing export for font with same name we must wait.
-			  /*for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
-				  void *p;
-				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
-				  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0)
-					  if (strcmp(param->fontName, font->getName()->getCString()) == 0){
-						  pthread_join(param->thredID, &p);
-					  }
-			  }*/
-			  g_ptr_array_add(savedFontsList, font);
-			  /*RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
-			  g_ptr_array_add(exportFontThreads, params);
-			  params->parser = this;
-			  params->font = font;
-			  params->fontName = g_strdup(font->getName()->getCString());
-			  params->isCIDFont = font->isCIDFont();*/
-			  //pthread_create(&params->thredID, NULL, exportFontStatic, params);
-			  exportFont(font);
-		  }
-	  }
-
+			  exportFontAsync(font);
+			  //exportFont(font);
+      }
   }
 
   fontChanged = gTrue;
