@@ -220,7 +220,7 @@ bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int le
 	  Inkscape::XML::Node *tmpNode = node;
 	  int countOfnodes = 0;
 	  if (node == 0) return false;
-	  if (haveContent(node)) return false;
+	  //if (haveContent(node)) return false;
 	  // Calculate count of right svg:g before image
 	  while(tmpNode) {
 		  if (strcmp(tmpNode->name(), "svg:g") == 0 ||
@@ -650,6 +650,22 @@ void MergeBuilder::removeRelateDefNodes(Inkscape::XML::Node *node) {
 		}
 	}
   }
+}
+
+// remove graph objects from node
+// If node empty - remove node too
+void MergeBuilder::removeGFromNode(Inkscape::XML::Node *node){
+	if (!node) return;
+	Inkscape::XML::Node *tmpNode = node->firstChild();
+	while(tmpNode) {
+		Inkscape::XML::Node *tmpNode2 = tmpNode->next();
+		removeGFromNode(tmpNode);
+		tmpNode = tmpNode2;
+	}
+	if ((! node->content() || strlen(node->content()) == 0) && node->childCount() == 0) {
+		if (node->parent())
+			node->parent()->removeChild(node);
+	}
 }
 
 int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **second) {
@@ -1124,7 +1140,10 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 			fl = true;
 			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 			// Remove only group with <text> tag
-			if (tmpNode->childCount() > 0 && strcmp(tmpNode->firstChild()->name(), "svg:text") != 0) {
+			if (tmpNode->childCount() > 0 &&
+			    strcmp(tmpNode->firstChild()->name(), "svg:text") != 0 &&
+				strcmp(tmpNode->firstChild()->name(), "svg:path") != 0 )
+			{
 				fl = false;
 			}
 			while( attrList && fl) {
@@ -1233,8 +1252,9 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			mergeNode = mergeNode->next();
 			//print_node(remNode,2);
 			mergeBuilder->removeRelateDefNodes(remNode);
-			remNode->parent()->removeChild(remNode);
-			delete remNode;
+			mergeBuilder->removeGFromNode(remNode);
+			//remNode->parent()->removeChild(remNode);
+			//delete remNode;
 		}
 
 		//merge image
@@ -1249,7 +1269,8 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 			Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
 			visualNode->addChild(sumNode, mergeNode);
 			mergeBuilder->removeRelateDefNodes(remNode);
-			visualNode->removeChild(remNode);
+			//visualNode->removeChild(remNode);
+			mergeBuilder->removeGFromNode(remNode);
 
 			mergeNode = sumNode->next();
 		}

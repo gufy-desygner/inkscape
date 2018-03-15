@@ -874,6 +874,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             pdf_parser->parse(&obj);
 
             // post processing
+            compressGtag(builder); // removing empty <g> around <text> and <path>
             logTime("Start merge gradients");
             mergeMaskGradientToLayer(builder);
             logTime("Start merge layer");
@@ -885,7 +886,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             } else {
             	mergeImagePathToLayerSave(builder);
             }
-            compressGtag(builder);
             logTime("Start merge text");
             mergeNearestTextToOnetag(builder);
             logTime("Start merge tspan");
