@@ -2261,6 +2261,44 @@ void PdfParser::opSetCharSpacing(Object args[], int /*numArgs*/)
   state->setCharSpace(args[0].getNum());
 }
 
+
+char* prepareFileFontName(char *fontName, bool isCIDFont) {
+	char *fontExt;
+	  if ( isCIDFont ) {
+		  fontExt = g_strdup_printf("%s", "cff");
+	  } else {
+		  fontExt = g_strdup_printf("%s", "ttf");
+	  }
+	  if (fontName) {
+		char *fname;
+		CURL *curl = curl_easy_init();
+		GooString *fontName2= new GooString(fontName);
+		if (sp_font_postfix_sh) {
+			fontName2->append("-");
+			fontName2->append(sp_font_postfix_sh);
+		}
+		// format file name
+		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
+		  while(fontName2->getChar(strPos) == '-'){
+			  fontName2->del(strPos, 1);
+		  }
+		  if (fontName2->getChar(strPos) == '+') {
+			  fontName2->del(0, strPos+1);
+			  strPos = 0;
+		  }
+		}
+		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
+	    fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
+	    free(encodeName);
+	    free(fontExt);
+	    delete(fontName2);
+	    return fname;
+	  } else {
+		  free(fontExt);
+		  return 0;
+	  }
+}
+
 void* exportFontStatic(void *args)
 {
 	RecExportFont *argRec = (RecExportFont *)args;
@@ -2276,10 +2314,15 @@ void PdfParser::exportFontAsync(GfxFont *font)
 		  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
 			  void *p;
 			  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
-			  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0)
-				  if (strcmp(param->fontName, font->getName()->getCString()) == 0){
+			  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0) {
+				  char *paramFonrFile = prepareFileFontName(param->fontName, param->isCIDFont);
+				  char *arrFonrFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
+				  if (strcmp(paramFonrFile, arrFonrFile) == 0){
 					  pthread_join(param->thredID, &p);
 				  }
+				  free(paramFonrFile);
+				  free(arrFonrFile);
+			  }
 		  }
 		  g_ptr_array_add(savedFontsList, font);
 		  RecExportFont *params = ( RecExportFont *) malloc(sizeof(RecExportFont));
@@ -2546,7 +2589,9 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  // if we have saved this file. We do not do it again
 	  bool alreadyDone = false;
 	  for(int cntFnt = 0; cntFnt < savedFontsList->len; cntFnt++) {
-		  if (g_ptr_array_index(savedFontsList, cntFnt) == font) {
+		  GfxFont *tmpFont = (GfxFont *)g_ptr_array_index(savedFontsList, cntFnt);
+		  // if this font stream already extracted
+		  if (tmpFont == font) {
 			  alreadyDone = true;
 			  break;
 		  }

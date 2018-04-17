@@ -1166,6 +1166,7 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 					Inkscape::XML::Node *tmpChild = tmpNode->firstChild();
 					while(tmpChild) {
 						Geom::Affine childAffine;
+						// if child have any affine we must merge it with affine from <g> which we want remove.
 						sp_svg_transform_read(tmpChild->attribute("transform"), &childAffine);
 						char *buf = sp_svg_transform_write(childAffine * mainAffine);
 						tmpChild->setAttribute("transform", buf);
