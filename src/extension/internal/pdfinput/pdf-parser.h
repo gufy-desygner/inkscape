@@ -127,6 +127,7 @@ struct RecExportFont {
 	char *buf;
 	int len;
 	void *ctu;
+	int status; // 1 Active, 0 ended
 };
 
 void* exportFontStatic(void *args);

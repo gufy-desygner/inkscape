@@ -2303,6 +2303,7 @@ void* exportFontStatic(void *args)
 {
 	RecExportFont *argRec = (RecExportFont *)args;
 	argRec->parser->exportFont(argRec->font, argRec);
+	argRec->status = 0;
 	return 0;
 }
 
@@ -2315,13 +2316,13 @@ void PdfParser::exportFontAsync(GfxFont *font)
 			  void *p;
 			  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
 			  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0) {
-				  char *paramFonrFile = prepareFileFontName(param->fontName, param->isCIDFont);
-				  char *arrFonrFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
-				  if (strcmp(paramFonrFile, arrFonrFile) == 0){
+				  char *paramFontFile = prepareFileFontName(param->fontName, param->isCIDFont);
+				  char *arrFontFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
+				  if (strcmp(paramFontFile, arrFontFile) == 0){
 					  pthread_join(param->thredID, &p);
 				  }
-				  free(paramFonrFile);
-				  free(arrFonrFile);
+				  free(paramFontFile);
+				  free(arrFontFile);
 			  }
 		  }
 		  g_ptr_array_add(savedFontsList, font);
@@ -2333,6 +2334,8 @@ void PdfParser::exportFontAsync(GfxFont *font)
 		  params->isCIDFont = font->isCIDFont();
 		  params->buf = font->readEmbFontFile(xref, &params->len);
 		  params->ctu = font->getToUnicode();
+		  params->status = 1;
+
 		  pthread_create(&params->thredID, NULL, exportFontStatic, params);
 	  } else return;
 }

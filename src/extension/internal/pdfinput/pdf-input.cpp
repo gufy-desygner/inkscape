@@ -900,7 +900,12 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             for(int fontThredN = 0; fontThredN < pdf_parser->exportFontThreads->len; fontThredN++) {
             	void *p;
             	RecExportFont *pId = (RecExportFont *) g_ptr_array_index(pdf_parser->exportFontThreads, fontThredN);
-            	pthread_join(pId->thredID, &p);
+            	//pthread_join(pId->thredID, &p);
+            	int timeOut = 2000; // milliseconds
+            	while(pId->status && timeOut > 0) {
+            		usleep(1);
+            		timeOut--;
+            	}
             }
 
             // export fonts savedFontsList
