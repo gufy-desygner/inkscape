@@ -2420,7 +2420,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 
 
 			  // Generate MAP file
-			 //if (font->isCIDFont() || true) {
+			 if (ctu) {
 
 				  int mapLen = ctu->getLength();
 				  Unicode *u;
@@ -2486,7 +2486,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  sprintf(buff, "}\n");
 				  fwrite(buff, 1, strlen(buff), fMap);
 				  fclose(fMap);
-			  //}
+			  }
 
 			  gchar *fontForgeCmd;
 			  if (isCIDFont) {
@@ -2571,20 +2571,23 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 
   // calculate comfortable space width
   CharCodeToUnicode *ctu = font->getToUnicode();
-  builder->spaceWidth = 0;
-  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
-	  Unicode *u;
-	  ctu->mapToUnicode(i, &u);
-	  if (*u == 32) {
-		  if (font->isCIDFont()) {
-			  builder->spaceWidth = ((GfxCIDFont *)font)->getWidth((char *)&i, 1) * state->getFontSize();
-		  } else {
-			  builder->spaceWidth = ((Gfx8BitFont *)font)->getWidth(i) *  state->getFontSize();
+  if (ctu) {
+	  builder->spaceWidth = 0;
+	  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
+		  Unicode *u;
+		  ctu->mapToUnicode(i, &u);
+		  if (*u == 32) {
+			  if (font->isCIDFont()) {
+				  builder->spaceWidth = ((GfxCIDFont *)font)->getWidth((char *)&i, 1) * state->getFontSize();
+			  } else {
+				  builder->spaceWidth = ((Gfx8BitFont *)font)->getWidth(i) *  state->getFontSize();
+			  }
+
 		  }
-
 	  }
+  } else {
+	  builder->spaceWidth = 0.3 * state->getFontSize();
   }
-
 
   if (sp_export_fonts_sh  && font->getName() && font->getName()->getLength() > 0)
   {
