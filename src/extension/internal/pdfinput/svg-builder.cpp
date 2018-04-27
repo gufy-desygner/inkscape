@@ -1043,8 +1043,11 @@ void SvgBuilder::updateFont(GfxState *state) {
     // Store original name
     if (font->getName()) {
         _font_specification = font->getName()->getCString();
+        if (font->getType() == fontCIDType2 && font->getToUnicode()) {
+        	_font_specification = (char*) "Lato";
+        }
     } else {
-        _font_specification = (char*) "Arial";
+        _font_specification = (char*) "Lato";
     }
 
     // Prune the font name to get the correct font family name
@@ -1085,7 +1088,11 @@ void SvgBuilder::updateFont(GfxState *state) {
 		  }
 		}
         //sp_repr_css_set_property(_font_style, "font-family", font->getFamily()->getCString());
-		sp_repr_css_set_property(_font_style, "font-family", fontName2->getCString());
+		if (font->getType() == fontCIDType2 && font->getToUnicode()) {
+			sp_repr_css_set_property(_font_style, "font-family", (char *) "Lato");
+		} else {
+			sp_repr_css_set_property(_font_style, "font-family", fontName2->getCString());
+		}
 		delete fontName2;
     } else { 
         int attr_value = 1;
