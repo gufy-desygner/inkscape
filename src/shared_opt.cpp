@@ -16,6 +16,7 @@ gboolean sp_merge_jpeg_sp = FALSE;
 gboolean sp_mapping_off_sh = FALSE;
 gboolean sp_merge_mask_sh = FALSE;
 char *sp_font_postfix_sh = 0;
+char *sp_font_default_font_sh = 0;
 gint sp_merge_limit_sh = 0;
 gint sp_merge_limit_path_sh = 0;
 gboolean sp_rect_how_path_sh = FALSE;
