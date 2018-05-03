@@ -163,6 +163,24 @@ Inkscape::XML::Node *MergeBuilder::findNode(Inkscape::XML::Node *node, int level
 	return resNode;
 }
 
+void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Inkscape::XML::Node *> *listNodes) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode = NULL;
+	tmpNode = node->firstChild();
+	while(tmpNode) {
+		// check condition
+		const char* msk = tmpNode->attribute("mask");
+		if (msk && strlen(msk) > 0) {
+			// add node to list
+			listNodes->push_back(tmpNode);
+		} else {
+			// check children
+			findImageMaskNode(tmpNode, listNodes);
+		}
+		tmpNode = tmpNode->next();
+	}
+}
+
 Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode;
 	Inkscape::XML::Node *resNode = NULL;
@@ -318,8 +336,58 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	  return tag && attr;
 }
 
-void MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
-	copyAsChild(_mainSubVisual, imageNode, rebasePath);
+Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
+	Inkscape::XML::Node *tmpNode = fromNode;
+	Geom::Affine rezult;
+	//std::vector<Inkscape::XML::Node *> listNodes;
+	// build chain of parent nodes
+	while(tmpNode != _mainSubVisual) {
+		//listNodes.push_back(tmpNode);
+		SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
+		Geom::Affine aff;
+		if (sp_svg_transform_read(tmpNode->attribute("transform"), &aff)) {
+			rezult *= aff;
+		}
+		tmpNode = tmpNode->parent();
+	}
+	return rezult;
+}
+
+Inkscape::XML::Node *MergeBuilder::fillTreeOfParents(Inkscape::XML::Node *fromNode) {
+	Inkscape::XML::Node *tmpNode = fromNode->parent();
+	std::vector<Inkscape::XML::Node *> listNodes;
+	// build chain of parent nodes
+	while(tmpNode != _sourceSubVisual) {
+		listNodes.push_back(tmpNode);
+		tmpNode = tmpNode->parent();
+	}
+	// create nodes in imageMerger
+	Inkscape::XML::Node *appendNode = _mainSubVisual;
+	for(int i = listNodes.size() - 1; i >=0 ; i--) {
+		Inkscape::XML::Node *childNode = listNodes[i];
+		Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
+		// copy all attributes
+		Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
+		while( attrList ) {
+			if (strcmp(g_quark_to_string(attrList->key), "sodipodi:role") == 0) {
+				attrList++;
+				continue;
+			}
+			tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+			attrList++;
+		}
+		tempNode->setContent(childNode->content());
+		appendNode->appendChild(tempNode);
+		appendNode = tempNode;
+	}
+	return appendNode;
+}
+
+Inkscape::XML::Node *MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
+	if (_sourceSubVisual && imageNode->parent() != _sourceSubVisual) {
+		return copyAsChild(fillTreeOfParents(imageNode), imageNode, rebasePath);
+	} else
+		return copyAsChild(_mainSubVisual, imageNode, rebasePath);
 }
 
 void MergeBuilder::mergeAll(char* rebasePath) {
@@ -390,7 +458,7 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder) {
 	gchar *fName;
 	Geom::Rect rct = save(mergedImagePath);
 	removeOldImages();
-	//try convert to jpeg
+	//try convert to jpeg (if do not have transparent regions)
 	if (sp_create_jpeg_sp && isTrans(mergedImagePath)) {
 		fName = g_strdup_printf("%s.jpg", name);
 		gchar *jpgName =
@@ -1361,6 +1429,65 @@ void moveTextNode(Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0
 		}
 		chNode = nextNode;
 	}
+}
+
+void mergeMaskToImage(SvgBuilder *builder) {
+	  //================== merge images with masks =================
+	  if (sp_merge_mask_sh) {
+		  // init MergeBuilder
+		  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+				  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+		  // queue for delete
+		  std::vector<Inkscape::XML::Node *> remNodes;
+
+		  // queue for merge
+		  std::vector<Inkscape::XML::Node *> listNodes;
+
+		  // merge masked images
+		  mergeBuilder->findImageMaskNode(mergeBuilder->getSourceSubVisual(), &listNodes);
+
+		  const gchar *tmpName;
+		  mergeBuilder->clearMerge();
+		  for(int i = 0; i < listNodes.size(); i++) {
+			  Inkscape::XML::Node *mergingNode = listNodes[i];
+			  // find text nodes and save it
+			  moveTextNode(mergingNode);
+			  Inkscape::XML::Node *addedNode = mergeBuilder->addImageNode(mergingNode, sp_export_svg_path_sh);
+			  remNodes.push_back(mergingNode);
+			  // if next node in list near current we can merge it together
+			  /*if (i < listNodes.size() && listNodes[i+1] == mergingNode->next()) {
+				  continue;
+			  }*/
+			  // if we have gap between nodes we must merge it separately.
+			  // generate name of new image
+			  tmpName = mergingNode->attribute("id");
+			  char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
+			  // Save merged image
+			  Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder);
+			  // sumNode have affine related from mainVisualNode node.
+			  // We must adjust affine transform for current parent
+			  Geom::Affine sumAff;
+			  Geom::Affine aff =  mergeBuilder->getAffine(addedNode->parent());
+			  sp_svg_transform_read(sumNode->attribute("transform"), &sumAff);
+			  sumAff *= aff.inverse();
+			  char *buff = sp_svg_transform_write(sumAff);
+			  if (buff) {
+				 sumNode->setAttribute("transform", buff);
+				 free(buff);
+			  }
+			  mergingNode->parent()->addChild(sumNode, mergingNode);
+			  mergeBuilder->clearMerge();
+			  free(fName);
+		  }
+		  // remove old nodes
+		  for(int i = 0; i < remNodes.size(); i++) {
+			  remNodes[i]->parent()->removeChild(remNodes[i]);
+			  mergeBuilder->removeRelateDefNodes(remNodes[i]);
+			  delete remNodes[i];
+		  }
+
+		  delete mergeBuilder;
+	  }
 }
 
 void mergeMaskGradientToLayer(SvgBuilder *builder) {

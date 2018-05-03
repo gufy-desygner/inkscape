@@ -32,6 +32,7 @@ namespace Internal {
 
 void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
+void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
 void enumerationTags(Inkscape::XML::Node *inNode);
 uint mergePredictionCountImages(SvgBuilder *builder);
@@ -72,7 +73,8 @@ double GetTickCount(void);
 class MergeBuilder {
 public:
 	MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath);
-	void addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
+	Inkscape::XML::Node *addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
+	Inkscape::XML::Node *fillTreeOfParents(Inkscape::XML::Node *fromNode);
 	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
 	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder);
@@ -92,6 +94,8 @@ public:
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);
 	Inkscape::XML::Node *findFirstAttrNode(void);
+	void findImageMaskNode(Inkscape::XML::Node *node, std::vector<Inkscape::XML::Node *> *listNodes);
+	Geom::Affine getAffine(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt);
