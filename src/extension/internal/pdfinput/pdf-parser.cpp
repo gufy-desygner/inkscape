@@ -2495,7 +2495,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 				  								exeDir, // path to script, without name
 				  								fname,  // name of TTF file for path
-				  								font->getName()->getCString(), //postscriptname
+												fontName, //postscriptname
 				  								fontName2->getCString()); //family
 			  } else {
 			     // generate command for path names inside TTF file
