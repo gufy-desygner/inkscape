@@ -881,7 +881,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             logTime("Start merge layer");
             if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
             	(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
-            	mergePredictionCountImages(builder) > 15) {
+				mergeImagePathToLayerSave(builder, true) > 15) {
 
                 mergeImagePathToOneLayer(builder);
             } else {

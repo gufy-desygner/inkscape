@@ -964,62 +964,6 @@ MergeBuilder::~MergeBuilder(void){
   }
 }
 
-uint mergePredictionCountImages(SvgBuilder *builder) {
-  uint resultCount = 0;
-  sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
-			 (sp_merge_limit_sh <= builder->getCountOfImages());
-  sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
-			 (sp_merge_limit_path_sh <= builder->getCountOfPath());
-
-  if (sp_merge_images_sh || sp_merge_path_sh) {
-	Inkscape::XML::Node *root = builder->getRoot();
-	Inkscape::XML::Node *remNode;
-	Inkscape::XML::Node *toImageNode;
-	const gchar *tmpName;
-
-	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
-
-	uint countMergedNodes = 0;
-	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
-
-	// Add needed tags
-	if (sp_merge_images_sh) {
-	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
-	}
-	if (sp_merge_path_sh) {
-		  mergeBuilder->addTagName(g_strdup_printf("svg:path"));
-	      if (sp_rect_how_path_sh) {
-	    	  mergeBuilder->addTagName(g_strdup_printf("svg:rect"));
-	      }
-	}
-	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode();
-	Inkscape::XML::Node *visualNode;
-	if (mergeNode) visualNode = mergeNode->parent();
-	while(mergeNode) {
-		countMergedNodes = 0;
-		mergeBuilder->clearMerge();
-		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next())) {
-			countMergedNodes++;
-			remNode = mergeNode;
-			mergeNode = mergeNode->next();
-		}
-
-		// count prediction
-		if (countMergedNodes) {
-			resultCount++;
-		}
-
-		if (mergeNode)
-		  mergeNode =  mergeNode->next();
-		while( mergeNode && (! mergeBuilder->haveTagFormList(mergeNode))) {
-			mergeNode = mergeNode->next();
-		}
-	}
-	delete mergeBuilder;
-  }
-  return resultCount;
-}
-
 
 // TSPAN merger
 // scan node tree
@@ -1273,18 +1217,24 @@ void compressGtag(SvgBuilder *builder){
 	delete mergeBuilder;
 }
 
+/**
+ * @describe do merge tags without text between
+ * @param builder representation of SVG document
+ * @param simulate if true - do not change source document (default false)
+ *
+ * @return count of generated images
+ * */
 
-// do merge tags without text bitweene
-void mergeImagePathToLayerSave(SvgBuilder *builder) {
+uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
   //================== merge paths and images ==================
   sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
 			 (sp_merge_limit_sh <= builder->getCountOfImages());
   sp_merge_path_sh = (sp_merge_limit_path_sh > 0) &&
 			 (sp_merge_limit_path_sh <= builder->getCountOfPath());
+  uint img_count = 0;
 
   if (sp_merge_images_sh || sp_merge_path_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
-	//Inkscape::XML::Node *mergeNode = builder->getRoot();
 	Inkscape::XML::Node *remNode;
 	Inkscape::XML::Node *toImageNode;
 	gchar *tmpName;
@@ -1309,39 +1259,41 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode(&numberInNode);
 	Inkscape::XML::Node *visualNode;
 	if (mergeNode) visualNode = mergeNode->parent();
-	//print_node(visualNode, 2);
 
 	while(mergeNode) {
 		countMergedNodes = numberInNode - 1;
-		mergeBuilder->clearMerge();
+		if (! simulate) mergeBuilder->clearMerge();
 		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next(), &countMergedNodes)) {
-			//countMergedNodes += numberInNode;
-			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
-			remNode = mergeNode;
+			if (! simulate) {
+				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+				remNode = mergeNode;
+			}
 			mergeNode = mergeNode->next();
-			//print_node(remNode,2);
-			mergeBuilder->removeRelateDefNodes(remNode);
-			mergeBuilder->removeGFromNode(remNode);
-			//remNode->parent()->removeChild(remNode);
-			//delete remNode;
+			if (! simulate) {
+				mergeBuilder->removeRelateDefNodes(remNode);
+				mergeBuilder->removeGFromNode(remNode);
+			}
 		}
 
 		//merge image
 		if (countMergedNodes) {
-			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
-			remNode = mergeNode;
+			img_count++;
+			if (! simulate) {
+				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+				remNode = mergeNode;
 
-			tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
-			//char *fName = g_strdup_printf("%s_img%s.png", builder->getDocName(), tmpName);
+				tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
 
-			// Insert node with merged image
-			Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
-			visualNode->addChild(sumNode, mergeNode);
-			mergeBuilder->removeRelateDefNodes(remNode);
-			//visualNode->removeChild(remNode);
-			mergeBuilder->removeGFromNode(remNode);
+				// Insert node with merged image
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
+				visualNode->addChild(sumNode, mergeNode);
+				mergeBuilder->removeRelateDefNodes(remNode);
+				mergeBuilder->removeGFromNode(remNode);
+				mergeNode = sumNode->next();
+			} else {
+				mergeNode = mergeNode->next();
+			}
 
-			mergeNode = sumNode->next();
 		}
 		else { // if do not have two nearest images - can not merge
 			mergeNode = mergeNode->next();
@@ -1353,6 +1305,7 @@ void mergeImagePathToLayerSave(SvgBuilder *builder) {
 	}
 	delete mergeBuilder;
   }
+  return img_count;
 }
 
 // merge all object and put it how background
