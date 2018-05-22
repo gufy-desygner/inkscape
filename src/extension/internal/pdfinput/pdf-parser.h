@@ -159,7 +159,7 @@ public:
   void restoreState();
 
   // save stream of font to the file
-  void exportFontAsync(GfxFont *font);
+  void exportFontAsync(GfxFont *font, bool async=true);
   void exportFont(GfxFont *font, RecExportFont *args = 0);
 
   // Get the current graphics state object.

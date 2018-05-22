@@ -2307,7 +2307,7 @@ void* exportFontStatic(void *args)
 	return 0;
 }
 
-void PdfParser::exportFontAsync(GfxFont *font)
+void PdfParser::exportFontAsync(GfxFont *font, bool async)
 {
 	  // put font to passed list
 	  if (font->getID() && font->getID()->num >= 0) {
@@ -2336,7 +2336,11 @@ void PdfParser::exportFontAsync(GfxFont *font)
 		  params->ctu = font->getToUnicode();
 		  params->status = 1;
 
-		  pthread_create(&params->thredID, NULL, exportFontStatic, params);
+		  if (async) {
+			  pthread_create(&params->thredID, NULL, exportFontStatic, params);
+		  } else{
+			  exportFontStatic(params);
+		  }
 	  } else return;
 }
 
@@ -2604,7 +2608,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 	  }
 
 	  if (! alreadyDone) {
-			  exportFontAsync(font);
+			  exportFontAsync(font, false);
 			  //exportFont(font);
       }
   }
