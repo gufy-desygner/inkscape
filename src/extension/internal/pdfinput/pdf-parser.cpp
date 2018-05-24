@@ -2312,17 +2312,19 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 	  // put font to passed list
 	  if (font->getID() && font->getID()->num >= 0) {
 		  //If we are doing export for font with same name we must wait.
-		  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
-			  void *p;
-			  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
-			  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0) {
-				  char *paramFontFile = prepareFileFontName(param->fontName, param->isCIDFont);
-				  char *arrFontFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
-				  if (strcmp(paramFontFile, arrFontFile) == 0){
-					  pthread_join(param->thredID, &p);
+		  if (async) {
+			  for(int fontThredN = 0; fontThredN < exportFontThreads->len; fontThredN++) {
+				  void *p;
+				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
+				  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0) {
+					  char *paramFontFile = prepareFileFontName(param->fontName, param->isCIDFont);
+					  char *arrFontFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
+					  if (strcmp(paramFontFile, arrFontFile) == 0){
+						  pthread_join(param->thredID, &p);
+					  }
+					  free(paramFontFile);
+					  free(arrFontFile);
 				  }
-				  free(paramFontFile);
-				  free(arrFontFile);
 			  }
 		  }
 		  g_ptr_array_add(savedFontsList, font);
