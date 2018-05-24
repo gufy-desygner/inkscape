@@ -74,10 +74,11 @@ public:
 	MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath);
 	Inkscape::XML::Node *addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath);
 	Inkscape::XML::Node *fillTreeOfParents(Inkscape::XML::Node *fromNode);
+	Inkscape::XML::Node *findNodeById(Inkscape::XML::Node *fromNode, const char* id);
 	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
-	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder);
-	Geom::Rect save(gchar const *filename);
+	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound = true);
+	Geom::Rect save(gchar const *filename, bool visualBound = true);
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);

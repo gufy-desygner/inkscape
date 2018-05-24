@@ -876,8 +876,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             // post processing
             compressGtag(builder); // removing empty <g> around <text> and <path>
             logTime("Start merge gradients");
-            mergeMaskGradientToLayer(builder);
             mergeMaskToImage(builder);
+            mergeMaskGradientToLayer(builder);
             logTime("Start merge layer");
             if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
             	(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
