@@ -891,6 +891,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             mergeNearestTextToOnetag(builder);
             logTime("Start merge tspan");
             mergeTspan(builder);
+            compressGtag(builder); // removing empty <g> around <text> and <path>
             logTime("End merge tspan");
             enumerationTagsStart(builder);
 
