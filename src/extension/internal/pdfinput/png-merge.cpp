@@ -22,6 +22,7 @@
 #include "xml/repr.h"
 #include "xml/sp-css-attr.h"
 #include <math.h>
+#include "text-editing.h"
 
 //#include <extension/system.h>
 //#include <extension/db.h>
@@ -1245,6 +1246,41 @@ void compressGtag(SvgBuilder *builder){
 	delete mergeBuilder;
 }
 
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff) {
+	Inkscape::XML::Node *pos = mainNode; // position for inserting new node
+	Inkscape::XML::Node *nextNode;
+	if (! currNode) {
+		currNode = mainNode;
+	}
+	Inkscape::XML::Node *chNode = currNode->firstChild();
+	while(chNode) {
+		nextNode = chNode->next();
+		if (strcmp(chNode->name(), "svg:text") == 0) {
+			chNode->parent()->removeChild(chNode);
+			Inkscape::XML::Node *gNode = builder->createElement("svg:g");
+			char *transBuff =  sp_svg_transform_write(aff);
+			gNode->setAttribute("transform", transBuff);
+			free(transBuff);
+			gNode->addChild(chNode, 0);
+			pos->parent()->addChild(gNode, pos);
+			pos = gNode;
+		} else {
+			if (chNode->childCount() > 0) {
+				Geom::Affine aff2;
+				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
+				moveTextNode(builder, pos, chNode, aff*aff2);
+			}
+		}
+		chNode = nextNode;
+	}
+}
+
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0) {
+	Geom::Affine aff;
+	sp_svg_transform_read(mainNode->attribute("transform"), &aff);
+	moveTextNode(builder, mainNode, 0, aff);
+}
+
 /**
  * @describe do merge tags without text between
  * @param builder representation of SVG document
@@ -1294,8 +1330,10 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 		if (! simulate) mergeBuilder->clearMerge();
 		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next(), &countMergedNodes)) {
 			if (! simulate) {
+				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
+					moveTextNode(builder, mergeNode);
+				}
 				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
-				//remNode = mergeNode;
 				remNodes.push_back(mergeNode);
 			}
 			mergeNode = mergeNode->next();
@@ -1305,6 +1343,9 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 		if (countMergedNodes) {
 			img_count++;
 			if (! simulate) {
+				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
+					moveTextNode(builder, mergeNode);
+				}
 				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 				remNodes.push_back(mergeNode);
 
@@ -1395,27 +1436,7 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 	  delete mergeBuilder;
 }
 
-void moveTextNode(Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0) {
-	Inkscape::XML::Node *pos = mainNode; // position for inserting new node
-	Inkscape::XML::Node *nextNode;
-	if (! currNode) {
-		currNode = mainNode;
-	}
-	Inkscape::XML::Node *chNode = currNode->firstChild();
-	while(chNode) {
-		nextNode = chNode->next();
-		if (strcmp(chNode->name(), "svg:text") == 0) {
-			chNode->parent()->removeChild(chNode);
-			mainNode->parent()->addChild(chNode, pos);
-			pos = chNode;
-		} else {
-			if (chNode->childCount() > 0) {
-				moveTextNode(pos, chNode);
-			}
-		}
-		chNode = nextNode;
-	}
-}
+
 
 void mergeMaskToImage(SvgBuilder *builder) {
 	  //================== merge images with masks =================
@@ -1437,7 +1458,7 @@ void mergeMaskToImage(SvgBuilder *builder) {
 		  for(int i = 0; i < listNodes.size(); i++) {
 			  Inkscape::XML::Node *mergingNode = listNodes[i];
 			  // find text nodes and save it
-			  moveTextNode(mergingNode);
+			  moveTextNode(builder, mergingNode);
 			  Inkscape::XML::Node *addedNode = mergeBuilder->addImageNode(mergingNode, sp_export_svg_path_sh);
 			  remNodes.push_back(mergingNode);
 			  // if next node in list near current we can merge it together
@@ -1500,7 +1521,7 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 		  mergeBuilder->clearMerge();
 		  while(mergeNode) {
 			// find text nodes and save it
-			moveTextNode(mergeNode);
+			moveTextNode(builder, mergeNode);
 
 			// merge
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
