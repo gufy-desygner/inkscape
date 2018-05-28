@@ -1332,9 +1332,16 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 			if (! simulate) {
 				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
 					moveTextNode(builder, mergeNode);
+					// we eject text node so can't merge with it
+					break;
 				}
 				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 				remNodes.push_back(mergeNode);
+			} else {
+				// simulate merge only
+				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
+					break;
+				}
 			}
 			mergeNode = mergeNode->next();
 		}
