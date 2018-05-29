@@ -1469,7 +1469,7 @@ void mergeMaskToImage(SvgBuilder *builder) {
 			  Inkscape::XML::Node *addedNode = mergeBuilder->addImageNode(mergingNode, sp_export_svg_path_sh);
 			  remNodes.push_back(mergingNode);
 			  // if next node in list near current we can merge it together
-			  if (i < listNodes.size() && listNodes[i+1] == mergingNode->next()) {
+			  if ((i + 1) < listNodes.size() && listNodes[i+1] == mergingNode->next()) {
 				  continue;
 			  }
 			  // if we have gap between nodes we must merge it separately.
