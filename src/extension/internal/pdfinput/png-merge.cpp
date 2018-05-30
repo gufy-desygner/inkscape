@@ -380,6 +380,7 @@ Inkscape::XML::Node *MergeBuilder::findNodeById(Inkscape::XML::Node *fromNode, c
 }
 
 Inkscape::XML::Node *MergeBuilder::fillTreeOfParents(Inkscape::XML::Node *fromNode) {
+	if (_sourceSubVisual == fromNode) return fromNode;
 	Inkscape::XML::Node *tmpNode = fromNode->parent();
 	Inkscape::XML::Node *chkParent = findNodeById(_mainSubVisual, tmpNode->attribute("id"));
 	if (chkParent) return chkParent;
@@ -413,7 +414,7 @@ Inkscape::XML::Node *MergeBuilder::fillTreeOfParents(Inkscape::XML::Node *fromNo
 }
 
 Inkscape::XML::Node *MergeBuilder::addImageNode(Inkscape::XML::Node *imageNode, char* rebasePath) {
-	if (_sourceSubVisual && imageNode->parent() != _sourceSubVisual) {
+	if (_sourceSubVisual && imageNode->parent() != _sourceSubVisual && imageNode != _sourceSubVisual) {
 		return copyAsChild(fillTreeOfParents(imageNode), imageNode, rebasePath);
 	} else
 		return copyAsChild(_mainSubVisual, imageNode, rebasePath);
@@ -799,6 +800,23 @@ int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **se
 	}
 }
 
+int utf8_strlen(const char *str)
+{
+    int c,i,ix,q;
+    for (q=0, i=0, ix=strlen(str); i < ix; i++, q++)
+    {
+        c = (unsigned char) str[i];
+        if      (c>=0   && c<=127) i+=0;
+        else if ((c & 0xE0) == 0xC0) i+=1;
+        else if ((c & 0xF0) == 0xE0) i+=2;
+        else if ((c & 0xF8) == 0xF0) i+=3;
+        //else if (($c & 0xFC) == 0xF8) i+=4; // 111110bb //byte 5, unnecessary in 4 byte UTF-8
+        //else if (($c & 0xFE) == 0xFC) i+=5; // 1111110b //byte 6, unnecessary in 4 byte UTF-8
+        else return 0;//invalid utf8
+    }
+    return q;
+}
+
 void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 	gchar const *firstContent = first->firstChild()->content();
 	gchar const *secondContent = second->firstChild()->content();
@@ -853,7 +871,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 			if (firstDx) free(firstDx);
 			firstDx = (gchar*)malloc(strlen(firstContent) * 2 + 2);
 			firstDx[0] = 0;
-			for(int i = 0; i < (strlen(firstContent) * 2); i = i + 2) {
+			for(int i = 0; i < (utf8_strlen(firstContent) * 2); i = i + 2) {
 				firstDx[i] = '0';
 				firstDx[i+1] = ' ';
 				firstDx[i+2] = 0;
@@ -863,7 +881,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 			if (secondDx) free(secondDx);
 			secondDx = (gchar*)malloc(strlen(secondContent) * 2 + 2);
 			secondDx[0] = 0;
-			for(int i = 0; i < (strlen(secondContent) * 2); i = i + 2) {
+			for(int i = 0; i < (utf8_strlen(secondContent) * 2); i = i + 2) {
 				secondDx[i] = '0';
 				secondDx[i+1] = ' ';
 				secondDx[i+2] = 0;
