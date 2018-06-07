@@ -10,6 +10,7 @@ extern gboolean sp_cid_to_ttf_sh;
 extern gboolean sp_original_fonts_sh;
 extern gchar *sp_fonts_dir_sh;
 extern gboolean sp_merge_images_sh;
+extern gboolean sp_bleed_marks_sh;
 extern gboolean sp_merge_path_sh;
 extern gboolean sp_add_background_sh;
 extern gboolean sp_use_dx_sh;

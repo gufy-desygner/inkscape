@@ -895,6 +895,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             logTime("End merge tspan");
             enumerationTagsStart(builder);
 
+            if (sp_bleed_marks_sh) createBleedMarks(builder);
 
             logTime("Start export fonts");
 

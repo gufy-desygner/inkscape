@@ -23,7 +23,11 @@
 #include "xml/sp-css-attr.h"
 #include <math.h>
 #include "text-editing.h"
-
+#include "svg/stringstream.h"
+#include "sp-defs.h"
+#include "sp-text.h"
+#include "sp-flowtext.h"
+#include "path-chemistry.h"
 //#include <extension/system.h>
 //#include <extension/db.h>
 
@@ -461,6 +465,63 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 		ch = ch->next();
 	}
 	return tempNode;
+}
+
+void draw_crop_line(SvgBuilder *builder, double x1, double y1,
+					double x2, double y2, char* name, Inkscape::XML::Node *parent) {
+	Inkscape::XML::Node* pathTag = builder->createElement("svg:path");
+    char *style = g_strdup("stroke:#000000;stroke-width:0.3;fill:none");
+    pathTag->setAttribute("style", style);
+    free(style);
+    Inkscape::SVGOStringStream strX1;  strX1 << x1;
+    Inkscape::SVGOStringStream strX2;  strX2 << x2;
+    Inkscape::SVGOStringStream strY1;  strY1 << y1;
+    Inkscape::SVGOStringStream strY2;  strY2 << y2;
+    gchar  *dAttr = g_strdup_printf("M %s, %s L %s, %s", strX1.str().c_str(), strY1.str().c_str(),
+    													strX2.str().c_str(), strY2.str().c_str());
+    pathTag->setAttribute("d", dAttr);
+    free(dAttr);
+    parent->addChild(pathTag, parent->lastChild());
+}
+
+void createBleedMarks(SvgBuilder *builder) {
+	SPDocument *doc = builder->getSpDocument();
+    te_update_layout_now_recursive(doc->getRoot());
+
+    // Create a group for Crop Mark
+	MergeBuilder *tools = new MergeBuilder(builder->getRoot(), 0);
+	Inkscape::XML::Node* mainNode = tools->getSourceVisual();
+	Inkscape::XML::Node* g_crops = builder->createElement("svg:g");
+
+    Geom::Rect sq;
+    SPObject *obj = builder->getSpDocument()->getObjectById(mainNode->attribute("id"));
+    Geom::OptRect visualBound(SP_ITEM(obj)->visualBounds());
+    if (visualBound) {
+    	sq = visualBound.get();
+    }
+    double x1 = sq[Geom::X][0];
+    double x2 = sq[Geom::X][1];
+    double y1 = sq[Geom::Y][0];
+    double y2 = sq[Geom::Y][1];
+
+    #define CROP_LINE_SIZE 20
+
+    // Top left Mark
+    draw_crop_line(builder, x1, y1, x1, y1 - CROP_LINE_SIZE, 0, g_crops);
+    draw_crop_line(builder, x1, y1, x1 - CROP_LINE_SIZE, y1, 0, g_crops);
+
+    // Top right Mark
+    draw_crop_line(builder, x2, y1, x2, y1 - CROP_LINE_SIZE, 0, g_crops);
+    draw_crop_line(builder, x2, y1, x2 + CROP_LINE_SIZE, y1, 0, g_crops);
+
+    // Bottom left Mark
+    draw_crop_line(builder, x1, y2, x1, y2 + CROP_LINE_SIZE, 0, g_crops);
+    draw_crop_line(builder, x1, y2, x1 - CROP_LINE_SIZE, y2, 0, g_crops);
+
+    // Bottom right Mark
+    draw_crop_line(builder, x2, y2, x2, y2 + CROP_LINE_SIZE, 0, g_crops);
+    draw_crop_line(builder, x2, y2, x2 + CROP_LINE_SIZE, y2, 0, g_crops);
+    mainNode->addChild(g_crops, mainNode->lastChild());
 }
 
 bool isTrans(char *patch) {

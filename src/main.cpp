@@ -173,6 +173,7 @@ enum {
 	SP_ARG_ADD_BACKGROUND,
 	SP_ARG_GRADIENT_PRECISION,
 	SP_ARG_MERGE_IMAGES,
+	SP_ARG_BLEED_MARKS,
 	SP_ARG_MERGE_LIMIT,
 	SP_ARG_MERGE_LIMIT_PATH,
 	SP_ARG_RECT_HOW_PATH,
@@ -514,6 +515,11 @@ struct poptOption options[] = {
      POPT_ARG_NONE, &sp_merge_images, SP_ARG_MERGE_IMAGES,
      N_("Merge nearest images tag to one layer"),
      N_("MERGE_IMAGES")},
+
+	{"bleed_marks", 0,
+	 POPT_ARG_NONE, &sp_merge_images, SP_ARG_BLEED_MARKS,
+	 N_("Create bleed marks in the corner of visual bound box"),
+	 N_("BLEED_MARKS")},
 
     {"mergeLimit", 0,
 	 POPT_ARG_INT, &sp_merge_limit, SP_ARG_MERGE_LIMIT,
@@ -2490,6 +2496,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_MERGE_IMAGES: {
             	sp_merge_images_sh = TRUE;
             	break;
+            }
+            case SP_ARG_BLEED_MARKS: {
+				sp_bleed_marks_sh = TRUE;
+				break;
             }
             case SP_ARG_MERGE_LIMIT: {
                 sp_merge_limit_sh = sp_merge_limit;

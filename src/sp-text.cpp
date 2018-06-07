@@ -533,7 +533,7 @@ unsigned SPText::_buildLayoutInput(SPObject *root, Inkscape::Text::Layout::Optio
         layout.strut.reset();
         if (style) {
         	font_instance *font = NULL;
-        	if (! sp_original_fonts_sh || sp_fonts_dir_sh)
+        	//if (/*! sp_original_fonts_sh ||*/ sp_fonts_dir_sh)
                 font = font_factory::Default()->FaceFromStyle( style );
             if (font) {
                 font->FontMetrics(layout.strut.ascent, layout.strut.descent, layout.strut.xheight);
@@ -623,9 +623,9 @@ void SPText::rebuildLayout()
     layout.clear();
     Inkscape::Text::Layout::OptionalTextTagAttrs optional_attrs;
     _buildLayoutInput(this, optional_attrs, 0, false);
-    if (! sp_original_fonts_sh || sp_fonts_dir_sh) {
+    //if (/*! sp_original_fonts_sh ||*/ sp_fonts_dir_sh) {
       layout.calculateFlow();
-    }
+    //}
     for (SPObject *child = firstChild() ; child ; child = child->getNext() ) {
         if (SP_IS_TEXTPATH(child)) {
             SPTextPath const *textpath = SP_TEXTPATH(child);
@@ -645,7 +645,8 @@ void SPText::rebuildLayout()
                  && tspan->attributes.singleXYCoordinates() ) {
                 Inkscape::Text::Layout::iterator iter = layout.sourceToIterator(tspan);
                 Geom::Point anchor_point = layout.chunkAnchorPoint(iter);
-                tspan->attributes.setFirstXY(anchor_point);
+                if (! sp_use_dx_sh)
+                	tspan->attributes.setFirstXY(anchor_point);
             }
         }
     }

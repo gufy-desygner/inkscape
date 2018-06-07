@@ -17,6 +17,7 @@
 
 void print_node(Inkscape::XML::Node *node, uint level);
 
+
 void print_node_attribs(Inkscape::XML::Node *node, uint level);
 
 bool isImage_node(Inkscape::XML::Node *node);
@@ -29,7 +30,7 @@ char *readLineFromFile(FILE *fl);
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
-
+void createBleedMarks(SvgBuilder *builder);
 void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
@@ -103,6 +104,7 @@ public:
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
 	Inkscape::XML::Node *getSourceSubVisual() { return _sourceSubVisual; };
+	Inkscape::XML::Node *getSourceVisual() { return _sourceVisual; };
 	const char *findAttribute(Inkscape::XML::Node *node, char *attribName);
 	Inkscape::XML::Node *mergeTspan(Inkscape::XML::Node *textNode);
 	Inkscape::XML::Node *compressGNode(Inkscape::XML::Node *gNode);
