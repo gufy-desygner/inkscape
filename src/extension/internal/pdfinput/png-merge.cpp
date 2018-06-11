@@ -494,15 +494,15 @@ void createBleedMarks(SvgBuilder *builder) {
 	Inkscape::XML::Node* g_crops = builder->createElement("svg:g");
 
     Geom::Rect sq;
-    SPObject *obj = builder->getSpDocument()->getObjectById(mainNode->attribute("id"));
+    SPObject *obj = builder->getSpDocument()->getObjectById(mainNode->parent()->attribute("id"));
     Geom::OptRect visualBound(SP_ITEM(obj)->visualBounds());
     if (visualBound) {
     	sq = visualBound.get();
     }
-    double x1 = sq[Geom::X][0];
-    double x2 = sq[Geom::X][1];
-    double y1 = sq[Geom::Y][0];
-    double y2 = sq[Geom::Y][1];
+    double x1 = sq[Geom::X][0] - sp_bleed_left_sh;
+    double x2 = sq[Geom::X][1] + sp_bleed_right_sh;
+    double y1 = sq[Geom::Y][0] - sp_bleed_top_sh ;
+    double y2 = sq[Geom::Y][1] + sp_bleed_bottom_sh;
 
     #define CROP_LINE_SIZE 20
 
@@ -521,7 +521,7 @@ void createBleedMarks(SvgBuilder *builder) {
     // Bottom right Mark
     draw_crop_line(builder, x2, y2, x2, y2 + CROP_LINE_SIZE, 0, g_crops);
     draw_crop_line(builder, x2, y2, x2 + CROP_LINE_SIZE, y2, 0, g_crops);
-    mainNode->addChild(g_crops, mainNode->lastChild());
+    mainNode->parent()->addChild(g_crops, mainNode);
 }
 
 bool isTrans(char *patch) {
