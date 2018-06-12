@@ -545,7 +545,7 @@ struct poptOption options[] = {
 	 N_("Top gap between edge and bleed mark"),
 	 N_("BLEED_TOP")},
 
-	{"bleed_", 0,
+	{"bleed_bottom", 0,
 	 POPT_ARG_INT, &sp_bleed_bottom, SP_ARG_BLEED_BOTTOM,
 	 N_("Bottom gap between edge and bleed mark"),
 	 N_("BLEED_BOTTOM")},
