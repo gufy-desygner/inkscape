@@ -15,6 +15,8 @@ extern gint sp_bleed_left_sh;
 extern gint sp_bleed_right_sh;
 extern gint sp_bleed_top_sh;
 extern gint sp_bleed_bottom_sh;
+extern gboolean sp_crop_mark_sh;
+extern gint sp_crop_mark_shift_sh;
 extern gboolean sp_merge_path_sh;
 extern gboolean sp_add_background_sh;
 extern gboolean sp_use_dx_sh;

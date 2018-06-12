@@ -178,6 +178,7 @@ enum {
 	SP_ARG_BLEED_RIGHT,
 	SP_ARG_BLEED_TOP,
 	SP_ARG_BLEED_BOTTOM,
+	SP_ARG_CROP_MARKS,
 	SP_ARG_MERGE_LIMIT,
 	SP_ARG_MERGE_LIMIT_PATH,
 	SP_ARG_RECT_HOW_PATH,
@@ -265,6 +266,7 @@ static gint sp_bleed_left = 0;
 static gint sp_bleed_right = 0;
 static gint sp_bleed_top = 0;
 static gint sp_bleed_bottom = 0;
+static gint sp_crop_mark_shift = 0;
 static gint sp_merge_limit = 0;
 static gint sp_merge_limit_path = 0;
 static gint sp_rect_how_path = 0;
@@ -528,7 +530,7 @@ struct poptOption options[] = {
 	{"bleed_marks", 0,
 	 POPT_ARG_NONE, &sp_bleed_mark, SP_ARG_BLEED_MARKS,
 	 N_("Create bleed marks in the corner of visual bound box"),
-	 N_("BLEED_MARKS")},
+	 NULL},
 
     {"bleed_left", 0,
      POPT_ARG_INT, &sp_bleed_left, SP_ARG_BLEED_LEFT,
@@ -549,6 +551,11 @@ struct poptOption options[] = {
 	 POPT_ARG_INT, &sp_bleed_bottom, SP_ARG_BLEED_BOTTOM,
 	 N_("Bottom gap between edge and bleed mark"),
 	 N_("BLEED_BOTTOM")},
+
+	{"crop_marks", 0,
+	 POPT_ARG_INT, &sp_crop_mark_shift, SP_ARG_CROP_MARKS,
+	 N_("Create crop marks in the corner of visual bound box, 'SHIFT' is distance from edge"),
+	 N_("SHIFT")},
 
     {"mergeLimit", 0,
 	 POPT_ARG_INT, &sp_merge_limit, SP_ARG_MERGE_LIMIT,
@@ -2546,7 +2553,11 @@ sp_process_args(poptContext ctx)
 				sp_bleed_bottom_sh = sp_bleed_bottom;
 				break;
             }
-
+            case SP_ARG_CROP_MARKS: {
+				sp_crop_mark_sh = TRUE;
+				sp_crop_mark_shift_sh = sp_crop_mark_shift;
+				break;
+            }
             case SP_ARG_MERGE_LIMIT: {
                 sp_merge_limit_sh = sp_merge_limit;
                 break;

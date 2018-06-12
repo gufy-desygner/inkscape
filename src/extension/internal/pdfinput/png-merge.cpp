@@ -468,9 +468,18 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 }
 
 void draw_crop_line(SvgBuilder *builder, double x1, double y1,
-					double x2, double y2, char* name, Inkscape::XML::Node *parent) {
+					double x2, double y2, char* name, Inkscape::XML::Node *parent,
+					mark_line_style  lineStyle = CROP_MARK_STYLE) {
 	Inkscape::XML::Node* pathTag = builder->createElement("svg:path");
-    char *style = g_strdup("stroke:#000000;stroke-width:0.3;fill:none");
+	char *style = 0;
+	switch(lineStyle) {
+		case CROP_MARK_STYLE : style = g_strdup("stroke:#000000;stroke-width:0.3;fill:none");
+			break;
+		case BLEED_LINE_STYLE : style = g_strdup("stroke:#000000;stroke-width:0.3;fill:none;stroke-miterlimit:4;stroke-dasharray:4, 2, 1, 2;stroke-dashoffset:0");
+			break;
+		default :
+			style = g_strdup("stroke:#000000;stroke-width:0.3;fill:none");
+	}
     pathTag->setAttribute("style", style);
     free(style);
     Inkscape::SVGOStringStream strX1;  strX1 << x1;
@@ -484,14 +493,13 @@ void draw_crop_line(SvgBuilder *builder, double x1, double y1,
     parent->addChild(pathTag, parent->lastChild());
 }
 
-void createBleedMarks(SvgBuilder *builder) {
+void createPrintingMarks(SvgBuilder *builder) {
 	SPDocument *doc = builder->getSpDocument();
     te_update_layout_now_recursive(doc->getRoot());
 
     // Create a group for Crop Mark
 	MergeBuilder *tools = new MergeBuilder(builder->getRoot(), 0);
 	Inkscape::XML::Node* mainNode = tools->getSourceVisual();
-	Inkscape::XML::Node* g_crops = builder->createElement("svg:g");
 
     Geom::Rect sq;
     SPObject *obj = builder->getSpDocument()->getObjectById(mainNode->parent()->attribute("id"));
@@ -499,29 +507,71 @@ void createBleedMarks(SvgBuilder *builder) {
     if (visualBound) {
     	sq = visualBound.get();
     }
-    double x1 = sq[Geom::X][0] - sp_bleed_left_sh;
-    double x2 = sq[Geom::X][1] + sp_bleed_right_sh;
-    double y1 = sq[Geom::Y][0] - sp_bleed_top_sh ;
-    double y2 = sq[Geom::Y][1] + sp_bleed_bottom_sh;
+    if (sp_bleed_marks_sh) {
+		double x1 = sq[Geom::X][0] - sp_bleed_left_sh;
+		double x2 = sq[Geom::X][1] + sp_bleed_right_sh;
+		double y1 = sq[Geom::Y][0] - sp_bleed_top_sh ;
+		double y2 = sq[Geom::Y][1] + sp_bleed_bottom_sh;
+		Inkscape::XML::Node* g_crops = builder->createElement("svg:g");
 
-    #define CROP_LINE_SIZE 20
+		// Top left Mark
+		draw_crop_line(builder, x1, y1, x1, y1 - CROP_LINE_SIZE, 0, g_crops, BLEED_LINE_STYLE);
+		draw_crop_line(builder, x1, y1, x1 - CROP_LINE_SIZE, y1, 0, g_crops, BLEED_LINE_STYLE);
 
-    // Top left Mark
-    draw_crop_line(builder, x1, y1, x1, y1 - CROP_LINE_SIZE, 0, g_crops);
-    draw_crop_line(builder, x1, y1, x1 - CROP_LINE_SIZE, y1, 0, g_crops);
+		// Top right Mark
+		draw_crop_line(builder, x2, y1, x2, y1 - CROP_LINE_SIZE, 0, g_crops, BLEED_LINE_STYLE);
+		draw_crop_line(builder, x2, y1, x2 + CROP_LINE_SIZE, y1, 0, g_crops, BLEED_LINE_STYLE);
 
-    // Top right Mark
-    draw_crop_line(builder, x2, y1, x2, y1 - CROP_LINE_SIZE, 0, g_crops);
-    draw_crop_line(builder, x2, y1, x2 + CROP_LINE_SIZE, y1, 0, g_crops);
+		// Bottom left Mark
+		draw_crop_line(builder, x1, y2, x1, y2 + CROP_LINE_SIZE, 0, g_crops, BLEED_LINE_STYLE);
+		draw_crop_line(builder, x1, y2, x1 - CROP_LINE_SIZE, y2, 0, g_crops, BLEED_LINE_STYLE);
 
-    // Bottom left Mark
-    draw_crop_line(builder, x1, y2, x1, y2 + CROP_LINE_SIZE, 0, g_crops);
-    draw_crop_line(builder, x1, y2, x1 - CROP_LINE_SIZE, y2, 0, g_crops);
+		// Bottom right Mark
+		draw_crop_line(builder, x2, y2, x2, y2 + CROP_LINE_SIZE, 0, g_crops, BLEED_LINE_STYLE);
+		draw_crop_line(builder, x2, y2, x2 + CROP_LINE_SIZE, y2, 0, g_crops, BLEED_LINE_STYLE);
+		mainNode->parent()->addChild(g_crops, mainNode);
+    }
 
-    // Bottom right Mark
-    draw_crop_line(builder, x2, y2, x2, y2 + CROP_LINE_SIZE, 0, g_crops);
-    draw_crop_line(builder, x2, y2, x2 + CROP_LINE_SIZE, y2, 0, g_crops);
-    mainNode->parent()->addChild(g_crops, mainNode);
+    if (sp_crop_mark_sh) {
+		Inkscape::XML::Node* g_crops = builder->createElement("svg:g");
+		double x1 = sq[Geom::X][0];
+		double x2 = sq[Geom::X][1];
+		double y1 = sq[Geom::Y][0];
+		double y2 = sq[Geom::Y][1];
+
+		// Top left Mark
+		draw_crop_line(builder, x1, y1 - sp_crop_mark_shift_sh,
+								x1, y1 - CROP_LINE_SIZE - sp_crop_mark_shift_sh,
+								0, g_crops, CROP_MARK_STYLE);
+		draw_crop_line(builder, x1 - sp_crop_mark_shift_sh, y1,
+								x1 - sp_crop_mark_shift_sh - CROP_LINE_SIZE, y1,
+								0, g_crops, CROP_MARK_STYLE);
+
+		// Top right Mark
+		draw_crop_line(builder, x2, y1 - sp_crop_mark_shift_sh,
+								x2, y1 - CROP_LINE_SIZE - sp_crop_mark_shift_sh,
+								0, g_crops, CROP_MARK_STYLE);
+		draw_crop_line(builder, x2 + sp_crop_mark_shift_sh, y1,
+								x2 + sp_crop_mark_shift_sh + CROP_LINE_SIZE, y1,
+								0, g_crops, CROP_MARK_STYLE);
+
+		// Bottom left Mark
+		draw_crop_line(builder, x1, y2 + sp_crop_mark_shift_sh,
+								x1, y2 + CROP_LINE_SIZE + sp_crop_mark_shift_sh,
+								0, g_crops, CROP_MARK_STYLE);
+		draw_crop_line(builder, x1 - sp_crop_mark_shift_sh, y2,
+								x1 - sp_crop_mark_shift_sh - CROP_LINE_SIZE, y2,
+								0, g_crops, CROP_MARK_STYLE);
+
+		// Bottom right Mark
+		draw_crop_line(builder, x2, y2 + sp_crop_mark_shift_sh, x2,
+								y2 + sp_crop_mark_shift_sh + CROP_LINE_SIZE,
+								0, g_crops, CROP_MARK_STYLE);
+		draw_crop_line(builder, x2 + sp_crop_mark_shift_sh, y2,
+								x2 + sp_crop_mark_shift_sh + CROP_LINE_SIZE, y2,
+								0, g_crops, CROP_MARK_STYLE);
+		mainNode->parent()->addChild(g_crops, mainNode);
+    }
 }
 
 bool isTrans(char *patch) {

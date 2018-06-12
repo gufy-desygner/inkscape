@@ -30,7 +30,14 @@ char *readLineFromFile(FILE *fl);
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
-void createBleedMarks(SvgBuilder *builder);
+
+#define CROP_LINE_SIZE 20
+enum mark_line_style {
+	CROP_MARK_STYLE,
+	BLEED_LINE_STYLE
+};
+
+void createPrintingMarks(SvgBuilder *builder);
 void mergeImagePathToOneLayer(SvgBuilder *builder);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
