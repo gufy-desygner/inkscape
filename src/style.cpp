@@ -614,10 +614,11 @@ SPStyle::read( SPObject *object, Inkscape::XML::Node *repr ) {
         // font-variant are converted to shorthands in CSS 3 but can still be read as a
         // non-shorthand for compatability with older renders, so they should not be in this list.
         // We could add a flag to SPIBase to avoid string comparison.
-        if( _properties[i]->name.compare( "font" ) != 0 &&
-            _properties[i]->name.compare( "marker" ) != 0 ) {
+
+    	//if( _properties[i]->name.compare( "font" ) != 0 &&
+        //    _properties[i]->name.compare( "marker" ) != 0 ) {
             _properties[i]->readAttribute( repr );
-        }
+        //}
     }
     // for(SPPropMap::iterator i = _propmap.begin(); i != _propmap.end(); ++i ) {
     //     (this->*(i->second)).readAttribute( repr );

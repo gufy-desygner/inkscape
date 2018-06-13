@@ -28,6 +28,7 @@
 #include "sp-text.h"
 #include "sp-flowtext.h"
 #include "path-chemistry.h"
+#include "xml/text-node.h"
 //#include <extension/system.h>
 //#include <extension/db.h>
 
@@ -1328,6 +1329,10 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 				}
 			    attrList++;
 			}
+			// repeat all for children nodes
+			if (tmpNode && tmpNode->childCount()) {
+				scanGtagForCompress(tmpNode, builder);
+			}
 			// Adjust children and remove group
 			if (fl) {
 				Geom::Affine mainAffine;
@@ -1342,6 +1347,8 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 						tmpChild->setAttribute("transform", buf);
 						free(buf);
 						// move it to the main text node
+						Inkscape::XML::ElementNode *ppp = (Inkscape::XML::ElementNode *)(void *)posNode;
+						//ppp->lock = true;
 						posNode->parent()->addChild(tmpChild->duplicate(tmpChild->document()) ,posNode);
 						posNode = posNode->next();
 
@@ -1352,10 +1359,6 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 				tmpNode = tmpNode->next();
 				remNode->parent()->removeChild(remNode);
 			}
-		}
-		// repeat all for children nodes
-		if (tmpNode && tmpNode->childCount()) {
-			scanGtagForCompress(tmpNode, builder);
 		}
 		// If we don't remove <g> node in this cycle - go to next node.
 		// else we have next node already
