@@ -2571,6 +2571,7 @@ sp_process_args(poptContext ctx)
             	break;
             }
             case SP_ARG_EXPORT_SVG: {
+            	sp_export_svg_sh = TRUE;
             	sp_export_svg_path_sh = g_strdup_printf("%s", sp_export_svg);
             	sp_export_svg_path_sh = dirname(sp_export_svg_path_sh);
             	if (strlen(sp_export_svg_path_sh) > 1 or

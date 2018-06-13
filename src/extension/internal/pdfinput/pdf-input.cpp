@@ -874,27 +874,28 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             pdf_parser->parse(&obj);
 
             // post processing
-            compressGtag(builder); // removing empty <g> around <text> and <path>
-            logTime("Start merge gradients");
-            mergeMaskToImage(builder);
-            mergeMaskGradientToLayer(builder);
-            logTime("Start merge layer");
-            if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
-            	(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
-				mergeImagePathToLayerSave(builder, true) > 15) {
+            if (sp_export_svg_sh) {
+            	compressGtag(builder); // removing empty <g> around <text> and <path>
+            	logTime("Start merge gradients");
+            	mergeMaskToImage(builder);
+            	mergeMaskGradientToLayer(builder);
+            	logTime("Start merge layer");
+				if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
+					(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
+					mergeImagePathToLayerSave(builder, true) > 15) {
 
-                mergeImagePathToOneLayer(builder);
-            } else {
-            	mergeImagePathToLayerSave(builder);
+					mergeImagePathToOneLayer(builder);
+				} else {
+					mergeImagePathToLayerSave(builder);
+				}
+				logTime("Start merge text");
+				mergeNearestTextToOnetag(builder);
+				logTime("Start merge tspan");
+				mergeTspan(builder);
+				compressGtag(builder); // removing empty <g> around <text> and <path>
+				logTime("End merge tspan");
+				enumerationTagsStart(builder);
             }
-            logTime("Start merge text");
-            mergeNearestTextToOnetag(builder);
-            logTime("Start merge tspan");
-            mergeTspan(builder);
-            compressGtag(builder); // removing empty <g> around <text> and <path>
-            logTime("End merge tspan");
-            enumerationTagsStart(builder);
-
             if (sp_bleed_marks_sh || sp_crop_mark_sh)
             	createPrintingMarks(builder);
 
