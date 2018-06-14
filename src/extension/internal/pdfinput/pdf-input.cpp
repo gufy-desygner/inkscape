@@ -862,39 +862,65 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         // Parse the document structure
         Object obj;
-        logTime("Start getContent");
         page->getContents(&obj);
         if (!obj.isNull()) {
-        	initTimer(1);
-        	initTimer(2);
-        	initTimer(3);
-        	initTimer(4);
-        	initTimer(5);
-        	logTime("Start parse pdf");
             pdf_parser->parse(&obj);
-
             // post processing
             if (sp_export_svg_sh) {
-            	compressGtag(builder); // removing empty <g> around <text> and <path>
-            	logTime("Start merge gradients");
-            	mergeMaskToImage(builder);
-            	mergeMaskGradientToLayer(builder);
-            	logTime("Start merge layer");
-				if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
-					(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
-					mergeImagePathToLayerSave(builder, true) > 15) {
+            	if (sp_fast_svg_sh) {
+            		Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+            			new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+            		//search last child
+            		Inkscape::XML::Node *visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
+            		while (visualChild->next())
+            			visualChild = visualChild->next();
+            		Inkscape::XML::Node *lastMergedNode = visualChild;
+            		//extract text nodes
+            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual());
+            		visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
+            		std::vector<Inkscape::XML::Node *> remNodes;
+            		// collect node for merge
+            		lastMergedNode = lastMergedNode->next();
+            		while(visualChild != lastMergedNode) {
+            			if (strcmp(visualChild->name(), "svg:text") != 0) {
+							mergeBuilder->addImageNode(visualChild, sp_export_svg_path_sh);
+							remNodes.push_back(visualChild);
+            			}
+            			visualChild = visualChild->next();
+            		}
 
-					mergeImagePathToOneLayer(builder);
-				} else {
-					mergeImagePathToLayerSave(builder);
-				}
-				logTime("Start merge text");
-				mergeNearestTextToOnetag(builder);
-				logTime("Start merge tspan");
-				mergeTspan(builder);
-				compressGtag(builder); // removing empty <g> around <text> and <path>
-				logTime("End merge tspan");
-				enumerationTagsStart(builder);
+            		char *tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), "graphic");
+            		// Insert node with merged image
+					Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
+					mergeBuilder->getSourceSubVisual()->addChild(sumNode, 0);
+					for(int i = 0; i < remNodes.size(); i++) {
+						mergeBuilder->removeRelateDefNodes(remNodes[i]);
+						mergeBuilder->removeGFromNode(remNodes[i]);
+					}
+					remNodes.clear();
+					delete mergeBuilder;
+					mergeNearestTextToOnetag(builder);
+					mergeTspan(builder);
+            	} else {
+					compressGtag(builder); // removing empty <g> around <text> and <path>
+					logTime("Start merge gradients");
+					mergeMaskToImage(builder);
+					mergeMaskGradientToLayer(builder);
+					logTime("Start merge layer");
+					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
+						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
+						mergeImagePathToLayerSave(builder, true) > 15) {
+
+						mergeImagePathToOneLayer(builder);
+					} else {
+						mergeImagePathToLayerSave(builder);
+					}
+					mergeNearestTextToOnetag(builder);
+					mergeTspan(builder);
+					compressGtag(builder); // removing empty <g> around <text> and <path>
+					logTime("End merge tspan");
+					enumerationTagsStart(builder);
+            	}
             }
             if (sp_bleed_marks_sh || sp_crop_mark_sh)
             	createPrintingMarks(builder);

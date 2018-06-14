@@ -188,6 +188,7 @@ enum {
 	SP_ARG_ORIGINAL_FONTS,
 	SP_ARG_FONTS_DIR,
     SP_ARG_EXPORT_SVG,
+	SP_FAST_SVG,
     SP_ARG_EXPORT_PS,
     SP_ARG_EXPORT_EPS,
     SP_ARG_EXPORT_PS_LEVEL,
@@ -490,6 +491,11 @@ struct poptOption options[] = {
      POPT_ARG_STRING, &sp_export_svg, SP_ARG_EXPORT_SVG,
      N_("Export document to plain SVG file (no sodipodi or inkscape namespaces)"),
      N_("FILENAME")},
+
+	{"fast-svg", 0,
+	 POPT_ARG_NONE, &sp_fast_svg_sh, SP_FAST_SVG,
+	 N_("Generate the must simple svg (image layer and text layer)"),
+	 NULL },
 
     {"export-ps", 'P',
      POPT_ARG_STRING, &sp_export_ps, SP_ARG_EXPORT_PS,

@@ -47,6 +47,8 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate=false);
 void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff);
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0);
 
 #if PROFILER_ENABLE == 1
 #define TIMER_NUMBER 50

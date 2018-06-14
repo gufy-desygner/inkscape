@@ -4,6 +4,7 @@
 extern gboolean sp_embed_images_sh;
 extern char* sp_export_svg_path_sh;
 extern gboolean sp_export_svg_sh;
+extern gboolean sp_fast_svg_sh;
 extern gint sp_gradient_precision_sh;
 extern gboolean sp_log_font_sh;
 extern gboolean sp_export_fonts_sh;

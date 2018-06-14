@@ -1378,8 +1378,18 @@ void compressGtag(SvgBuilder *builder){
 	delete mergeBuilder;
 }
 
+/**
+ * @description recreate all text nodes from child of mainNode as child of mainNode
+ *
+ * @builder representation of SVG
+ * @param mainNode node after which will put all text nodes
+ * @param currNode node from which do scan for text tags
+ * @param aff affine matrix for transformation objects from currNode to mainNode
+ */
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff) {
-	Inkscape::XML::Node *pos = mainNode; // position for inserting new node
+	// position for inserting new node
+	// each new text node will shift this position to self
+	Inkscape::XML::Node *pos = mainNode;
 	Inkscape::XML::Node *nextNode;
 	if (! currNode) {
 		currNode = mainNode;
@@ -1387,19 +1397,28 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	Inkscape::XML::Node *chNode = currNode->firstChild();
 	while(chNode) {
 		nextNode = chNode->next();
+		// move found text node
 		if (strcmp(chNode->name(), "svg:text") == 0) {
-			chNode->parent()->removeChild(chNode);
-			Inkscape::XML::Node *gNode = builder->createElement("svg:g");
-			char *transBuff =  sp_svg_transform_write(aff);
-			gNode->setAttribute("transform", transBuff);
-			free(transBuff);
-			gNode->addChild(chNode, 0);
-			pos->parent()->addChild(gNode, pos);
-			pos = gNode;
+			if (chNode->parent() != mainNode->parent()) { // already have right position
+				Geom::Affine affText;
+				sp_svg_transform_read(chNode->attribute("transform"), &affText);
+				// disconnect from previous parent
+				chNode->parent()->removeChild(chNode);
+				// create new representation
+				char *transBuff =  sp_svg_transform_write(affText * aff);
+				chNode->setAttribute("transform", transBuff);
+				free(transBuff);
+				pos->parent()->addChild(chNode, pos);
+				// shift position for insert next node
+				pos = chNode;
+			}
 		} else {
+			// if is not TEXT node and have child - applay move for children
 			if (chNode->childCount() > 0) {
+				//accumulate affine transform
 				Geom::Affine aff2;
 				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
+				// move children to 'pos'
 				moveTextNode(builder, pos, chNode, aff*aff2);
 			}
 		}
@@ -1407,10 +1426,11 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	}
 }
 
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode) {
 	Geom::Affine aff;
-	sp_svg_transform_read(mainNode->attribute("transform"), &aff);
-	moveTextNode(builder, mainNode, 0, aff);
+	if (mainNode->parent() != currNode)
+		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
+	moveTextNode(builder, mainNode, currNode, aff);
 }
 
 /**
