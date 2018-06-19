@@ -49,6 +49,7 @@ void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0);
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node);
 
 #if PROFILER_ENABLE == 1
 #define TIMER_NUMBER 50

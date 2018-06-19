@@ -468,6 +468,17 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	return tempNode;
 }
 
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node) {
+	int64_t count_of_nodes = 0;
+	Inkscape::XML::Node *childNode = node->firstChild();
+	while(childNode) {
+		count_of_nodes++;
+		count_of_nodes += svg_get_number_of_objects(childNode);
+		childNode = childNode->next();
+	}
+	return count_of_nodes;
+}
+
 void draw_crop_line(SvgBuilder *builder, double x1, double y1,
 					double x2, double y2, char* name, Inkscape::XML::Node *parent,
 					mark_line_style  lineStyle = CROP_MARK_STYLE) {

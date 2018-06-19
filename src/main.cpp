@@ -493,7 +493,7 @@ struct poptOption options[] = {
      N_("FILENAME")},
 
 	{"fast-svg", 0,
-	 POPT_ARG_NONE, &sp_fast_svg_sh, SP_FAST_SVG,
+	 POPT_ARG_LONG, &sp_fast_svg_sh, SP_FAST_SVG,
 	 N_("Generate the must simple svg (image layer and text layer)"),
 	 NULL },
 
@@ -2515,6 +2515,12 @@ sp_process_args(poptContext ctx)
             case SP_ARG_EXPORT_FONTS: {
               	sp_export_fonts_sh = TRUE;
               	break;
+            }
+            case SP_FAST_SVG: {
+            	if (sp_fast_svg_sh == FAST_SVG_DEFAULT) {
+            		sp_fast_svg_sh = 0;
+            	}
+            	break;
             }
             case SP_ARG_CID_TO_TTF: {
                 sp_cid_to_ttf_sh = TRUE;

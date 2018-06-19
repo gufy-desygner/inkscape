@@ -4,7 +4,8 @@
 extern gboolean sp_embed_images_sh;
 extern char* sp_export_svg_path_sh;
 extern gboolean sp_export_svg_sh;
-extern gboolean sp_fast_svg_sh;
+#define FAST_SVG_DEFAULT 99999999999
+extern gint64 sp_fast_svg_sh;
 extern gint sp_gradient_precision_sh;
 extern gboolean sp_log_font_sh;
 extern gboolean sp_export_fonts_sh;

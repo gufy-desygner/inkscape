@@ -866,10 +866,15 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         if (!obj.isNull()) {
             pdf_parser->parse(&obj);
             // post processing
-            if (sp_export_svg_sh) {
-            	if (sp_fast_svg_sh) {
-            		Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
-            			new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+            if (sp_export_svg_sh) { // if out format is SVG
+            	// check difficult of svg
+            	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
+            	int64_t count_of_nodes = 0;
+            	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
+            	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+            	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual());
+            	}
+            	if (sp_fast_svg_sh == 0 || sp_fast_svg_sh < count_of_nodes) {
             		//search last child
             		Inkscape::XML::Node *visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		while (visualChild->next())
@@ -898,7 +903,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						mergeBuilder->removeGFromNode(remNodes[i]);
 					}
 					remNodes.clear();
-					delete mergeBuilder;
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
             	} else {
@@ -921,6 +925,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					logTime("End merge tspan");
 					enumerationTagsStart(builder);
             	}
+            	delete mergeBuilder;
             }
             if (sp_bleed_marks_sh || sp_crop_mark_sh)
             	createPrintingMarks(builder);
