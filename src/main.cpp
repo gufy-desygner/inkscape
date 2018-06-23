@@ -161,6 +161,7 @@ enum {
     SP_ARG_EXPORT_ID_ONLY,
     SP_ARG_EXPORT_USE_HINTS,
 	SP_ARG_USE_DX,
+	SP_ARG_SHOW_COUNTER,
 	SP_ARG_CREATE_JPEG,
 	SP_ARG_MERGE_JPEG,
 	SP_ARG_MAPPING_OFF,
@@ -445,6 +446,11 @@ struct poptOption options[] = {
 	{"useDx", 0,
 	 POPT_ARG_NONE, &sp_use_dx, SP_ARG_USE_DX,
 	 N_("change x attribute in <tspan> to dx attribute"),
+	 NULL},
+
+	{"show-counters", 0,
+	 POPT_ARG_NONE, &sp_show_counters_sh, SP_ARG_SHOW_COUNTER,
+	 N_("Print to console two counters for treating SVG"),
 	 NULL},
 
 	{"jpeg", 0,

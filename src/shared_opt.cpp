@@ -8,6 +8,7 @@ gboolean sp_export_svg_sh = FALSE;
 gint64 sp_fast_svg_sh = FAST_SVG_DEFAULT;
 gint sp_gradient_precision_sh = 2;
 gboolean sp_original_fonts_sh = FALSE;
+gboolean sp_show_counters_sh = FALSE;
 gchar *sp_fonts_dir_sh = NULL;
 gboolean sp_merge_images_sh = FALSE;
 gboolean sp_bleed_marks_sh = FALSE;

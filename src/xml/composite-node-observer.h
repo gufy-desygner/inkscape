@@ -23,6 +23,9 @@ namespace Inkscape {
 
 namespace XML {
 
+void setCountNotifyChildAdd(long value);
+long getCountNotifyChildAdd();
+
 struct NodeEventVector;
 
 /**

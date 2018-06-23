@@ -25,12 +25,23 @@ namespace Inkscape {
 
 namespace XML {
 
+static long countNotifyChildAdd = 0;
+
+void setCountNotifyChildAdd(long value) {
+	countNotifyChildAdd = 0;
+}
+
+long getCountNotifyChildAdd() {
+	return countNotifyChildAdd;
+}
+
 void CompositeNodeObserver::notifyChildAdded(Node &node, Node &child, Node *prev)
 {
     _startIteration();
     for ( ObserverRecordList::iterator iter=_active.begin() ;
           iter != _active.end() ; ++iter )
     {
+    	countNotifyChildAdd++;
         if (!iter->marked) {
             iter->observer.notifyChildAdded(node, child, prev);
         }

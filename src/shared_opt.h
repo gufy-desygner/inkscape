@@ -11,6 +11,7 @@ extern gboolean sp_log_font_sh;
 extern gboolean sp_export_fonts_sh;
 extern gboolean sp_cid_to_ttf_sh;
 extern gboolean sp_original_fonts_sh;
+extern gboolean sp_show_counters_sh;
 extern gchar *sp_fonts_dir_sh;
 extern gboolean sp_merge_images_sh;
 extern gboolean sp_bleed_marks_sh;

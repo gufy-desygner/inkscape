@@ -65,6 +65,7 @@
 
 #include <gdkmm/general.h>
 #include <pthread.h>
+#include "xml/composite-node-observer.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -866,10 +867,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         if (!obj.isNull()) {
             pdf_parser->parse(&obj);
             // post processing
+            Inkscape::XML::setCountNotifyChildAdd(0);
+            int64_t count_of_nodes = 0;
             if (sp_export_svg_sh) { // if out format is SVG
             	// check difficult of svg
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
-            	int64_t count_of_nodes = 0;
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
             	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual());
@@ -926,6 +928,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					enumerationTagsStart(builder);
             	}
             	delete mergeBuilder;
+            }
+            if (sp_show_counters_sh) {
+				printf("Number of nodes for treating %i\n", count_of_nodes);
+				printf("Recalculated nodes was %i\n", Inkscape::XML::getCountNotifyChildAdd());
             }
             if (sp_bleed_marks_sh || sp_crop_mark_sh)
             	createPrintingMarks(builder);
