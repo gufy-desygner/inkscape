@@ -1067,7 +1067,7 @@ void mergeTspanList(GPtrArray *tspanArray) {
 	}
 
 	for(int i = 0; i < tspanArray->len - 1; i++) {
-		double firstY;
+	    double firstY;
 	    double secondY;
 	    double firstEndX;
 	    double secondX;
@@ -1080,6 +1080,9 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
+		if ( spaceSize <= 0 ) {
+			spaceSize = textSize / 3;
+		}
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
@@ -1087,7 +1090,7 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < textSize * 3.5)/* &&
+				(secondX - firstEndX < spaceSize * 6)/* &&
 				spaceSize > 0*/) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);
@@ -1095,7 +1098,6 @@ void mergeTspanList(GPtrArray *tspanArray) {
 			i--;
 		}
 	}
-
 }
 
 // do merge TSPAN for input text node and return resulted text node
