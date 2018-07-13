@@ -519,6 +519,12 @@ void createPrintingMarks(SvgBuilder *builder) {
     if (visualBound) {
     	sq = visualBound.get();
     }
+
+    double minY = sq[Geom::Y][0] - sp_bleed_top_sh ;
+    double maxY = sq[Geom::Y][1] + sp_bleed_bottom_sh;
+    double minX = sq[Geom::X][0] - sp_bleed_left_sh;
+    double maxX = sq[Geom::X][1] + sp_bleed_right_sh;
+
     if (sp_bleed_marks_sh) {
 		double x1 = sq[Geom::X][0] - sp_bleed_left_sh;
 		double x2 = sq[Geom::X][1] + sp_bleed_right_sh;
@@ -542,6 +548,10 @@ void createPrintingMarks(SvgBuilder *builder) {
 		draw_crop_line(builder, x2, y2, x2, y2 + CROP_LINE_SIZE, 0, g_crops, BLEED_LINE_STYLE);
 		draw_crop_line(builder, x2, y2, x2 + CROP_LINE_SIZE, y2, 0, g_crops, BLEED_LINE_STYLE);
 		mainNode->parent()->addChild(g_crops, mainNode);
+		minX = x1 - CROP_LINE_SIZE;
+		maxX = x2 + CROP_LINE_SIZE;
+		minY = y1 - CROP_LINE_SIZE;
+		maxY = y2 + CROP_LINE_SIZE;
     }
 
     if (sp_crop_mark_sh) {
@@ -583,7 +593,19 @@ void createPrintingMarks(SvgBuilder *builder) {
 								x2 + sp_crop_mark_shift_sh + CROP_LINE_SIZE, y2,
 								0, g_crops, CROP_MARK_STYLE);
 		mainNode->parent()->addChild(g_crops, mainNode);
+
+		double tmpImpendans;
+		tmpImpendans = x1 - sp_crop_mark_shift_sh - CROP_LINE_SIZE;
+		minX = minX < tmpImpendans ? minX : tmpImpendans;
+		tmpImpendans = x2 + sp_crop_mark_shift_sh + CROP_LINE_SIZE;
+		maxX = maxY > tmpImpendans ? maxY : tmpImpendans;
+		tmpImpendans = y1 - CROP_LINE_SIZE - sp_crop_mark_shift_sh;
+		minY = minY < tmpImpendans ? minY : tmpImpendans;
+		tmpImpendans = y2 + CROP_LINE_SIZE + sp_crop_mark_shift_sh;
+		maxY = maxY > tmpImpendans ? maxY : tmpImpendans;
     }
+
+    builder->getRoot()->setAttribute("viewBox", g_strdup_printf("%i %i %i %i", int(minX), int(minY), int(maxX - minX), int(maxY - minY)));
 }
 
 bool isTrans(char *patch) {
