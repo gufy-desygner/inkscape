@@ -927,7 +927,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					logTime("End merge tspan");
 					enumerationTagsStart(builder);
             	}
-            	delete mergeBuilder;
+            	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT)
+            		delete mergeBuilder;
             }
             if (sp_show_counters_sh) {
 				printf("Number of nodes for treating %i\n", count_of_nodes);
