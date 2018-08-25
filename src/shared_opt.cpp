@@ -22,6 +22,7 @@ gboolean sp_merge_path_sh = FALSE;
 gboolean sp_add_background_sh = FALSE;
 gboolean sp_use_dx_sh = FALSE;
 gboolean sp_create_jpeg_sp = FALSE;
+gboolean sp_try_origin_jpeg_sp = FALSE;
 gboolean sp_merge_jpeg_sp = FALSE;
 gboolean sp_mapping_off_sh = FALSE;
 gboolean sp_merge_mask_sh = FALSE;

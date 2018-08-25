@@ -18,6 +18,7 @@
 #include <string> 
 #include <math.h>
 
+#define HAVE_POPPLER
 #ifdef HAVE_POPPLER
 
 #include <png.h>
@@ -1622,6 +1623,21 @@ void png_flush_base64stream(png_structp png_ptr)
     stream->flush();
 }
 
+void spoolOriginalToFile(Stream *str, gchar *fileName) {
+	BaseStream *bStr = str->getBaseStream();
+	StreamKind gg = bStr->getKind();
+	int strLen = bStr->getLength();
+
+	Guchar *buffer;
+	buffer = (Guchar *)malloc(strLen);
+	bStr->reset();
+	strLen = bStr->doGetChars(strLen, buffer);
+	str->reset();
+	FILE *file = fopen(fileName, "w");
+	fwrite(buffer, 1, strLen, file);
+	fclose(file);
+}
+
 /**
  * \brief Creates an <image> element containing the given ImageStream as a PNG
  *
@@ -1630,28 +1646,48 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
                                               GfxImageColorMap *color_map, bool interpolate,
                                               int *mask_colors, bool alpha_only,
                                               bool invert_alpha) {
-
-    _countOfImages++;
-	// Create PNG write struct
-    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if ( png_ptr == NULL ) {
-        return NULL;
-    }
-    // Create PNG info struct
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-    if ( info_ptr == NULL ) {
-        png_destroy_write_struct(&png_ptr, NULL);
-        return NULL;
-    }
-    // Set error handler
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        return NULL;
-    }
     // Decide whether we should embed this image
     int attr_value = 1;
     sp_repr_get_int(_preferences, "embedImages", &attr_value);
     bool embed_image = ( attr_value != 0 );
+    // Decide whether use PNG render branch or save original JPEG stream
+    bool isJpeg = FALSE;
+    Object o;
+    str->getDict()->lookup("Filter", &o);
+    if (o.getType() == objName) {
+		char *gStr = o.getName();
+		isJpeg = strcmp(gStr,"DCTDecode") == 0;
+    }
+    o.free();
+	bool makeOriginalImage = ( sp_try_origin_jpeg_sp && //CLI option
+			                   isJpeg &&
+			                   (! embed_image) && ((color_map == 0) || (color_map->getNumPixelComps() == 3)) &&
+			                   (mask_colors == 0) &&
+			                   (! alpha_only) &&
+							   (! invert_alpha));
+    _countOfImages++;
+    png_structp png_ptr;
+    png_infop info_ptr;
+    if (! makeOriginalImage) {
+		// Create PNG write struct
+		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+		if ( png_ptr == NULL ) {
+			return NULL;
+		}
+
+		// Create PNG info struct
+		info_ptr = png_create_info_struct(png_ptr);
+		if ( info_ptr == NULL ) {
+			png_destroy_write_struct(&png_ptr, NULL);
+			return NULL;
+		}
+		// Set error handler
+		if (setjmp(png_jmpbuf(png_ptr))) {
+			png_destroy_write_struct(&png_ptr, &info_ptr);
+			return NULL;
+		}
+    }
+
     // Set read/write functions
     Inkscape::IO::StringOutputStream base64_string;
     Inkscape::IO::Base64OutputStream base64_stream(base64_string);
@@ -1667,145 +1703,153 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         // build path of file for linking image
         file_name_png = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter);
         file_name_jpg = g_strdup_printf("%s%s_img%d.jpg", sp_export_svg_path_sh, _docname, counter);
-        fp = fopen(file_name_png, "wb");
+
+        if (! makeOriginalImage)
+        	fp = fopen(file_name_png, "wb");
         // build link value for image
-        if (sp_create_jpeg_sp)
+        if (sp_create_jpeg_sp || makeOriginalImage) {
             file_name = g_strdup_printf("%s_img%d.jpg", _docname, counter++);
+            if (makeOriginalImage)
+            	spoolOriginalToFile(str, file_name_jpg);
+        }
         else
         	file_name = g_strdup_printf("%s_img%d.png", _docname, counter++);
-        if ( fp == NULL ) {
+
+        if ( fp == NULL && (! makeOriginalImage)) {
             png_destroy_write_struct(&png_ptr, &info_ptr);
             g_free(file_name);
             g_free(file_name_png);
             g_free(file_name_jpg);
             return NULL;
         }
-        png_init_io(png_ptr, fp);
+        if (! makeOriginalImage) png_init_io(png_ptr, fp);
     }
 
-    // Set header data
-    if ( !invert_alpha && !alpha_only ) {
-        png_set_invert_alpha(png_ptr);
+    if (! makeOriginalImage) {
+		// Set header data
+		if ( !invert_alpha && !alpha_only ) {
+			png_set_invert_alpha(png_ptr);
+		}
+		png_color_8 sig_bit;
+		if (alpha_only) {
+			png_set_IHDR(png_ptr, info_ptr,
+						 width,
+						 height,
+						 8, /* bit_depth */
+						 PNG_COLOR_TYPE_GRAY,
+						 PNG_INTERLACE_NONE,
+						 PNG_COMPRESSION_TYPE_BASE,
+						 PNG_FILTER_TYPE_BASE);
+			sig_bit.red = 0;
+			sig_bit.green = 0;
+			sig_bit.blue = 0;
+			sig_bit.gray = 8;
+			sig_bit.alpha = 0;
+		} else {
+			png_set_IHDR(png_ptr, info_ptr,
+						 width,
+						 height,
+						 8, /* bit_depth */
+						 PNG_COLOR_TYPE_RGB_ALPHA,
+						 PNG_INTERLACE_NONE,
+						 PNG_COMPRESSION_TYPE_BASE,
+						 PNG_FILTER_TYPE_BASE);
+			sig_bit.red = 8;
+			sig_bit.green = 8;
+			sig_bit.blue = 8;
+			sig_bit.alpha = 8;
+		}
+		png_set_sBIT(png_ptr, info_ptr, &sig_bit);
+		png_set_bgr(png_ptr);
+		// Write the file header
+		png_write_info(png_ptr, info_ptr);
+
+		// Convert pixels
+		ImageStream *image_stream;
+		if (alpha_only) {
+			if (color_map) {
+				image_stream = new ImageStream(str, width, color_map->getNumPixelComps(),
+											   color_map->getBits());
+			} else {
+				image_stream = new ImageStream(str, width, 1, 1);
+			}
+			image_stream->reset();
+
+			// Convert grayscale values
+			unsigned char *buffer = new unsigned char[width];
+			int invert_bit = invert_alpha ? 1 : 0;
+			for ( int y = 0 ; y < height ; y++ ) {
+				unsigned char *row = image_stream->getLine();
+				if (color_map) {
+					color_map->getGrayLine(row, buffer, width);
+				} else {
+					unsigned char *buf_ptr = buffer;
+					for ( int x = 0 ; x < width ; x++ ) {
+						if ( row[x] ^ invert_bit ) {
+							*buf_ptr++ = 0;
+						} else {
+							*buf_ptr++ = 255;
+						}
+					}
+				}
+				png_write_row(png_ptr, (png_bytep)buffer);
+			}
+			delete [] buffer;
+		} else if (color_map) {
+			image_stream = new ImageStream(str, width,
+										   color_map->getNumPixelComps(),
+										   color_map->getBits());
+			image_stream->reset();
+
+			// Convert RGB values
+			unsigned int *buffer = new unsigned int[width];
+			if (mask_colors) {
+				for ( int y = 0 ; y < height ; y++ ) {
+					unsigned char *row = image_stream->getLine();
+					color_map->getRGBLine(row, buffer, width);
+
+					unsigned int *dest = buffer;
+					for ( int x = 0 ; x < width ; x++ ) {
+						// Check each color component against the mask
+						for ( int i = 0; i < color_map->getNumPixelComps() ; i++) {
+							if ( row[i] < mask_colors[2*i] * 255 ||
+								 row[i] > mask_colors[2*i + 1] * 255 ) {
+								*dest = *dest | 0xff000000;
+								break;
+							}
+						}
+						// Advance to the next pixel
+						row += color_map->getNumPixelComps();
+						dest++;
+					}
+					// Write it to the PNG
+					png_write_row(png_ptr, (png_bytep)buffer);
+				}
+			} else {
+				for ( int i = 0 ; i < height ; i++ ) {
+					unsigned char *row = image_stream->getLine();
+					memset((void*)buffer, 0xff, sizeof(int) * width);
+					color_map->getRGBLine(row, buffer, width);
+					png_write_row(png_ptr, (png_bytep)buffer);
+				}
+			}
+			delete [] buffer;
+
+		} else {    // A colormap must be provided, so quit
+			png_destroy_write_struct(&png_ptr, &info_ptr);
+			if (!embed_image) {
+				fclose(fp);
+				g_free(file_name);
+			}
+			return NULL;
+		}
+		delete image_stream;
+		// Close PNG
+		png_write_end(png_ptr, info_ptr);
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		base64_stream.close();
     }
-    png_color_8 sig_bit;
-    if (alpha_only) {
-        png_set_IHDR(png_ptr, info_ptr,
-                     width,
-                     height,
-                     8, /* bit_depth */
-                     PNG_COLOR_TYPE_GRAY,
-                     PNG_INTERLACE_NONE,
-                     PNG_COMPRESSION_TYPE_BASE,
-                     PNG_FILTER_TYPE_BASE);
-        sig_bit.red = 0;
-        sig_bit.green = 0;
-        sig_bit.blue = 0;
-        sig_bit.gray = 8;
-        sig_bit.alpha = 0;
-    } else {
-        png_set_IHDR(png_ptr, info_ptr,
-                     width,
-                     height,
-                     8, /* bit_depth */
-                     PNG_COLOR_TYPE_RGB_ALPHA,
-                     PNG_INTERLACE_NONE,
-                     PNG_COMPRESSION_TYPE_BASE,
-                     PNG_FILTER_TYPE_BASE);
-        sig_bit.red = 8;
-        sig_bit.green = 8;
-        sig_bit.blue = 8;
-        sig_bit.alpha = 8;
-    }
-    png_set_sBIT(png_ptr, info_ptr, &sig_bit);
-    png_set_bgr(png_ptr);
-    // Write the file header
-    png_write_info(png_ptr, info_ptr);
-
-    // Convert pixels
-    ImageStream *image_stream;
-    if (alpha_only) {
-        if (color_map) {
-            image_stream = new ImageStream(str, width, color_map->getNumPixelComps(),
-                                           color_map->getBits());
-        } else {
-            image_stream = new ImageStream(str, width, 1, 1);
-        }
-        image_stream->reset();
-
-        // Convert grayscale values
-        unsigned char *buffer = new unsigned char[width];
-        int invert_bit = invert_alpha ? 1 : 0;
-        for ( int y = 0 ; y < height ; y++ ) {
-            unsigned char *row = image_stream->getLine();
-            if (color_map) {
-                color_map->getGrayLine(row, buffer, width);
-            } else {
-                unsigned char *buf_ptr = buffer;
-                for ( int x = 0 ; x < width ; x++ ) {
-                    if ( row[x] ^ invert_bit ) {
-                        *buf_ptr++ = 0;
-                    } else {
-                        *buf_ptr++ = 255;
-                    }
-                }
-            }
-            png_write_row(png_ptr, (png_bytep)buffer);
-        }
-        delete [] buffer;
-    } else if (color_map) {
-        image_stream = new ImageStream(str, width,
-                                       color_map->getNumPixelComps(),
-                                       color_map->getBits());
-        image_stream->reset();
-
-        // Convert RGB values
-        unsigned int *buffer = new unsigned int[width];
-        if (mask_colors) {
-            for ( int y = 0 ; y < height ; y++ ) {
-                unsigned char *row = image_stream->getLine();
-                color_map->getRGBLine(row, buffer, width);
-
-                unsigned int *dest = buffer;
-                for ( int x = 0 ; x < width ; x++ ) {
-                    // Check each color component against the mask
-                    for ( int i = 0; i < color_map->getNumPixelComps() ; i++) {
-                        if ( row[i] < mask_colors[2*i] * 255 ||
-                             row[i] > mask_colors[2*i + 1] * 255 ) {
-                            *dest = *dest | 0xff000000;
-                            break;
-                        }
-                    }
-                    // Advance to the next pixel
-                    row += color_map->getNumPixelComps();
-                    dest++;
-                }
-                // Write it to the PNG
-                png_write_row(png_ptr, (png_bytep)buffer);
-            }
-        } else {
-            for ( int i = 0 ; i < height ; i++ ) {
-                unsigned char *row = image_stream->getLine();
-                memset((void*)buffer, 0xff, sizeof(int) * width);
-                color_map->getRGBLine(row, buffer, width);
-                png_write_row(png_ptr, (png_bytep)buffer);
-            }
-        }
-        delete [] buffer;
-
-    } else {    // A colormap must be provided, so quit
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        if (!embed_image) {
-            fclose(fp);
-            g_free(file_name);
-        }
-        return NULL;
-    }
-    delete image_stream;
     str->close();
-    // Close PNG
-    png_write_end(png_ptr, info_ptr);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-    base64_stream.close();
 
     // Create repr
     Inkscape::XML::Node *image_node = _xml_doc->createElement("svg:image");
@@ -1833,9 +1877,9 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         png_data.insert(0, "data:image/png;base64,");
         image_node->setAttribute("xlink:href", png_data.c_str());
     } else {
-        fclose(fp);
+    	if (! makeOriginalImage) fclose(fp);
         image_node->setAttribute("xlink:href", file_name);
-        if (sp_create_jpeg_sp) {
+        if (sp_create_jpeg_sp && (! makeOriginalImage)) {
 			gchar *cmd = g_strdup_printf("convert %s -background white -flatten %s",
 										 file_name_png, file_name_jpg);
 			system(cmd);
