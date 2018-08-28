@@ -17,6 +17,24 @@ def loadJson(filename='font.json'):
     with open(filename) as f:
         return json.load(f)
 
+def makeGlyphMap(font) :
+    glyphMap = {}
+    for gl in font.glyphs() :
+        uni = 0 # unecode for puting glyph
+        gId = 0 # try receive CID of glyph
+        try:
+            if re.search(r'uniF', gl.glyphname) == None :
+               if re.search(r'uni', gl.glyphname) != None :
+                 gId = int(re.match(r"^uni([0-9A-F]+)$", gl.glyphname).group(1), 16)
+               else:
+                 gId = int(re.match(r"[^\d]*(\d+)$", gl.glyphname).group(1))
+            else:
+               gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", gl.glyphname).group(1), 16)
+        except:
+            gId = gId
+        glyphMap[gId] = gl.glyphname
+    return glyphMap
+
 def findGlyph(font, inGid) :
     for gl in font.glyphs() :
         uni = 0 # unecode for puting glyph
@@ -45,7 +63,6 @@ def main(font_file):
                           "uni" : params["uni"],
                           "xAdvance" : params["xAdvance"],
                           "size" : 1000 })
-
     # generate name for TTF file
     (path, cff_name) = os.path.split(font_file)
     if len(path) > 0 :
@@ -63,16 +80,19 @@ def main(font_file):
             fontTTF.generate("%s%s" % (path, ttf_name))  
             fontTTF.close()  
             fontTTF = fontforge.open("%s%s" % (path, ttf_name))  
-
     font = fontforge.open(font_file) #current font 
-
     needGenerate = 0 # if we do not add any glyph we do not need generate new font
-        
+
+    idToNameMap = makeGlyphMap(font);
+
     for cell in chars :
         # serch current glyph in CID font
-        name = findGlyph(font, int(cell["gid"]))
-        if name == "" :
+        # name = findGlyph(font, int(cell["gid"]))
+        if cell["gid"] in idToNameMap :
+            name = idToNameMap[cell["gid"]]
+        else :
             continue
+
         try:
             glyph = font[name]
             uni = cell["uni"] # unecode for puting glyph
@@ -112,7 +132,6 @@ def main(font_file):
         if g.unicode == 64262:
             g.glyphname = "LATIN SMALL LIGATURE ST"
 
-  
     if (isNewTTF == 1):
         fontTTF.familyname = font.familyname
         fontTTF.fontname = font.fontname
