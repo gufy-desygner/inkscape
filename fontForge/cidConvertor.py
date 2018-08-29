@@ -32,6 +32,11 @@ def makeGlyphMap(font) :
                gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", gl.glyphname).group(1), 16)
         except:
             gId = gId
+            #print gId, gl.glyphname
+            #print "add"
+        if gId in glyphMap :
+            continue
+
         glyphMap[gId] = gl.glyphname
     return glyphMap
 
@@ -88,9 +93,10 @@ def main(font_file):
     for cell in chars :
         # serch current glyph in CID font
         # name = findGlyph(font, int(cell["gid"]))
-        if cell["gid"] in idToNameMap :
-            name = idToNameMap[cell["gid"]]
+        if int(cell["gid"]) in idToNameMap :
+            name = idToNameMap[int(cell["gid"])]
         else :
+            #print cell["gid"], "not in the map"
             continue
 
         try:
@@ -98,6 +104,7 @@ def main(font_file):
             uni = cell["uni"] # unecode for puting glyph
             gId = cell["gid"] # try receive CID of glyph
         except:
+            #print "exeption"
             continue
 
         # processing convert one glyph
