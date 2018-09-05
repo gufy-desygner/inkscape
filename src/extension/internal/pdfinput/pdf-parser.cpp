@@ -2239,7 +2239,7 @@ bool checkExcludeListChars(char c) {
 	static Glib::ustring charList = prefs->getString("/options/svgoutput/fontnameexcludechars");
 
 	if (charList.size() == 0 ) {
-		charList = Glib::ustring("+-");
+		charList = Glib::ustring(",");
 	}
 	for(int i = 0; i < charList.size(); i++) {
 		if (charList[i] == c) return true;
