@@ -36,6 +36,7 @@
 #include "path-prefix.h"
 
 #include "shared_opt.h"
+#include "preferences.h"
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -168,6 +169,7 @@ enum {
 	SP_ARG_MAPPING_OFF,
 	SP_ARG_MERGE_MASK,
 	SP_ARG_FONT_POSTFIX,
+	SP_ARG_FONT_EXCLUDE_CHARS,
 	SP_ARG_DEFAULT_FONT,
     SP_ARG_EXPORT_BACKGROUND,
     SP_ARG_EXPORT_BACKGROUND_OPACITY,
@@ -254,6 +256,7 @@ static gboolean sp_merge_jpeg = FALSE;
 static gboolean sp_mapping_off = FALSE;
 static gboolean sp_merge_mask = FALSE;
 static gchar *sp_font_postfix = NULL;
+static gchar *sp_font_exclude_chars = NULL;
 static gchar *sp_default_font = NULL;
 static gboolean sp_export_id_only = FALSE;
 static gchar *sp_export_svg = NULL;
@@ -481,7 +484,10 @@ struct poptOption options[] = {
 	 POPT_ARG_STRING, &sp_font_postfix, SP_ARG_FONT_POSTFIX,
 	 N_("Add postfix to file name of the font family"),
 	 NULL},
-
+    {"fontnameExcludeChars", 0,
+     POPT_ARG_STRING, &sp_font_exclude_chars, SP_ARG_FONT_EXCLUDE_CHARS,
+	 N_("Save exclude char list to the preference.xml. THis list will be removed from font name"),
+	 NULL},
 	{"defaultFont", 0,
 	 POPT_ARG_STRING, &sp_default_font, SP_ARG_DEFAULT_FONT,
      N_("default font name which will replace CIDType2 fonts"),
@@ -2514,9 +2520,15 @@ sp_process_args(poptContext ctx)
                 sp_font_postfix_sh = g_strdup_printf("%s", sp_font_postfix);
                 break;
             }
+            case SP_ARG_FONT_EXCLUDE_CHARS: {
+            	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+            	prefs->setString("/options/svgoutput/fontnameexcludechars", sp_font_exclude_chars);
+            	prefs->save();
+            	break;
+            }
             case SP_ARG_DEFAULT_FONT: {
-                            sp_font_default_font_sh = g_strdup(sp_default_font);
-                            break;
+				sp_font_default_font_sh = g_strdup(sp_default_font);
+				break;
             }
             case SP_ARG_LOG_FONT: {
             	sp_log_font_sh = TRUE;

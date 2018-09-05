@@ -131,6 +131,7 @@ struct RecExportFont {
 };
 
 void* exportFontStatic(void *args);
+char* prepareFamilyName(char *fontName, bool encode = true);
 
 
 /**

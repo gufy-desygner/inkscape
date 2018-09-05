@@ -36,6 +36,7 @@ extern "C" {
 #include "Gfx.h"
 #include "pdf-parser.h"
 #include "util/units.h"
+#include "preferences.h"
 
 #include "goo/gmem.h"
 #include "goo/GooTimer.h"
@@ -2233,6 +2234,49 @@ void PdfParser::opSetCharSpacing(Object args[], int /*numArgs*/)
   state->setCharSpace(args[0].getNum());
 }
 
+bool checkExcludeListChars(char c) {
+	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+	static Glib::ustring charList = prefs->getString("/options/svgoutput/fontnameexcludechars");
+
+	if (charList.size() == 0 ) {
+		charList = Glib::ustring("+-");
+	}
+	for(int i = 0; i < charList.size(); i++) {
+		if (charList[i] == c) return true;
+	}
+	return false;
+}
+
+char* prepareFamilyName(char *fontName, bool encode) {
+	  if (fontName) {
+		CURL *curl = curl_easy_init();
+		GooString *fontName2= new GooString(fontName);
+		if (sp_font_postfix_sh) {
+			//fontName2->append("-");
+			fontName2->append(sp_font_postfix_sh);
+		}
+		// format file name
+		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
+		  while(checkExcludeListChars(fontName2->getChar(strPos))){
+			  fontName2->del(strPos, 1);
+		  }
+		  if (fontName2->getChar(strPos) == '+') {
+			  fontName2->del(0, strPos+1);
+			  strPos = 0;
+		  }
+		}
+		char *encodeName;
+		if (encode)
+			encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
+		else
+			encodeName = g_strdup(fontName2->getCString());
+
+	    delete(fontName2);
+	    return encodeName;
+	  } else {
+		  return 0;
+	  }
+}
 
 char* prepareFileFontName(char *fontName, bool isCIDFont) {
 	char *fontExt;
@@ -2242,29 +2286,11 @@ char* prepareFileFontName(char *fontName, bool isCIDFont) {
 		  fontExt = g_strdup_printf("%s", "ttf");
 	  }
 	  if (fontName) {
-		char *fname;
-		CURL *curl = curl_easy_init();
-		GooString *fontName2= new GooString(fontName);
-		if (sp_font_postfix_sh) {
-			fontName2->append("-");
-			fontName2->append(sp_font_postfix_sh);
-		}
-		// format file name
-		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
-		  while(fontName2->getChar(strPos) == '-'){
-			  fontName2->del(strPos, 1);
-		  }
-		  if (fontName2->getChar(strPos) == '+') {
-			  fontName2->del(0, strPos+1);
-			  strPos = 0;
-		  }
-		}
-		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
-	    fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
-	    free(encodeName);
+		char *fname = prepareFamilyName(fontName);
+	    char *fnameEx = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, fname, fontExt);
 	    free(fontExt);
-	    delete(fontName2);
-	    return fname;
+	    free(fname);
+	    return fnameEx;
 	  } else {
 		  free(fontExt);
 		  return 0;
@@ -2337,25 +2363,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 		  fontExt = g_strdup_printf("%s", "ttf");
 	  }
 	  if (fontName) {
-		GooString *fontName2= new GooString(fontName);
-		if (sp_font_postfix_sh) {
-			fontName2->append("-");
-			fontName2->append(sp_font_postfix_sh);
-		}
-		// format file name
-		for(int strPos = 0; strPos < fontName2->getLength(); strPos++) {
-		  while(fontName2->getChar(strPos) == '-'){
-			  fontName2->del(strPos, 1);
-		  }
-		  if (fontName2->getChar(strPos) == '+') {
-			  fontName2->del(0, strPos+1);
-			  strPos = 0;
-		  }
-		}
-		char * encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
-	    fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
-	    free(encodeName);
-	    delete(fontName2);
+	    fname = prepareFileFontName(fontName, args->isCIDFont);
 	  }
 	  else {
 		fname = g_strdup_printf("%s_unnamed%i", builder->getDocName(), num);
