@@ -2386,10 +2386,19 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  static int noname_num = 0;
-			  GooString *fontName2 = args ? new GooString(args->fontName) : fontName2 = new GooString(font->getName());
+			  static int noname_num = 0; // conter of nemed of noname fonts
+			  //GooString *fontName2 = args ? new GooString(args->fontName) : fontName2 = new GooString(font->getName());
 
-		      if (sp_font_postfix_sh) {
+			  char *originalFontName;
+			  if (args) {
+				  originalFontName = args->fontName;
+			  }
+			  else {
+				  originalFontName = font->getName()->getCString();
+			  }
+			  GooString *fontName2 = new GooString(prepareFamilyName(originalFontName, false));
+
+		      /*if (sp_font_postfix_sh) {
 				fontName2->append("-");
 				fontName2->append(sp_font_postfix_sh);
 			  }
@@ -2402,7 +2411,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 					  fontName2->del(0, strPos+1);
 					  strPos = 0;
 				  }
-			  }
+			  }*/
 
 
 			  // Generate MAP file
@@ -2476,7 +2485,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 
 			  gchar *fontForgeCmd;
 			  if (isCIDFont) {
-				  char *cidName = g_strdup_printf(fname);
+				  char *cidName = g_strdup(fname);
 				  g_ptr_array_add(cidFontList, cidName);
 				  fontForgeCmd = g_strdup_printf("fontforge -script %schageFontName.pe %s \"%s\" \"%s\" 2>/dev/null",
 				  								exeDir, // path to script, without name
@@ -2488,7 +2497,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  fontForgeCmd = g_strdup_printf("%sfontAdapter.py %s \"%s\" \"%s\" 2>/dev/null",
 								exeDir, // path to script, without name
 								fname,  // name of TTF file for path
-								fontName, //postscriptname
+								fontName2->getCString(), //fontName, //postscriptname
 								fontName2->getCString()); //family
 
 			  }
@@ -3501,7 +3510,7 @@ void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox
 
   if (softMask || transpGroup) {
     builder->clearSoftMask(state);
-    builder->pushTransparencyGroup(state, bbox, blendingColorSpace,
+    builder->pushTransparencyGroup(state, bbox, blendingColorSpace, // state & blendingColorSpace rely do not used
                                    isolated, knockout, softMask);
   }
 

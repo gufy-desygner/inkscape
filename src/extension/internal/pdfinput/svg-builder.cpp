@@ -18,7 +18,7 @@
 #include <string> 
 #include <math.h>
 
-#define HAVE_POPPLER
+//#define HAVE_POPPLER
 #ifdef HAVE_POPPLER
 
 #include <png.h>
@@ -51,6 +51,7 @@
 #include "UnicodeMap.h"
 #include "GlobalParams.h"
 #include "png-merge.h"
+#include "xml/sp-css-attr.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -464,6 +465,19 @@ void SvgBuilder::addPath(GfxState *state, bool fill, bool stroke, bool even_odd)
 
     // Set style
     SPCSSAttr *css = _setStyle(state, fill, stroke, even_odd);
+   /* if (fill) {
+		double opacity;
+		if (sp_repr_get_double(css, "fill-opacity", &opacity) && opacity > 0) {
+			const char *value;
+			 if ( (value = css->attribute("fill")) ) {
+				 guint32 color = sp_svg_read_color(value, color);
+				 if (color == 0) {
+					 css->setAttribute("fill", "#FFFFFF");
+				 }
+			 }
+		}
+    }*/
+
     sp_repr_css_change(path, css, "style");
     sp_repr_css_attr_unref(css);
 
@@ -1079,7 +1093,7 @@ void SvgBuilder::updateFont(GfxState *state) {
 
         //sp_repr_css_set_property(_font_style, "font-family", font->getFamily()->getCString());
 		if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
-				sp_repr_css_set_property(_font_style, "font-family", sp_font_default_font_sh);
+			sp_repr_css_set_property(_font_style, "font-family", sp_font_default_font_sh);
 		} else {
 			sp_repr_css_set_property(_font_style, "font-family", fontName2->getCString());
 		}

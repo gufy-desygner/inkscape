@@ -53,26 +53,57 @@ def loadJson(filename='font.json'):
     with open(filename) as f:
         return json.load(f)
 
+def makeGlyphMap(font) :
+    glyphMap = {}
+    
+    for gl in font.glyphs() :
+        uni = 0 # unecode for puting glyph
+        gId = 0 # try receive CID of glyph
+        try:
+            if re.search(r'uniF', gl.glyphname) == None :
+               if re.search(r'uni', gl.glyphname) != None :
+                 gId = int(re.match(r"^uni([0-9A-F]+)$", gl.glyphname).group(1), 16)
+               else:
+                 gId = int(re.match(r"[^\d]*(\d+)$", gl.glyphname).group(1))
+            else:
+               gId = int(re.match(r"[^\dA-F]*F([\dA-F]+)$", gl.glyphname).group(1), 16)
+        except:
+            gId = gId
+            #print gId, gl.glyphname
+            #print "add"
+        if gId in glyphMap :
+            continue
+
+        glyphMap[gId] = gl.glyphname
+    return glyphMap
+
 def main(font_file):
     
     # load and parse matched MAP file
     mapJSON = loadJson("%s.map" % font_file)
     chars = []
     filled = []
+    
     for obj in mapJSON["uniMap"]:
         for (cid, params) in obj.items():
             chars.append({"gid" : cid,
                           "uni" : params["uni"]})
-
+    
     # create new font object
     font2 = fontforge.open(font_file)
-    font2.generate("tmp.ttf")  
+    font2.clear()
+    #font2.generate("tmp.ttf")
+    
+    font2.save("tmp.ttf")    
     font2.close()  
+    	
     font2 = fontforge.open("tmp.ttf")  
-
+    
     # load font from file
     font = fontforge.open(font_file) #current font 
-
+    
+    idToNameMap = makeGlyphMap(font);
+    
     for cell in chars :
         ex = 1
         exist = 0;
@@ -85,17 +116,17 @@ def main(font_file):
             try:
                 gg = font[int(cell['gid'])]
             except TypeError as ex:
-                name = findGlyph(font, int(cell["gid"]))
+                name = idToNameMap[int(cell["gid"])]
                 gg = font[name]
             # sometimes do not have exception but glyph is empty
             if gg.originalgid == 0 :
-                name = findGlyph(font, int(cell["gid"]))
+                name = idToNameMap[int(cell["gid"])]
                 if name == "" :
                     font2.createChar(cell['uni'])
                     continue
                 gg = font[name]  
             #print "%i %i %s %i" % (gg.originalgid, gg.unicode, gg.glyphname, cell['uni'])  
-
+            continue
             gg.unicode = cell['uni']
             gg.glyphname = "glyph%s" % cell['uni']
             font.selection.select(gg)
@@ -123,6 +154,8 @@ def main(font_file):
     font2.familyname = sys.argv[3]
     font2.fontname = sys.argv[2]   
     font2.generate("%s" % font_file)
+    font2.save("%s.sfd" % font_file)
+    font2.close
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
