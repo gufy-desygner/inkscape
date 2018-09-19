@@ -1627,18 +1627,59 @@ void png_flush_base64stream(png_structp png_ptr)
 }
 
 void spoolOriginalToFile(Stream *str, gchar *fileName) {
+	//calculate length of file
 	BaseStream *bStr = str->getBaseStream();
-	StreamKind gg = bStr->getKind();
 	int strLen = bStr->getLength();
 
-	Guchar *buffer;
-	buffer = (Guchar *)malloc(strLen);
-	bStr->reset();
-	strLen = bStr->doGetChars(strLen, buffer);
-	str->reset();
+	//get encrypted stream
+	FilterStream *strFilter = (FilterStream *)str;
+	Stream* strImg = strFilter->getNextStream();
+
+	unsigned char *buffer;
+	buffer = (unsigned char *)malloc(strLen);
+
+
+    // read image stream to memory
+    strImg->reset();
+    strLen = strImg->doGetChars(strLen, (Guchar*)buffer);
+
+    // JPEG data has to start with 0xFF 0xD8
+    // but some pdf like the one on
+    // https://bugs.freedesktop.org/show_bug.cgi?id=3299
+    // does have some garbage before that this seeks for
+    // the start marker...
+    bool startFound = false;
+    unsigned char c = 0, c2 = 0;
+    int pos = 0;
+    while (!startFound)
+    {
+      if (!c)
+	  {
+	    c = buffer[pos++];
+	    if (c == -1)
+	    {
+	      error(errSyntaxError, -1, "Could not find start of jpeg data");
+		  return;
+	    }
+	    if (c != 0xFF) c = 0;
+	  }
+      else
+      {
+        c2 = buffer[pos++];
+        if (c2 != 0xD8)
+        {
+          c = 0;
+          c2 = 0;
+        }
+        else
+        	startFound = true;
+      }
+    }
+
 	FILE *file = fopen(fileName, "w");
-	fwrite(buffer, 1, strLen, file);
+	fwrite(&buffer[pos - 2], 1, strLen-pos + 2, file);
 	fclose(file);
+	free(buffer);
 }
 
 /**
@@ -2093,7 +2134,7 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	    p++;
 	  }
 	}
-	return g_strdup_printf(path.c_str());
+	return g_strdup(path.c_str());
 }
 
 void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
