@@ -21,7 +21,7 @@ def findGlyph(font, inGid) :
     for gl in font.glyphs() :
         uni = 0 # unecode for puting glyph
         gId = 0 # try receive CID of glyph
-        
+
         try:
             if re.search(r'uniF', gl.glyphname) == None :
                if re.search(r'uni', gl.glyphname) != None :
@@ -55,7 +55,7 @@ def loadJson(filename='font.json'):
 
 def makeGlyphMap(font) :
     glyphMap = {}
-    
+
     for gl in font.glyphs() :
         uni = 0 # unecode for puting glyph
         gId = 0 # try receive CID of glyph
@@ -91,7 +91,6 @@ def main(font_file):
     
     # create new font object
     font2 = fontforge.open(font_file)
-    font2.clear()
     #font2.generate("tmp.ttf")
     
     font2.save("tmp.ttf")    
@@ -126,7 +125,6 @@ def main(font_file):
                     continue
                 gg = font[name]  
             #print "%i %i %s %i" % (gg.originalgid, gg.unicode, gg.glyphname, cell['uni'])  
-            continue
             gg.unicode = cell['uni']
             gg.glyphname = "glyph%s" % cell['uni']
             font.selection.select(gg)
