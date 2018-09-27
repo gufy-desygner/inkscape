@@ -2976,6 +2976,7 @@ void PdfParser::doShowText(GooString *s) {
   }
 
   builder->endString(state);
+  builder->updateStyle(state); // do start new text block.
 }
 
 
