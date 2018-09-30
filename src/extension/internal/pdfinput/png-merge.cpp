@@ -951,27 +951,33 @@ int utf8_strlen(const char *str)
 }
 
 void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
-	gchar const *firstContent = first->firstChild()->content();
-	gchar const *secondContent = second->firstChild()->content();
+	static Inkscape::XML::Node *lastPassedFirstTspan = 0;
+	// todo: calculate averidge parmetrs DX and if current more -> this is space char.
+	static int firstTspanCharMerged = 0;
+	static double avrDxMerged = 0;
 
 	double firstEndX;
 	double secondX;
-	double spaceSize;
+	double spaceSize; // posible variant -read it from font
 	double wordSpace; // additional distantion betweene words
+	static gdouble fntSize;
 
-	// calculate space size
-	SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
-	gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
-	sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize);
-	if ( spaceSize <= 0 ) {
-		spaceSize = g_ascii_strtod(fntStrSize, NULL) / 3;
-	} else {
-		//spaceSize *= g_ascii_strtod(fntStrSize, NULL);
+	gchar const *firstContent = first->firstChild()->content();
+	gchar const *secondContent = second->firstChild()->content();
+
+	if (lastPassedFirstTspan != first) {
+		// calculate space size
+		SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
+		gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
+		fntSize = g_ascii_strtod(fntStrSize, NULL);
+		sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize);
+		if ( spaceSize <= 0 ) {
+			spaceSize = fntSize / 3;
+		}
+
+		if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
+		delete style;
 	}
-
-	if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
-	delete style;
-
 
 	//if (! sp_repr_get_double(first, "sodipodi:space_size", &spaceSize)) spaceSize = 0;
 	if (! sp_repr_get_double(first, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
@@ -983,13 +989,13 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
 
 	// if we have some space between space - we can put space to it
 	if (different < spaceSize) {
-		if ((spaceSize - different)/spaceSize < 0.7) {
+		if ((spaceSize - different)/spaceSize < 0.75) {
 			spaceSize = different;
 		}
 	}
 	// Will put space between tspan
 	gchar addSpace[2] = {0, 0};
-	if (different >= spaceSize) {
+	if ((different >= spaceSize) || (different > fntSize/4)) {
 		different = different - spaceSize;
 		addSpace[0] = ' ';
 	}
