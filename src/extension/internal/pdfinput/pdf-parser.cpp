@@ -2906,7 +2906,7 @@ void PdfParser::doShowText(GooString *s) {
       // maybe no the best solution write it directly to map table
       if (u && *u < 0x20)
     	  *u = (Unicode)0x20;
-      if (printCommands) {
+      if (u && printCommands) {
     		  printf("%04x ", *u);
       }
       if (actualMarkerBegin) {
@@ -2976,6 +2976,7 @@ void PdfParser::doShowText(GooString *s) {
   }
 
   builder->endString(state);
+  builder->updateStyle(state); // do start new text block.
 }
 
 
