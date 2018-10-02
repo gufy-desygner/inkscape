@@ -465,9 +465,9 @@ void SvgBuilder::addPath(GfxState *state, bool fill, bool stroke, bool even_odd)
 
     // Set style
     SPCSSAttr *css = _setStyle(state, fill, stroke, even_odd);
-   /* if (fill) {
+    if (fill) {
 		double opacity;
-		if (sp_repr_get_double(css, "fill-opacity", &opacity) && opacity > 0) {
+		if (sp_repr_get_double(css, "fill-opacity", &opacity) && opacity > 0 && opacity < 1) {
 			const char *value;
 			 if ( (value = css->attribute("fill")) ) {
 				 guint32 color = sp_svg_read_color(value, color);
@@ -476,7 +476,7 @@ void SvgBuilder::addPath(GfxState *state, bool fill, bool stroke, bool even_odd)
 				 }
 			 }
 		}
-    }*/
+    }
 
     sp_repr_css_change(path, css, "style");
     sp_repr_css_attr_unref(css);
