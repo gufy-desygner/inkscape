@@ -1246,9 +1246,8 @@ void SvgBuilder::updateTextPosition(double tx, double ty) {
  * \brief Flushes the buffered characters
  */
 void SvgBuilder::updateTextMatrix(GfxState *state) {
-	logTime(" start _flush");
+	upTimer(timTEXT_FLUSH);
     _flushText();
-    logTime(" start _flush");
     // Update text matrix
     double *text_matrix = state->getTextMat();
     double w_scale = sqrt( text_matrix[0] * text_matrix[0] + text_matrix[2] * text_matrix[2] );
@@ -1273,6 +1272,7 @@ void SvgBuilder::updateTextMatrix(GfxState *state) {
     }
     _text_matrix = new_text_matrix;
     _font_scaling = max_scale;
+    incTimer(timTEXT_FLUSH);
 }
 
 /**

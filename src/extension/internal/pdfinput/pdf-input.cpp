@@ -863,9 +863,19 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         // Parse the document structure
         Object obj;
+
+        logTime("Start parsing of PDF - default inkscape process");
         page->getContents(&obj);
         if (!obj.isNull()) {
             pdf_parser->parse(&obj);
+            logTime("End PDF parsing");
+            prnTimer(timTEXT_FLUSH, "flush text take time");
+            prnTimer(timCREATE_IMAGE, "images take time");
+
+            logTime("Start SVG post processing");
+            logTime("Start calculate count of object for --fastSvg");
+			initTimer(timCALCULATE_OBJECTS);
+			upTimer(timCALCULATE_OBJECTS);
             // post processing
             Inkscape::XML::setCountNotifyChildAdd(0);
             int64_t count_of_nodes = 0;
@@ -876,6 +886,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
             	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual());
             	}
+            	incTimer(timCALCULATE_OBJECTS);
+            	prnTimer(timCALCULATE_OBJECTS, "time take calculate count of objects");
             	if (sp_fast_svg_sh == 0 || sp_fast_svg_sh < count_of_nodes) {
             		//search last child
             		Inkscape::XML::Node *visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
@@ -909,10 +921,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeTspan(builder);
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
-					logTime("Start merge gradients");
+					logTime("Start merge mask");
 					mergeMaskToImage(builder);
+					logTime("Start merge gradients");
 					mergeMaskGradientToLayer(builder);
-					logTime("Start merge layer");
+					logTime("Start merge patch or to one layer");
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
 						mergeImagePathToLayerSave(builder, true) > 15) {
@@ -921,10 +934,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					} else {
 						mergeImagePathToLayerSave(builder);
 					}
+					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
 					compressGtag(builder); // removing empty <g> around <text> and <path>
-					logTime("End merge tspan");
+					logTime("Start enumerate tags");
 					enumerationTagsStart(builder);
             	}
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT)
@@ -938,7 +952,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	createPrintingMarks(builder);
 
             logTime("Start export fonts");
-
             //wait threads for FontForge
             for(int fontThredN = 0; fontThredN < pdf_parser->exportFontThreads->len; fontThredN++) {
             	void *p;
@@ -996,12 +1009,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
               free(fName);
             }
             logTime("End thumb generator");
-            incTimer(2);
-            prnTimer(2, "full time");
-            prnTimer(1, "flushText time");
-            prnTimer(3, "flushText time3");
-            prnTimer(4, "flushText time4");
-            prnTimer(5, "flushText time5");
         }
 
         // Cleanup

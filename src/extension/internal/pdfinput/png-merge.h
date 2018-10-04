@@ -51,6 +51,11 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0);
 int64_t svg_get_number_of_objects(Inkscape::XML::Node *node);
 
+#define timPDF_PARSER 0
+#define timCALCULATE_OBJECTS 1
+#define timTEXT_FLUSH 2
+#define timCREATE_IMAGE 3
+
 #if PROFILER_ENABLE == 1
 #define TIMER_NUMBER 50
 
@@ -62,7 +67,7 @@ extern double profiler_timer_up[];
 // save value of current tickcount
 #define upTimer(num) Inkscape::Extension::Internal::profiler_timer_up[num] = Inkscape::Extension::Internal::GetTickCount()
 // add different for saved value and carrent tickcount to timer counter
-#define incTimer(num) profiler_timer[num] += Inkscape::Extension::Internal::GetTickCount() - \
+#define incTimer(num) Inkscape::Extension::Internal::profiler_timer[num] += Inkscape::Extension::Internal::GetTickCount() - \
 		Inkscape::Extension::Internal::profiler_timer_up[num]; \
 		Inkscape::Extension::Internal::profiler_timer_up[num] = Inkscape::Extension::Internal::GetTickCount()
 // erase timercounter for this timer
