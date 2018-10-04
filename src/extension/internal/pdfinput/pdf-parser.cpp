@@ -3019,7 +3019,7 @@ void PdfParser::opXObject(Object args[], int /*numArgs*/)
 }
 
 void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
-{logTime("Start image export");
+{   upTimer(timCREATE_IMAGE);
     Dict *dict;
     int width, height;
     int bits;
@@ -3381,7 +3381,7 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         maskObj.free();
         smaskObj.free();
     }
-    logTime("End image export");
+    incTimer(timCREATE_IMAGE);
     return;
 
  err2:
