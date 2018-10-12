@@ -137,7 +137,7 @@ def main(font_file):
                 print "FFE-002: emty duble for code %s skiped" % cell['uni']
                 continue
             gg2 = font2.createChar(cell['uni'])
-            if not isEmptyGlyph(gg) :
+            if (not isEmptyGlyph(gg)) or (int(cell['uni']) == 32):
                 filled.append(cell['uni'])
             font2.selection.select(gg2)
             font2.paste();         
