@@ -1341,7 +1341,7 @@ void SvgBuilder::_flushText() {
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
                      glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
-            		calc_dx > 3 * _font_scaling
+            		(calc_dx > 3 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
             		/*||
             		// negative dx attribute can't be showing in mozilla
             		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
