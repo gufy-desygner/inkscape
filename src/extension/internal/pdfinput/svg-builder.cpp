@@ -1340,7 +1340,9 @@ void SvgBuilder::_flushText() {
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
-                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) /*||
+                     glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
+            		calc_dx > 3 * _font_scaling
+            		/*||
             		// negative dx attribute can't be showing in mozilla
             		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
             	new_tspan = true;
@@ -1385,7 +1387,6 @@ void SvgBuilder::_flushText() {
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
                 tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
-                //tspan_node->setAttribute("data-end_x", os_endX.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();

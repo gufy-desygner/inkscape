@@ -2947,18 +2947,18 @@ void PdfParser::doShowText(GooString *s) {
     	  if (onlySpase) break;
       }
       if (wMode) {
-	dx *= state->getFontSize();
-	dy = dy * state->getFontSize() + state->getCharSpace();
-	if (n == 1 && *p == ' ') {
-	  dy += state->getWordSpace();
-	}
+		dx *= state->getFontSize();
+		dy = dy * state->getFontSize() + state->getCharSpace();
+		if (n == 1 && *p == ' ') {
+		  dy += state->getWordSpace();
+		}
       } else {
-	dx = dx * state->getFontSize() + state->getCharSpace();
-	if (n == 1 && *p == ' ') {
-	  dx += state->getWordSpace();
-	}
-	dx *= state->getHorizScaling();
-	dy *= state->getFontSize();
+		dx = dx * state->getFontSize() + state->getCharSpace();
+		if (n == 1 && *p == ' ') {
+		  dx += state->getWordSpace();
+		}
+		dx *= state->getHorizScaling();
+		dy *= state->getFontSize();
       }
       state->textTransformDelta(dx, dy, &tdx, &tdy);
       originX *= state->getFontSize();
@@ -2976,7 +2976,7 @@ void PdfParser::doShowText(GooString *s) {
   }
 
   builder->endString(state);
-  builder->updateStyle(state); // do start new text block.
+  //builder->updateStyle(state); // do start new text block.
 }
 
 
