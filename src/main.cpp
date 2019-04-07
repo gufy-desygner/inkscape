@@ -2627,6 +2627,10 @@ sp_process_args(poptContext ctx)
                 exit(1);
                 break;
             }
+            case SP_ARG_EXPORT_DPI: {
+            	sp_export_dpi_sh = atof(sp_export_dpi);
+            	break;
+            }
             default: {
                 break;
             }
