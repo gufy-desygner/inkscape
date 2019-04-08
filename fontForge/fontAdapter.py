@@ -2,6 +2,7 @@
 
 import sys
 import os.path
+import os
 import json
 import re
 import tempfile
@@ -91,12 +92,13 @@ def main(font_file):
     
     # create new font object
     font2 = fontforge.open(font_file)
-    #font2.generate("tmp.ttf")
-    
-    font2.save("tmp.ttf")    
+    temp_file_name = "temp_%s.ttf" % next(tempfile._get_candidate_names())
+    #font2.generate(temp_file_name)
+
+    font2.save(temp_file_name)
     font2.close()  
     	
-    font2 = fontforge.open("tmp.ttf")  
+    font2 = fontforge.open(temp_file_name)
     
     # load font from file
     font = fontforge.open(font_file) #current font 
@@ -154,6 +156,7 @@ def main(font_file):
     font2.generate("%s" % font_file)
     font2.save("%s.sfd" % font_file)
     font2.close
+    os.remove(temp_file_name)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
