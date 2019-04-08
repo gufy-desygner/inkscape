@@ -316,7 +316,7 @@ PdfParser::PdfParser(XRef *xrefA,
     subPage(gFalse),
     printCommands(false),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
-    state(new GfxState(72.0, 72.0, box, rotate, gTrue)),
+    state(new GfxState(sp_export_dpi_sh/*72.0*/, sp_export_dpi_sh /*72.0*/, box, rotate, gTrue)),
     fontChanged(gFalse),
     clip(clipNone),
 	actualtextString(NULL),
