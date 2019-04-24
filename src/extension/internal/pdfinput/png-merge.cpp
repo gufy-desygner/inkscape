@@ -656,7 +656,7 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound) {
 	SPItem *item = (SPItem*)_doc->getRoot()->get_child_by_repr(_mainVisual);
 
 
-	if (adjustVisualBound)
+	if (adjustVisualBound && sp_adjust_mask_size_sh)
 	{
 		Geom::OptRect testVisualBound = _doc->getRoot()->documentVisualBounds();
 		if (!testVisualBound)
@@ -1666,7 +1666,7 @@ void mergeMaskToImage(SvgBuilder *builder) {
 			  tmpName = mergingNode->attribute("id");
 			  char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
 			  // Save merged image
-			  Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, true);
+			  Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, sp_adjust_mask_size_sh);
 			  // sumNode have affine related from mainVisualNode node.
 			  // We must adjust affine transform for current parent
 			  Geom::Affine sumAff;

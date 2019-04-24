@@ -380,6 +380,11 @@ struct poptOption options[] = {
      N_("Open specified document(s) (option string may be excluded)"),
      N_("FILENAME")},
 
+	{"adjust-mask-size", 0,
+	  POPT_ARG_NONE, &sp_adjust_mask_size_sh, 0,
+	  N_("Try calculate size of masked object during convert mask to image"),
+	  NULL},
+
     {"print", 'p',
      POPT_ARG_STRING, &sp_global_printer, SP_ARG_PRINT,
      N_("Print document(s) to specified output file (use '| program' for pipe)"),
