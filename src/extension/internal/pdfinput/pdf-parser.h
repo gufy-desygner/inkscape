@@ -186,6 +186,8 @@ private:
   GfxResources *res;		// resource stack
   GooString *actualtextString;
   GBool actualMarkerBegin;
+  GBool layoutIsNew;
+  Dict *layoutProperties;
   int  actualMarkerPosition;
   GfxState *state;		// current graphics state
   GBool fontChanged;		// set if font or text matrix has changed

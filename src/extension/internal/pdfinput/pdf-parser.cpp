@@ -37,6 +37,7 @@ extern "C" {
 #include "pdf-parser.h"
 #include "util/units.h"
 #include "preferences.h"
+#include "XRef.h"
 
 #include "goo/gmem.h"
 #include "goo/GooTimer.h"
@@ -329,7 +330,9 @@ PdfParser::PdfParser(XRef *xrefA,
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
     operatorHistory(NULL),
-    backgroundCandidat(NULL)
+    backgroundCandidat(NULL),
+	layoutIsNew(false),
+	layoutProperties(NULL)
 {
   setDefaultApproximationPrecision();
   builder->setDocumentSize(Inkscape::Util::Quantity::convert(state->getPageWidth(), "pt", "px"),
@@ -3707,6 +3710,26 @@ void PdfParser::opBeginMarkedContent(Object args[], int numArgs) {
       obj.free();
   }
 
+  if(numArgs == 2 && args[1].isName()) {
+	  Object mcPropertiesObj;
+	  res->lookupMarkedContentNF(args[1].getName(), &mcPropertiesObj);
+	  if (mcPropertiesObj.isRef()) {
+		  Ref mcPropRef = mcPropertiesObj.getRef();
+		  Object mcPropObj;
+		  if (xref->fetch(mcPropRef.num, mcPropRef.gen, &mcPropObj) != nullptr)
+		  {
+			  if (mcPropObj.isDict()) {
+				  Object layotNameObj;
+				  layoutIsNew = true;
+				  layoutProperties = mcPropObj.getDict();
+			  }
+
+		  }
+
+	  }
+    //out->beginMarkedContent(args[0].getName(),args[1].getDict());
+  }
+
   if(numArgs == 2) {
     //out->beginMarkedContent(args[0].getName(),args[1].getDict());
   } else {
@@ -3757,6 +3780,15 @@ void PdfParser::saveState() {
     }
 
   builder->saveState();
+  if (layoutIsNew)
+  {
+	  Object objName;
+	  if (layoutProperties->lookupNF("Name", &objName) != nullptr && objName.isString())
+	  {
+		  builder->setLayoutName(objName.getString()->getCString());
+		  layoutIsNew = false;
+	  }
+  }
   if (is_radial)
     state->save();          // nasty hack to prevent GfxRadialShading from getting corrupted during copy operation
   else

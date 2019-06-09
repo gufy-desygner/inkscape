@@ -169,6 +169,12 @@ void SvgBuilder::setAsLayer(char *layer_name) {
     }
 }
 
+void SvgBuilder::setLayoutName(char *layout_name) {
+	if (layout_name) {
+		_container->setAttribute("layout_name", layout_name);
+	}
+}
+
 /**
  * \brief Sets the current container's opacity
  */

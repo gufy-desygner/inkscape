@@ -104,6 +104,7 @@ public:
     // Property setting
     void setDocumentSize(double width, double height);  // Document size in px
     void setAsLayer(char *layer_name=NULL);
+    void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
     Inkscape::XML::Node *getPreferences() {
         return _preferences;
