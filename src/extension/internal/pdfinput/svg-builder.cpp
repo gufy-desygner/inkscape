@@ -171,7 +171,7 @@ void SvgBuilder::setAsLayer(char *layer_name) {
 
 void SvgBuilder::setLayoutName(char *layout_name) {
 	if (layout_name) {
-		_container->setAttribute("layout_name", layout_name);
+		_container->setAttribute("data-layoutname", layout_name);
 	}
 }
 
