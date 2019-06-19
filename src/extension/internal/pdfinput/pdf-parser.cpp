@@ -1074,6 +1074,19 @@ void PdfParser::opSetFillCMYKColor(Object args[], int /*numArgs*/)
     color.c[i] = dblToCol(args[i].getNum());
   }
   state->setFillColor(&color);
+
+  // if blend mode is multiple - change this to opacity
+  if (state->getBlendMode() == gfxBlendMultiply && state->getFillOpacity() == 1)
+  {
+		GfxRGB fillColor;
+		state->getFillRGB(&fillColor);
+		double opacity = ((fillColor.r + fillColor.g + fillColor.b)/3.0/65535.0);
+
+	    if (opacity != 1) {
+	      builder->setGroupOpacity(opacity * state->getFillOpacity());
+	      state->setFillOpacity(1);
+	    }
+  }
   builder->updateStyle(state);
 }
 
@@ -3539,8 +3552,9 @@ void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox
   state->clearPath();
 
   if (softMask || transpGroup) {
+	  // stub for multiplier/not linear filters
     if (state->getBlendMode() != gfxBlendNormal) {
-      state->setBlendMode(gfxBlendNormal);
+      //state->setBlendMode(gfxBlendNormal);
     }
     if (state->getFillOpacity() != 1) {
       builder->setGroupOpacity(state->getFillOpacity());
