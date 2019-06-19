@@ -67,6 +67,7 @@ extern "C" {
 #include <curl/curl.h>
 #include <ft2build.h>
 #include <pthread.h>
+#include "shared_opt.h"
 #include FT_FREETYPE_H
 
 // the MSVC math.h doesn't define this
@@ -1076,7 +1077,7 @@ void PdfParser::opSetFillCMYKColor(Object args[], int /*numArgs*/)
   state->setFillColor(&color);
 
   // if blend mode is multiple - change this to opacity
-  if (state->getBlendMode() == gfxBlendMultiply && state->getFillOpacity() == 1)
+  if (state->getBlendMode() == gfxBlendMultiply && state->getFillOpacity() == 1 && sp_map_drop_color_sh)
   {
 		GfxRGB fillColor;
 		state->getFillRGB(&fillColor);
@@ -3554,7 +3555,8 @@ void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox
   if (softMask || transpGroup) {
 	  // stub for multiplier/not linear filters
     if (state->getBlendMode() != gfxBlendNormal) {
-      //state->setBlendMode(gfxBlendNormal);
+    	if (! sp_map_drop_color_sh)
+    		state->setBlendMode(gfxBlendNormal);
     }
     if (state->getFillOpacity() != 1) {
       builder->setGroupOpacity(state->getFillOpacity());
