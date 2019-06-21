@@ -385,6 +385,11 @@ struct poptOption options[] = {
 	  N_("Try calculate size of masked object during convert mask to image"),
 	  NULL},
 
+    {"map-drop-color", 0,
+	  POPT_ARG_NONE, &sp_map_drop_color_sh, 0,
+	  N_("Convert filter \"multiply drop color\" to opacity"),
+	  NULL},
+
     {"print", 'p',
      POPT_ARG_STRING, &sp_global_printer, SP_ARG_PRINT,
      N_("Print document(s) to specified output file (use '| program' for pipe)"),
