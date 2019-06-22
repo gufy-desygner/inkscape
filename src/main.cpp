@@ -2634,7 +2634,7 @@ sp_process_args(poptContext ctx)
             }
             case POPT_ERROR_BADOPT: {
                 g_warning ("Invalid option %s", poptBadOption(ctx, 0));
-                exit(1);
+                //exit(1); Desygner team ask avoid halt inkscape for bad options
                 break;
             }
             case SP_ARG_EXPORT_DPI: {
