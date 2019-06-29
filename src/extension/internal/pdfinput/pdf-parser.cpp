@@ -381,7 +381,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gTrue),
-    printCommands(true),
+    printCommands(false),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72, 72, box, 0, gFalse)),
     fontChanged(gFalse),
@@ -2809,6 +2809,8 @@ void PdfParser::opShowSpaceText(Object args[], int /*numArgs*/)
   }
 }
 
+
+
 void PdfParser::doShowText(GooString *s) {
   GfxFont *font;
   int wMode;
@@ -2983,8 +2985,18 @@ void PdfParser::doShowText(GooString *s) {
       originY *= state->getFontSize();
       state->textTransformDelta(originX, originY, &tOriginX, &tOriginY);
 
-      builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
-                       dx, dy, tOriginX, tOriginY, code, n, u, uLen);
+      if (sp_split_spec_sh && u && *u == 64257) {
+    	  Unicode uniCode = 102;
+    	  builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
+    	                         dx, dy, tOriginX, tOriginY, /*code*/102, n, &uniCode, uLen);
+
+    	  uniCode = 105;
+    	  builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
+    	      	                 dx, dy, tOriginX, tOriginY, /*code*/105, n, &uniCode, uLen);
+      } else {
+		  builder->addChar(state, state->getCurX() + riseX, state->getCurY() + riseY,
+						   dx, dy, tOriginX, tOriginY, code, n, u, uLen);
+      }
       state->shift(tdx, tdy);
       builder->glipEndX = state->getCurX();
       builder->glipEndY = state->getCurY();

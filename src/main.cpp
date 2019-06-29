@@ -554,6 +554,11 @@ struct poptOption options[] = {
 	 N_("Precision of approximation gradient mesh"),
 	 N_("PRECISION")},
 
+    {"split-spec", 0,
+	 POPT_ARG_NONE, &sp_split_spec_sh, 0,
+	 N_("Split special dual symbols to two symbol 'fi' to 'f' 'i'"),
+	 NULL},
+
 	{"mergeImages", 0,
      POPT_ARG_NONE, &sp_merge_images, SP_ARG_MERGE_IMAGES,
      N_("Merge nearest images tag to one layer"),
