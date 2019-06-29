@@ -381,7 +381,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gTrue),
-    printCommands(false),
+    printCommands(true),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72, 72, box, 0, gFalse)),
     fontChanged(gFalse),
@@ -396,7 +396,8 @@ PdfParser::PdfParser(XRef *xrefA,
     maxDepths(),
     clipHistory(new ClipHistoryEntry()),
     operatorHistory(NULL),
-	backgroundCandidat(NULL)
+	backgroundCandidat(NULL),
+	layoutProperties(NULL)
 {
   setDefaultApproximationPrecision();
   
@@ -3796,7 +3797,7 @@ void PdfParser::saveState() {
     }
 
   builder->saveState();
-  if (layoutIsNew)
+  if (layoutIsNew && layoutProperties)
   {
 	  Object objName;
 	  if (layoutProperties->lookupNF("Name", &objName) != nullptr && objName.isString())
