@@ -2922,10 +2922,15 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
-      // is not printable symbol
-      // maybe no the best solution write it directly to map table
-      if (u && *u < 0x20)
-    	  *u = (Unicode)0x20;
+      // change 0x1F as bullet point. if string keep only one char - (s->getLength() == n)
+      if (sp_bullet_point1f_sh && u && (*u == 0x1F) && (s->getLength() == n)) {
+    	  *u = (Unicode)0x2022;
+      } else {
+          // is not printable symbol
+          // maybe no the best solution write it directly to map table
+    	  if (u && *u < 0x20)
+			  *u = (Unicode)0x20;
+      }
       if (u && printCommands) {
     		  printf("%04x ", *u);
       }

@@ -544,6 +544,12 @@ struct poptOption options[] = {
 	 N_("embed images from PDF"),
 	 NULL},
 
+	{"bullet-point1f", 0,
+	 POPT_ARG_NONE, &sp_bullet_point1f_sh, 0,
+	 N_("Convert symbol with code 0x1f to bullet point"),
+	 NULL
+	},
+
 	{"addBackground", 0,
 	 POPT_ARG_NONE, &sp_add_background, SP_ARG_ADD_BACKGROUND,
 	 N_("set class=background attribute for biggest path"),

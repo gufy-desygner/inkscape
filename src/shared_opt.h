@@ -8,6 +8,7 @@ extern gboolean sp_export_svg_sh;
 extern gboolean sp_adjust_mask_size_sh;
 extern gboolean sp_map_drop_color_sh;
 extern gboolean sp_split_spec_sh;
+extern gboolean sp_bullet_point1f_sh;
 extern gint64 sp_fast_svg_sh;
 extern gint sp_gradient_precision_sh;
 extern gboolean sp_log_font_sh;
