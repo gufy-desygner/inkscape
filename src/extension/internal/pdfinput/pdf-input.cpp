@@ -945,8 +945,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             		delete mergeBuilder;
             }
             if (sp_show_counters_sh) {
-				printf("Number of nodes for treating %i\n", count_of_nodes);
-				printf("Recalculated nodes was %i\n", Inkscape::XML::getCountNotifyChildAdd());
+				printf("Number of nodes for treating %i\n", (int)count_of_nodes);
+				printf("Recalculated nodes was %i\n", (int)Inkscape::XML::getCountNotifyChildAdd());
             }
             if (sp_bleed_marks_sh || sp_crop_mark_sh)
             	createPrintingMarks(builder);

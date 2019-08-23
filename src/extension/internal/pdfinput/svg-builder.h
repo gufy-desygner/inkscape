@@ -158,6 +158,7 @@ public:
                  double dx, double dy,
                  double originX, double originY,
                  CharCode code, int nBytes, Unicode *u, int uLen);
+    char* glyphToPath(GfxState *state, CharCode codeCopy, Unicode uCopy);
     void beginTextObject(GfxState *state);
     void endTextObject(GfxState *state);
 

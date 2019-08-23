@@ -491,12 +491,9 @@ void PdfParser::go(GBool /*topLevel*/)
 	printf("\n");
 	fflush(stdout);
       }
-//obj.print(stdout);
-//printf("\n");
-//logTime("execOp");
       // Run the operation
       execOp(&obj, args, numArgs);
-//logTime("End execOp");
+
       obj.free();
       for (int i = 0; i < numArgs; ++i)
 	args[i].free();
@@ -2455,11 +2452,11 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  write_map_file(fMap, "\"font\" : {\n");
 
 				  write_map_file(fMap, "    \"yMax\" : ");
-				  sprintf(buff, "%i,\n", face->bbox.yMax);
+				  sprintf(buff, "%i,\n", (int)face->bbox.yMax);
 				  fwrite(buff, 1, strlen(buff), fMap);
 
 				  write_map_file(fMap, "    \"xMax\" : ");
-				  sprintf(buff, "%i\n", face->bbox.yMax);
+				  sprintf(buff, "%i\n", (int)face->bbox.yMax);
 				  fwrite(buff, 1, strlen(buff), fMap);
 
 				  write_map_file(fMap, "},\n");
@@ -2479,15 +2476,15 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 						 jsonArrayStarted = true;
 
 						 if (FT_Load_Glyph(face, (FT_UInt)i, FT_LOAD_NO_BITMAP) == 0) {
-					    	 sprintf(buff, ",\n         \"width\" : %u,\n", face->glyph->metrics.width);
+					    	 sprintf(buff, ",\n         \"width\" : %u,\n", (uint)face->glyph->metrics.width);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
-					    	 sprintf(buff, "         \"hAdvance\" : %u,\n", face->glyph->metrics.horiAdvance);
+					    	 sprintf(buff, "         \"hAdvance\" : %u,\n", (uint)face->glyph->metrics.horiAdvance);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
-					    	 sprintf(buff, "         \"xAdvance\" : %u,\n", face->glyph->advance.x >> 6);
+					    	 sprintf(buff, "         \"xAdvance\" : %u,\n", (uint)face->glyph->advance.x >> 6);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
-					    	 sprintf(buff, "         \"hBx\" : %i,\n", face->glyph->metrics.horiBearingX);
+					    	 sprintf(buff, "         \"hBx\" : %i,\n", (uint)face->glyph->metrics.horiBearingX);
 					    	 fwrite(buff, 1, strlen(buff), fMap);
-					    	 sprintf(buff, "         \"hBy\" : %i", face->glyph->metrics.horiBearingY);
+					    	 sprintf(buff, "         \"hBy\" : %i", (uint)face->glyph->metrics.horiBearingY);
 		                     fwrite(buff, 1, strlen(buff), fMap);
 					     }
 						 write_map_file(fMap, "} }\n");
@@ -2937,14 +2934,30 @@ void PdfParser::doShowText(GooString *s) {
       if (actualMarkerBegin) {
     	  actualMarkerPosition++;
     	  if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
+    		  const Unicode uCopy = *u;
+    		  const CharCode codeCopy = code;
     		  uActual = 0;
     		  u = &uActual;
     		  ((char*)u)[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
     		  ((char*)u)[1] = actualtextString->getCString()[actualMarkerPosition * 2];
     		  if (uActual < 32) uActual = 32;
     	      code = uActual;
-    	  }
 
+    	      // in-designer some times add invisible bullet point in PDF so after export we have dual bullet
+    	      // we are checking glyph for this symbol and if it is empty change it to space or remove(if tspan keep only one symbol)
+    	      if (code == 0x2022) {
+    	    	  char* glyph = builder->glyphToPath(state, uCopy, codeCopy);
+    	    	  if (strlen(glyph) == 0) {
+    	    		  if (codeCopy == 32 && uCopy == (Unicode)32) {
+    	    			  *u = uCopy;
+    	    			  code = codeCopy;
+    	    		  } else {
+    	    			  *u = (Unicode)32;
+    	    		  }
+    	    	  }
+    	    	  gfree(glyph);
+    	      }
+    	  }
       }
       if (u && (*u < 256) && sp_mapping_off_sh && p[0] &&
     		  strcmp(font->getTag()->getCString(), "TT3") &&
@@ -3776,6 +3789,7 @@ void PdfParser::opEndMarkedContent(Object /*args*/[], int /*numArgs*/)
 	if (actualMarkerBegin) {
 	  actualMarkerBegin = false;
 	  delete actualtextString;
+	  builder->endTextObject(state);
 	}
   //out->endMarkedContent();
 }

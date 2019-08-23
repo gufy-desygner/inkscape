@@ -1599,6 +1599,45 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     _glyphs.push_back(new_glyph);
 }
 
+char* SvgBuilder::glyphToPath(GfxState *state, CharCode codeCopy, Unicode uCopy) {
+    SvgGlyph new_glyph;
+	char *tail;
+	static GfxFont      *font = nullptr; // often we need this trik only for one font in file so make this static
+	static FT_Byte      *buf = nullptr;
+	static FT_Face       face = nullptr;
+    static FT_Library    ft_lib = nullptr;
+    FT_Error      error;
+    int len;
+
+    if (ft_lib == nullptr)
+    	FT_Init_FreeType(&ft_lib);
+
+    if (font != state->getFont()) {
+	    	if (buf) {
+	    		FT_Done_Face(face);
+	    		free(buf);
+	    		buf = nullptr;
+	    	}
+	    	font = state->getFont();
+		    FT_Byte *buf = (FT_Byte *)font->readEmbFontFile(_xref, &len);
+		    error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+	}
+
+    //new_glyph.is_space = is_space;
+    //new_glyph.position = Geom::Point( x - originX, y - originY );
+    //new_glyph.text_position = _text_position;
+    //new_glyph.dx = dx;
+    //new_glyph.dy = dy;
+    new_glyph.gidCode = codeCopy;
+    new_glyph.font = state->getFont();
+    new_glyph.fontSize = state->getFontSize();
+    new_glyph.charSpace = state->getCharSpace(); // used for dx calculate in _flushText
+    new_glyph.spaceWidth = spaceWidth;
+    new_glyph.wordSpace = state->getWordSpace();
+
+	return getGlyph(&new_glyph, face);
+}
+
 void SvgBuilder::endString(GfxState * /*state*/) {
 }
 
