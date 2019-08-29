@@ -3789,7 +3789,6 @@ void PdfParser::opEndMarkedContent(Object /*args*/[], int /*numArgs*/)
 	if (actualMarkerBegin) {
 	  actualMarkerBegin = false;
 	  delete actualtextString;
-	  builder->endTextObject(state);
 	}
   //out->endMarkedContent();
 }
