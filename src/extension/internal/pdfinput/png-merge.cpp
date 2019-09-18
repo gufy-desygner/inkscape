@@ -180,8 +180,10 @@ void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Ink
 		if (msk && strlen(msk) > 0) {
 			// add node to list
 			Inkscape::XML::Node *onlyG = tmpNode;
-			while(! haveContent(onlyG->parent()) && onlyG->parent() != _sourceSubVisual) {
-				onlyG = onlyG->parent();
+			if (! sp_merge_mask_clean_sp) {
+				while(! haveContent(onlyG->parent()) && onlyG->parent() != _sourceSubVisual) {
+					onlyG = onlyG->parent();
+				}
 			}
 
 			if (listNodes->size() == 0 || listNodes->back() != onlyG)
