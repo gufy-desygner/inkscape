@@ -1486,6 +1486,14 @@ void SvgBuilder::_flushText() {
         // Append the character to the text buffer
 	if ( !glyph.code.empty() ) {
             text_buffer.append(1, glyph.code[0]);
+            if (glyph.code.size() > 1) {
+            	for(int glyphNum = 1; glyphNum < glyph.code.size(); glyphNum++) {
+            		text_buffer.append(1, glyph.code[glyphNum]);
+            		x_coords.append(" ");
+            		x_coords.append(os_x.str());
+            		dx_coords.append(" 0 ");
+            	}
+            }
 
             void *tmpVoid = malloc(sizeof(SvgGlyph));
 			memcpy(tmpVoid, &glyph, sizeof(SvgGlyph));
@@ -1576,6 +1584,7 @@ void SvgBuilder::addChar(GfxState *state, double x, double y,
     }
 
     // Copy current style if it has changed since the previous glyph
+    // todo: it can containts some glypg - some chars
     if (_invalidated_style || _glyphs.empty()) {
         new_glyph.style_changed = true;
         int render_mode = state->getRender();
