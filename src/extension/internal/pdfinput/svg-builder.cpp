@@ -1281,6 +1281,18 @@ void SvgBuilder::updateTextMatrix(GfxState *state) {
     incTimer(timTEXT_FLUSH);
 }
 
+static double calculateSvgDx(const SvgGlyph& glyph, const SvgGlyph& prevGlyph, double scale) {
+	double calc_dx = glyph.text_position[0] - prevGlyph.text_position[0]; // X distance between left side of two symbols
+	calc_dx = calc_dx - prevGlyph.dx; // receive extra space between symbols
+	//calc_dx = calc_dx/glyph.code.size(); // possible it is macro symbol (string definite as one symbol in PDF :-/), so we divide extra space to all
+	calc_dx *= scale; // scale to the font size
+
+    if (! glyph.font->getWMode()) {  // if text should has constant extra space
+    	calc_dx += glyph.charSpace * scale;
+    }
+    return calc_dx;
+}
+
 /**
  * \brief Writes the buffered characters to the SVG document
  */
@@ -1455,14 +1467,9 @@ void SvgBuilder::_flushText() {
         const SvgGlyph& prev_glyph = (*prev_iterator);
         os_x << delta_pos[0];
         if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
-        	float calc_dx = (glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx) * _font_scaling;
-        	//if (prev_glyph.is_space) {
-        	//	calc_dx = calc_dx + prev_glyph.wordSpace * _font_scaling;
-        	//}
-            if (! glyph.font->getWMode()) {
-            	calc_dx += glyph.charSpace * _font_scaling;
-            }
-            if (fabs(calc_dx) >0.001) dxIsDefault = false;
+        	float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
+
+            if (fabs(calc_dx) >0.001) dxIsDefault = false; // if we always have dx~0 we do not create attribute
             os_dx << calc_dx;
         } else {
         	os_dx << 0; // we set "x" attribute for first element so dx always 0;
@@ -1486,11 +1493,16 @@ void SvgBuilder::_flushText() {
         // Append the character to the text buffer
 	if ( !glyph.code.empty() ) {
             text_buffer.append(1, glyph.code[0]);
+            // if it is macro glyph -treating
             if (glyph.code.size() > 1) {
             	for(int glyphNum = 1; glyphNum < glyph.code.size(); glyphNum++) {
+            		if (glyph.code[glyphNum] <= 32 || // extra space is not allowed
+            			glyph.code[glyphNum] == 0xAD || glyph.code[glyphNum] == 0x2010 || // Soft hyphen - had double in first position
+            			glyph.code[glyphNum] == 0xA0 ) continue; // extra space is not allowed
             		text_buffer.append(1, glyph.code[glyphNum]);
             		x_coords.append(" ");
             		x_coords.append(os_x.str());
+
             		dx_coords.append(" 0 ");
             	}
             }
@@ -1499,6 +1511,7 @@ void SvgBuilder::_flushText() {
 			memcpy(tmpVoid, &glyph, sizeof(SvgGlyph));
 			g_ptr_array_add(glyphs_for_clips, tmpVoid);
 
+			// when text used as mask of image
 			Inkscape::CSSOStringStream n_glyph;
 			n_glyph << glyphs_for_clips->len - 1;
 			glyphs_buffer.append(n_glyph.str());
