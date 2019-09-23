@@ -318,6 +318,7 @@ private:
   void opMoveShowText(Object args[], int numArgs);
   void opMoveSetShowText(Object args[], int numArgs);
   void opShowSpaceText(Object args[], int numArgs);
+  void replaceFromActulaHidenText(Unicode **u, CharCode &code); // serviceFunction
   void doShowText(GooString *s);
 
   // XObject operators
