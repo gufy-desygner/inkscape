@@ -2806,7 +2806,87 @@ void PdfParser::opShowSpaceText(Object args[], int /*numArgs*/)
   }
 }
 
+static void scaleByFontSize(GfxState *state, double &dx, double  &dy, double  &originX, double  &originY, bool isSpace ) {
+	GfxFont *font = state->getFont();
+    if (font->getWMode()) {
+		dx *= state->getFontSize();
+		dy = dy * state->getFontSize() + state->getCharSpace();
+		if (isSpace) {
+		  dy += state->getWordSpace();
+		}
+    } else {
+		dx = dx * state->getFontSize() + state->getCharSpace();
+		if (isSpace) {
+		  dx += state->getWordSpace();
+		}
+		dx *= state->getHorizScaling();
+		dy *= state->getFontSize();
+    }
+    originX *= state->getFontSize();
+    originY *= state->getFontSize();
+}
 
+static bool isEmptyLine(GooString *s, char *p, int charLen) {
+  int _len = s->getLength();
+  char *_p = s->getCString();
+  bool onlySpase = true;
+  uint _currentCode = 0;
+  for(int ii = 0; ii < charLen; ii++) {
+	  _currentCode = ((_currentCode << 8) & 0xFF) + p[ii];
+  }
+  while(_len > 0) {
+	  uint _code = 0;
+	  for(int ii = 0; ii < charLen; ii++) {
+		  _code = ((_code << 8) & 0xFF) + _p[ii];
+	  }
+	  if (_code != _currentCode) onlySpase = false;
+	  _p += charLen;
+	  _len -= charLen;
+  }
+  return onlySpase;
+}
+
+void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
+	static Unicode uActual = 0; // memory must exist after out
+	actualMarkerPosition++;
+	if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
+		const Unicode uCopy = **u;
+		const CharCode codeCopy = code;
+		uActual = 0;
+		*u = &uActual;
+		((char*)*u)[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
+		((char*)*u)[1] = actualtextString->getCString()[actualMarkerPosition * 2];
+		if (uActual < 32) uActual = 32;
+		code = uActual;
+
+		// in-designer some times add invisible bullet point in PDF so after export we have dual bullet
+		// we are checking glyph for this symbol and if it is empty change it to space or remove(if tspan keep only one symbol)
+		if (code == 0x2022) {
+			char* glyph = builder->glyphToPath(state, uCopy, codeCopy);
+			if (strlen(glyph) == 0) {
+				if (codeCopy == 32 && uCopy == (Unicode)32) {
+					**u = uCopy;
+					code = codeCopy;
+				} else {
+					**u = (Unicode)32;
+				}
+			}
+			gfree(glyph);
+		}
+	}
+}
+
+void specialReplacesOfPDFChars(GooString *s, Unicode *u, int n) {
+    // change 0x1F as bullet point. if string consist of only one char - (s->getLength() == n)
+    if (sp_bullet_point1f_sh && u && (*u == 0x1F) && (s->getLength() == n)) {
+  	  *u = (Unicode)0x2022;
+    } else {
+        // is not printable symbol
+        // maybe no the best solution write it directly to map table
+  	  if (u && *u < 0x20)
+			  *u = (Unicode)0x20;
+    }
+}
 
 void PdfParser::doShowText(GooString *s) {
   GfxFont *font;
@@ -2878,20 +2958,20 @@ void PdfParser::doShowText(GooString *s) {
       //out->updateCTM(state, 1, 0, 0, 1, 0, 0);
       if (0){ /*!out->beginType3Char(state, curX + riseX, curY + riseY, tdx, tdy,
 			       code, u, uLen)) {*/
-	((Gfx8BitFont *)font)->getCharProc(code, &charProc);
-	if ((resDict = ((Gfx8BitFont *)font)->getResources())) {
-	  pushResources(resDict);
-	}
-	if (charProc.isStream()) {
-	  //parse(&charProc, gFalse); // TODO: parse into SVG font
-	} else {
-	  error(errSyntaxError, getPos(), "Missing or bad Type3 CharProc entry");
-	}
-	//out->endType3Char(state);
-	if (resDict) {
-	  popResources();
-	}
-	charProc.free();
+		((Gfx8BitFont *)font)->getCharProc(code, &charProc);
+		if ((resDict = ((Gfx8BitFont *)font)->getResources())) {
+		  pushResources(resDict);
+		}
+		if (charProc.isStream()) {
+		  //parse(&charProc, gFalse); // TODO: parse into SVG font
+		} else {
+		  error(errSyntaxError, getPos(), "Missing or bad Type3 CharProc entry");
+		}
+		//out->endType3Char(state);
+		if (resDict) {
+		  popResources();
+		}
+		charProc.free();
       }
       restoreState();
       // GfxState::restore() does *not* restore the current position,
@@ -2905,102 +2985,36 @@ void PdfParser::doShowText(GooString *s) {
     }
     parser = oldParser;
 
-  } else {
+  } else { // is not fontType3
     state->textTransformDelta(0, state->getRise(), &riseX, &riseY);
     p = s->getCString();
     len = s->getLength();
     while (len > 0) {
-    	/*if (actualMarkerBegin) {
-    		actualMarkerPosition++;
-    		if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
-    			p[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
-    		}
-    	}*/
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
-      // change 0x1F as bullet point. if string keep only one char - (s->getLength() == n)
-      if (sp_bullet_point1f_sh && u && (*u == 0x1F) && (s->getLength() == n)) {
-    	  *u = (Unicode)0x2022;
-      } else {
-          // is not printable symbol
-          // maybe no the best solution write it directly to map table
-    	  if (u && *u < 0x20)
-			  *u = (Unicode)0x20;
-      }
-      if (u && printCommands) {
-    		  printf("%04x ", *u);
-      }
-      if (actualMarkerBegin) {
-    	  actualMarkerPosition++;
-    	  if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
-    		  const Unicode uCopy = *u;
-    		  const CharCode codeCopy = code;
-    		  uActual = 0;
-    		  u = &uActual;
-    		  ((char*)u)[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
-    		  ((char*)u)[1] = actualtextString->getCString()[actualMarkerPosition * 2];
-    		  if (uActual < 32) uActual = 32;
-    	      code = uActual;
 
-    	      // in-designer some times add invisible bullet point in PDF so after export we have dual bullet
-    	      // we are checking glyph for this symbol and if it is empty change it to space or remove(if tspan keep only one symbol)
-    	      if (code == 0x2022) {
-    	    	  char* glyph = builder->glyphToPath(state, uCopy, codeCopy);
-    	    	  if (strlen(glyph) == 0) {
-    	    		  if (codeCopy == 32 && uCopy == (Unicode)32) {
-    	    			  *u = uCopy;
-    	    			  code = codeCopy;
-    	    		  } else {
-    	    			  *u = (Unicode)32;
-    	    		  }
-    	    	  }
-    	    	  gfree(glyph);
-    	      }
-    	  }
-      }
+      if (actualMarkerBegin)
+    	  replaceFromActulaHidenText(&u, code);
+      /* todo: Garbage collector
       if (u && (*u < 256) && sp_mapping_off_sh && p[0] &&
     		  strcmp(font->getTag()->getCString(), "TT3") &&
 			  strcmp(font->getTag()->getCString(), "TT5")) {
     	  *u = p[0];
+      }*/
+      specialReplacesOfPDFChars(s, u, n);
+      if (u && printCommands) {
+		  printf("%04x ", *u);
+		  fflush(stdout);
       }
       //try remove span with ZERO WITCH SPACE only
       if (u  && *u == 8203) {
-    	  int _len = s->getLength();
-    	  char *_p = s->getCString();
-    	  bool onlySpase = true;
-    	  uint _currentCode = 0;
-    	  for(int ii = 0; ii < n; ii++) {
-    		  _currentCode = ((_currentCode << 8) & 0xFF) + p[ii];
-    	  }
-    	  while(_len > 0) {
-    		  uint _code = 0;
-    		  for(int ii = 0; ii < n; ii++) {
-    			  _code = ((_code << 8) & 0xFF) + _p[ii];
-    		  }
-    		  if (_code != _currentCode) onlySpase = false;
-    		  _p += n;
-    		  _len -= n;
-    	  }
-    	  if (onlySpase) break;
+    	  if (isEmptyLine(s, p, n)) break;
       }
-      if (wMode) {
-		dx *= state->getFontSize();
-		dy = dy * state->getFontSize() + state->getCharSpace();
-		if (n == 1 && *p == ' ') {
-		  dy += state->getWordSpace();
-		}
-      } else {
-		dx = dx * state->getFontSize() + state->getCharSpace();
-		if (n == 1 && *p == ' ') {
-		  dx += state->getWordSpace();
-		}
-		dx *= state->getHorizScaling();
-		dy *= state->getFontSize();
-      }
+
+      scaleByFontSize(state, dx, dy, originX, originY, /*is space */(n == 1 && *p == ' '));
+
       state->textTransformDelta(dx, dy, &tdx, &tdy);
-      originX *= state->getFontSize();
-      originY *= state->getFontSize();
       state->textTransformDelta(originX, originY, &tOriginX, &tOriginY);
 
       if (sp_split_spec_sh && u && *u == 64257) {
@@ -3021,7 +3035,7 @@ void PdfParser::doShowText(GooString *s) {
       p += n;
       len -= n;
     }
-  }
+  }// END of while
 
   builder->endString(state);
   //builder->updateStyle(state); // do start new text block.
