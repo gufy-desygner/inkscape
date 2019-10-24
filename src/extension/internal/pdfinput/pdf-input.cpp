@@ -1002,15 +1002,15 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             std::vector<std::string> warningsList;
 
             if (warning1IsNotText) {
-               	warningsList.push_back("1");
+               	warningsList.push_back("101");
             }
 
             if (warning2wasRasterized) {
-            	warningsList.push_back("2");
+            	warningsList.push_back("203");
             }
 
             if (warning3tooManyImages) {
-            	warningsList.push_back("3");
+            	warningsList.push_back("202");
             }
 
             if (warningsList.size() > 0) {
