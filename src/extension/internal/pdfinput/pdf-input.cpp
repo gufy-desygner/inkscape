@@ -1016,7 +1016,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             if (warningsList.size() > 0) {
             	Inkscape::XML::Node* svgNode = builder->getRoot();
             	bool isFirst = true;
-            	std::string strWarningList("{ ");
+            	std::string strWarningList("{");
             	for(std::string strWarning : warningsList) {
             		if (! isFirst)
             			strWarningList.append(",");
@@ -1026,7 +1026,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             		strWarningList.append(strWarning);
             	}
 
-            	strWarningList.append(" }");
+            	strWarningList.append("}");
 
             	svgNode->setAttribute("data-warning", strWarningList.c_str());
             }
