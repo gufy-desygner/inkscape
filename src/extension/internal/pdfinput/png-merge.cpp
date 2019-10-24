@@ -1684,6 +1684,10 @@ void mergeMaskToImage(SvgBuilder *builder) {
 			  mergeBuilder->clearMerge();
 			  free(fName);
 		  }
+
+		  if (remNodes.size() > 1)
+		      warning2wasRasterized = TRUE;
+
 		  // remove old nodes
 		  for(int i = 0; i < remNodes.size(); i++) {
 			  remNodes[i]->parent()->removeChild(remNodes[i]);
@@ -1742,6 +1746,10 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 
 			mergeNode = mergeBuilder->findNextAttrNode(mergeNode);
 		  }
+
+		  if (remNodes.size() > 1)
+		      warning2wasRasterized = TRUE;
+
 		  // remove old nodes
 		  for(int i = 0; i < remNodes.size(); i++) {
 			  remNodes[i]->parent()->removeChild(remNodes[i]);

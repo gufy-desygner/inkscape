@@ -908,6 +908,9 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             			visualChild = visualChild->next();
             		}
 
+            		if (remNodes.size() > 1)
+            			warning2wasRasterized = TRUE;
+
             		char *tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), "graphic");
             		// Insert node with merged image
 					Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
@@ -930,6 +933,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
 						mergeImagePathToLayerSave(builder, true) > 15) {
 
+						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
 						mergeImagePathToLayerSave(builder);
@@ -993,6 +997,38 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					system(fontForgeCmd);
 					free(fontForgeCmd);
 				}
+            }
+
+            std::vector<std::string> warningsList;
+
+            if (warning1IsNotText) {
+               	warningsList.push_back("1");
+            }
+
+            if (warning2wasRasterized) {
+            	warningsList.push_back("2");
+            }
+
+            if (warning3tooManyImages) {
+            	warningsList.push_back("3");
+            }
+
+            if (warningsList.size() > 0) {
+            	Inkscape::XML::Node* svgNode = builder->getRoot();
+            	bool isFirst = true;
+            	std::string strWarningList("{ ");
+            	for(std::string strWarning : warningsList) {
+            		if (! isFirst)
+            			strWarningList.append(",");
+					else
+						isFirst = false;
+
+            		strWarningList.append(strWarning);
+            	}
+
+            	strWarningList.append(" }");
+
+            	svgNode->setAttribute("data-warning", strWarningList.c_str());
             }
 
             //===================gnerate thumbs==================================

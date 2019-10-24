@@ -41,5 +41,8 @@ extern gint sp_merge_limit_path_sh;
 extern gboolean sp_rect_how_path_sh;
 extern gint sp_thumb_width_sh;
 extern float sp_export_dpi_sh;
+extern gboolean warning1IsNotText;
+extern gboolean warning2wasRasterized;
+extern gboolean warning3tooManyImages;
 #endif
 
