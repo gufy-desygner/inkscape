@@ -1502,6 +1502,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 
 	if (sp_merge_images_sh) {
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+	  if (! simulate ) warning3tooManyImages = TRUE;
 	}
 
 	if (sp_merge_path_sh) {
@@ -1509,6 +1510,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
       if (sp_rect_how_path_sh) {
     	  mergeBuilder->addTagName(g_strdup_printf("svg:rect"));
       }
+      if (! simulate ) warning2wasRasterized = TRUE;
 	}
 	int numberInNode = 0;
 	Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstNode(&numberInNode);
@@ -1552,16 +1554,14 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 				// Insert node with merged image
 				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
 				visualNode->addChild(sumNode, mergeNode);
-				//mergeBuilder->removeRelateDefNodes(remNode);
-				//mergeBuilder->removeGFromNode(remNode);
 				mergeNode = sumNode->next();
-				if (! simulate) {
-					for(int i = 0; i < remNodes.size(); i++) {
-						mergeBuilder->removeRelateDefNodes(remNodes[i]);
-						mergeBuilder->removeGFromNode(remNodes[i]);
-					}
-					remNodes.clear();
+
+				for(int i = 0; i < remNodes.size(); i++) {
+					mergeBuilder->removeRelateDefNodes(remNodes[i]);
+					mergeBuilder->removeGFromNode(remNodes[i]);
 				}
+				remNodes.clear();
+
 			} else {
 				mergeNode = mergeNode->next();
 			}
