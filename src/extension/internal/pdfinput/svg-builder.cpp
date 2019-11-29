@@ -1750,6 +1750,207 @@ void spoolOriginalToFile(Stream *str, gchar *fileName) {
 	free(buffer);
 }
 
+unsigned char* SvgBuilder::_encodeImageAlphaMask(Stream *str, int width, int height,
+                           GfxImageColorMap *color_map, bool interpolate) {
+	// Convert pixels
+	ImageStream *image_stream;
+	if (color_map) {
+		image_stream = new ImageStream(str, width, color_map->getNumPixelComps(),
+									   color_map->getBits());
+	} else {
+		image_stream = new ImageStream(str, width, 1, 1);
+	}
+	image_stream->reset();
+
+	// Convert grayscale values
+	unsigned char *buffer = new unsigned char[width * height];
+
+	for ( int y = 0 ; y < height ; y++ ) {
+		unsigned char *row = image_stream->getLine();
+		if (color_map) {
+			color_map->getGrayLine(row, &buffer[y * width], width);
+		} else {
+			unsigned char *buf_ptr = &buffer[y * width];
+			for ( int x = 0 ; x < width ; x++ ) {
+				if ( row[x] ^ 0 ) {
+					*buf_ptr++ = 0;
+				} else {
+					*buf_ptr++ = 0xFF;
+				}
+			}
+		}
+	}
+	delete image_stream;
+    str->close();
+
+    return buffer;
+}
+
+void mergeWithAlpha(unsigned int* color_map, const unsigned char* alpha_map, const int color_len, const int map_len)
+{
+	for(int i = 0; i < color_len; i++) {
+		unsigned char* color_byte = (unsigned char*) &color_map[i];
+		color_byte[3] = ~alpha_map[(int)round(i*map_len/color_len)];
+	}
+}
+
+Inkscape::XML::Node *SvgBuilder::_createMaskedImage(Stream *str, int width, int height,
+                                  GfxImageColorMap *color_map, bool interpolate,
+								  unsigned char* alphaChanel, int mask_width, int mask_height)  {
+    // Decide whether we should embed this image
+    int attr_value = 1;
+    sp_repr_get_int(_preferences, "embedImages", &attr_value);
+    bool embed_image = ( attr_value != 0 );
+    // Decide whether use PNG render branch or save original JPEG stream
+    bool isJpeg = FALSE;
+
+    _countOfImages++;
+    png_structp png_ptr;
+    png_infop info_ptr;
+
+	// Create PNG write struct
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if ( png_ptr == NULL ) {
+		return NULL;
+	}
+
+	// Create PNG info struct
+	info_ptr = png_create_info_struct(png_ptr);
+	if ( info_ptr == NULL ) {
+		png_destroy_write_struct(&png_ptr, NULL);
+		return NULL;
+	}
+	// Set error handler
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		return NULL;
+	}
+
+    // Set read/write functions
+    Inkscape::IO::StringOutputStream base64_string;
+    Inkscape::IO::Base64OutputStream base64_stream(base64_string);
+    FILE *fp = NULL;
+    gchar *file_name = NULL; // href file name
+    gchar *file_name_png = NULL;
+    gchar *file_name_jpg = NULL;
+    if (embed_image) {
+        base64_stream.setColumnWidth(0);   // Disable line breaks
+        png_set_write_fn(png_ptr, &base64_stream, png_write_base64stream, png_flush_base64stream);
+    } else {
+        int counter = getImageIngex();
+        // build path of file for linking image
+        file_name_png = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter);
+        file_name_jpg = g_strdup_printf("%s%s_img%d.jpg", sp_export_svg_path_sh, _docname, counter);
+
+       	fp = fopen(file_name_png, "wb");
+        // build link value for image
+       	file_name = g_strdup_printf("%s_img%d.png", _docname, counter);
+
+        if ( fp == NULL ) {
+            png_destroy_write_struct(&png_ptr, &info_ptr);
+            g_free(file_name);
+            g_free(file_name_png);
+            g_free(file_name_jpg);
+            return NULL;
+        }
+        png_init_io(png_ptr, fp);
+    }
+
+	// Set header data ????
+
+	png_set_invert_alpha(png_ptr);
+	png_color_8 sig_bit;
+	png_set_IHDR(png_ptr, info_ptr,
+				 width,
+				 height,
+				 8, /* bit_depth */
+				 PNG_COLOR_TYPE_RGB_ALPHA,
+				 PNG_INTERLACE_NONE,
+				 PNG_COMPRESSION_TYPE_BASE,
+				 PNG_FILTER_TYPE_BASE);
+	sig_bit.red = 8;
+	sig_bit.green = 8;
+	sig_bit.blue = 8;
+	sig_bit.alpha = 8;
+
+	png_set_sBIT(png_ptr, info_ptr, &sig_bit);
+	png_set_bgr(png_ptr);
+	// Write the file header
+	png_write_info(png_ptr, info_ptr);
+
+	// Convert pixels
+	ImageStream *image_stream;
+    if (color_map) {
+		image_stream = new ImageStream(str, width,
+									   color_map->getNumPixelComps(),
+									   color_map->getBits());
+		image_stream->reset();
+
+		// Convert RGB values
+		unsigned int *buffer = new unsigned int[width];
+
+		for ( int i = 0 ; i < height ; i++ ) {
+			unsigned char *row = image_stream->getLine();
+			memset((void*)buffer, 0xff, sizeof(int) * width);
+			color_map->getRGBLine(row, buffer, width);
+			mergeWithAlpha(buffer, &alphaChanel[(int)(mask_width * round(1.0 * i * mask_height/height))], width, mask_width);
+			png_write_row(png_ptr, (png_bytep)buffer);
+		}
+
+		delete [] buffer;
+
+	} else {    // A colormap must be provided, so quit
+		png_destroy_write_struct(&png_ptr, &info_ptr);
+		if (!embed_image) {
+			fclose(fp);
+			g_free(file_name);
+		}
+		return NULL;
+	}
+	delete image_stream;
+	// Close PNG
+	png_write_end(png_ptr, info_ptr);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+	base64_stream.close();
+    str->close();
+
+    // Create repr
+    Inkscape::XML::Node *image_node = _xml_doc->createElement("svg:image");
+    sp_repr_set_svg_double(image_node, "width", 1);
+    sp_repr_set_svg_double(image_node, "height", 1);
+    if( !interpolate ) {
+        SPCSSAttr *css = sp_repr_css_attr_new();
+        // This should be changed after CSS4 Images widely supported.
+        sp_repr_css_set_property(css, "image-rendering", "optimizeSpeed");
+        sp_repr_css_change(image_node, css, "style");
+        sp_repr_css_attr_unref(css);
+    }
+
+    // PS/PDF images are placed via a transformation matrix, no preserveAspectRatio used
+    image_node->setAttribute("preserveAspectRatio", "none");
+
+    // Set transformation
+
+        svgSetTransform(image_node, 1.0, 0.0, 0.0, -1.0, 0.0, 1.0);
+
+    // Create href
+    if (embed_image) {
+        // Append format specification to the URI
+        Glib::ustring& png_data = base64_string.getString();
+        png_data.insert(0, "data:image/png;base64,");
+        image_node->setAttribute("xlink:href", png_data.c_str());
+    } else {
+    	fclose(fp);
+        image_node->setAttribute("xlink:href", file_name);
+
+        g_free(file_name);
+        g_free(file_name_png);
+        g_free(file_name_jpg);
+    }
+
+    return image_node;
+}
+
 /**
  * \brief Creates an <image> element containing the given ImageStream as a PNG
  *
@@ -1811,7 +2012,7 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         base64_stream.setColumnWidth(0);   // Disable line breaks
         png_set_write_fn(png_ptr, &base64_stream, png_write_base64stream, png_flush_base64stream);
     } else {
-        static int counter = 0;
+        int counter = getImageIngex();
         // build path of file for linking image
         file_name_png = g_strdup_printf("%s%s_img%d.png", sp_export_svg_path_sh, _docname, counter);
         file_name_jpg = g_strdup_printf("%s%s_img%d.jpg", sp_export_svg_path_sh, _docname, counter);
@@ -1820,12 +2021,12 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         	fp = fopen(file_name_png, "wb");
         // build link value for image
         if (sp_create_jpeg_sp || makeOriginalImage) {
-            file_name = g_strdup_printf("%s_img%d.jpg", _docname, counter++);
+            file_name = g_strdup_printf("%s_img%d.jpg", _docname, counter); // for href attribute
             if (makeOriginalImage)
             	spoolOriginalToFile(str, file_name_jpg);
         }
         else
-        	file_name = g_strdup_printf("%s_img%d.png", _docname, counter++);
+        	file_name = g_strdup_printf("%s_img%d.png", _docname, counter); // for href attribute
 
         if ( fp == NULL && (! makeOriginalImage)) {
             png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -2385,28 +2586,39 @@ void SvgBuilder::addSoftMaskedImage(GfxState * /*state*/, Stream *str, int width
                                     GfxImageColorMap *color_map, bool interpolate,
                                     Stream *mask_str, int mask_width, int mask_height,
                                     GfxImageColorMap *mask_color_map, bool mask_interpolate) {
+	if (sp_restore_alpha_sp) {
+		unsigned char* alphaChanel = _encodeImageAlphaMask(mask_str, mask_width, mask_height, mask_color_map, mask_interpolate);
+	    Inkscape::XML::Node *image_node = _createMaskedImage(str, width, height, color_map, interpolate, alphaChanel, mask_width, mask_height);
+	    delete [] alphaChanel;
+	    if (image_node) {
+	    	_container->appendChild(image_node);
+	    	Inkscape::GC::release(image_node);
+	    }
+	} else {
+		Inkscape::XML::Node *mask_image_node = _createImage(mask_str, mask_width, mask_height,
+															mask_color_map, mask_interpolate, NULL, true);
 
-    Inkscape::XML::Node *mask_image_node = _createImage(mask_str, mask_width, mask_height,
-                                                        mask_color_map, mask_interpolate, NULL, true);
-    Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, interpolate, NULL);
-    if ( mask_image_node && image_node ) {
-        // Create mask for the image
-        Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
-        // Remove unnecessary transformation from the mask image
-        mask_image_node->setAttribute("transform", NULL);
-        mask_node->appendChild(mask_image_node);
-        // Set mask and add image
-        gchar *mask_url = g_strdup_printf("url(#%s)", mask_node->attribute("id"));
-        image_node->setAttribute("mask", mask_url);
-        g_free(mask_url);
-        _container->appendChild(image_node);
-    }
-    if (mask_image_node) {
-        Inkscape::GC::release(mask_image_node);
-    }
-    if (image_node) {
-        Inkscape::GC::release(image_node);
-    }
+		Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, interpolate, NULL);
+
+		if ( mask_image_node && image_node ) {
+			// Create mask for the image
+			Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
+			// Remove unnecessary transformation from the mask image
+			mask_image_node->setAttribute("transform", NULL);
+			mask_node->appendChild(mask_image_node);
+			// Set mask and add image
+			gchar *mask_url = g_strdup_printf("url(#%s)", mask_node->attribute("id"));
+			image_node->setAttribute("mask", mask_url);
+			g_free(mask_url);
+			_container->appendChild(image_node);
+		}
+		if (mask_image_node) {
+			Inkscape::GC::release(mask_image_node);
+		}
+		if (image_node) {
+			Inkscape::GC::release(image_node);
+		}
+	}
 }
 
 /**

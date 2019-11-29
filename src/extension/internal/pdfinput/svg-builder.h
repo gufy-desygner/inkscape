@@ -200,6 +200,15 @@ private:
                            Function *func);
     gchar *_createTilingPattern(GfxTilingPattern *tiling_pattern, GfxState *state,
                                 bool is_stroke=false);
+
+    static int getImageIngex() { static int counter = 0; return counter++; };
+    // generate alpha channel for masked image
+    unsigned char* _encodeImageAlphaMask(Stream *str, int width, int height,
+                                      GfxImageColorMap *color_map, bool interpolate);
+
+    Inkscape::XML::Node *_createMaskedImage(Stream *str, int width, int height,
+                                      GfxImageColorMap *color_map, bool interpolate,
+									  unsigned char* alphaChanel, int mask_width, int mask_height);
     // Image/mask creation
     Inkscape::XML::Node *_createImage(Stream *str, int width, int height,
                                       GfxImageColorMap *color_map, bool interpolate,
