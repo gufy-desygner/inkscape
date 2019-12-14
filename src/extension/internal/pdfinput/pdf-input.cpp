@@ -913,7 +913,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
             		char *tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), "graphic");
             		// Insert node with merged image
-					Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
+            		double resultDpi;
+					Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder, true, resultDpi);
 					mergeBuilder->getSourceSubVisual()->addChild(sumNode, 0);
 					for(int i = 0; i < remNodes.size(); i++) {
 						mergeBuilder->removeRelateDefNodes(remNodes[i]);

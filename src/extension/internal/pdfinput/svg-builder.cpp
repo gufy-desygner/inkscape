@@ -1948,6 +1948,8 @@ Inkscape::XML::Node *SvgBuilder::_createMaskedImage(Stream *str, int width, int 
         g_free(file_name_jpg);
     }
 
+    image_node->setAttribute("sodipodi:img_width", std::to_string(width).c_str());
+    image_node->setAttribute("sodipodi:img_height", std::to_string(height).c_str());
     return image_node;
 }
 
@@ -2204,6 +2206,8 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
         g_free(file_name_jpg);
     }
 
+    image_node->setAttribute("sodipodi:img_width", std::to_string(width).c_str());
+    image_node->setAttribute("sodipodi:img_height", std::to_string(height).c_str());
     return image_node;
 }
 
