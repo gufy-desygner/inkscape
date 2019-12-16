@@ -12,6 +12,7 @@
 #include "xml/attribute-record.h"
 #include "util/list.h"
 #include "svg-builder.h"
+#include "sp-item.h"
 
 #define PROFILER_ENABLE 0
 
@@ -93,8 +94,9 @@ public:
 	Inkscape::XML::Node *findNodeById(Inkscape::XML::Node *fromNode, const char* id);
 	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
-	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound = true);
-	Geom::Rect save(gchar const *filename, bool visualBound = true);
+	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi);
+	void getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Affine &innerAffine);
+	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi);
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);

@@ -27,6 +27,7 @@
 #include "sp-defs.h"
 #include "sp-text.h"
 #include "sp-flowtext.h"
+#include "sp-image.h"
 #include "path-chemistry.h"
 #include "xml/text-node.h"
 //#include <extension/system.h>
@@ -447,13 +448,14 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 			continue;
 		}
 		// High quality of images
+		const char* attrKey = g_quark_to_string(attrList->key);
 		if ((strcmp(tempNode->name(), "svg:image") == 0) &&
-			(strcmp(g_quark_to_string(attrList->key), "xlink:href") == 0 ) &&
+			(strcmp(attrKey, "xlink:href") == 0 ) &&
 			rebasePath) {
 			tempNode->setAttribute(g_quark_to_string(attrList->key),
 					        g_strdup_printf("%s%s", rebasePath, attrList->value));
 		} else{
-		    tempNode->setAttribute(g_quark_to_string(attrList->key), attrList->value);
+		    tempNode->setAttribute(attrKey, attrList->value);
 		}
 	    attrList++;
 	}
@@ -461,6 +463,7 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	tempNode->setContent(childNode->content());
 
 	destNode->appendChild(tempNode);
+
 	// Add tree of appended node
 	Inkscape::XML::Node *ch = childNode->firstChild();
 	while(ch) {
@@ -616,12 +619,12 @@ bool isTrans(char *patch) {
 	}
 }
 
-Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, bool visualBound) {
+Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi) {
 
 	// Save merged image
 	gchar* mergedImagePath = g_strdup_printf("%s%s.png", sp_export_svg_path_sh, name);
 	gchar *fName;
-	Geom::Rect rct = save(mergedImagePath, visualBound);
+	Geom::Rect rct = save(mergedImagePath, visualBound, resultDpi);
 	removeOldImages();
 	//try convert to jpeg (if do not have transparent regions)
 	if (sp_create_jpeg_sp && isTrans(mergedImagePath)) {
@@ -647,7 +650,38 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, b
 	return node;
 }
 
-Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound) {
+void MergeBuilder::getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Affine &innerAffine)
+{
+
+	SPItem* tmpNode = (SPItem*)node->firstChild();
+
+	while(tmpNode)
+	{
+		Geom::Affine transform = innerAffine * tmpNode->transform;
+		Geom::Point zoom = transform.expansion();
+
+		Inkscape::XML::Node* xmlNode = tmpNode->getRepr();
+
+		if (strcmp(xmlNode->name(), "svg:image") == 0)
+		{
+			double width, height;
+			const char* strWidth = xmlNode->attribute("sodipodi:img_width");
+			const char* strHeight = xmlNode->attribute("sodipodi:img_height");
+			width = (strWidth ? std::strtod(strWidth, nullptr) : 0);
+			height = (strHeight ? std::strtod(strHeight, nullptr) : 0);
+			const float wDpi = width/zoom.x() * 96;
+			const float hDpi = height/zoom.y() * 96;
+			min = MIN(min, MIN(wDpi, hDpi));
+			max = MAX(max, MAX(wDpi, hDpi));
+		}
+
+		getMinMaxDpi((SPItem*)tmpNode, min, max, transform);
+		tmpNode = (SPItem*)tmpNode->next;
+	}
+}
+
+
+Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, double &resultDpi) {
 	std::vector<SPItem*> x;
 	char *c;
 	Geom::Rect sq = Geom::Rect();
@@ -665,6 +699,9 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound) {
 			_doc->getRoot()->updateRepr(15); // 15 is flags b1111
 	}
 	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
+
+	double minDpi = 1200, maxDpi = 0;
+	getMinMaxDpi(item, minDpi, maxDpi, item->transform);
 
 	if (visualBound && adjustVisualBound) {
 		sq = visualBound.get();
@@ -688,8 +725,17 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound) {
 	double aproxW = (x2-x1);
 	double aproxH = (y2-y1);
 	if ( aproxW < 2048 && aproxH < 2048 ) {
-		aproxW = (x2-x1) * 3;
-		aproxH = (y2-y1) * 3;
+		if (minDpi >= 310) {
+			resultDpi = 310;
+		} else if (minDpi >= 290 && minDpi < 400) {
+			resultDpi = minDpi;
+		} else if (maxDpi >= 290) {
+			resultDpi = 285;
+		} else if (maxDpi < 290) {
+			resultDpi = maxDpi;
+		}
+		aproxW *= resultDpi/96;
+		aproxH *= resultDpi/96;
 	}
 	sp_export_png_file(_doc, filename,
 					round(x1), height - round(y1), round(x2), height - round(y2), // crop of document x,y,W,H
@@ -1552,7 +1598,8 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 				tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
 
 				// Insert node with merged image
-				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder);
+				double resultDpi;
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder, true, resultDpi);
 				visualNode->addChild(sumNode, mergeNode);
 				mergeNode = sumNode->next();
 
@@ -1624,7 +1671,8 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 			}
 
 			char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
-			visualNode->addChild(mergeBuilder->saveImage(fName, builder), NULL);
+			double resultDpi;
+			visualNode->addChild(mergeBuilder->saveImage(fName, builder, true, resultDpi), NULL);
 			free(fName);
 		}
 		else { // if do not have two nearest images - can not merge
@@ -1668,7 +1716,8 @@ void mergeMaskToImage(SvgBuilder *builder) {
 			  tmpName = mergingNode->attribute("id");
 			  char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
 			  // Save merged image
-			  Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, sp_adjust_mask_size_sh);
+			  double resultDpi;
+			  Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, sp_adjust_mask_size_sh, resultDpi);
 			  // sumNode have affine related from mainVisualNode node.
 			  // We must adjust affine transform for current parent
 			  Geom::Affine sumAff;
@@ -1735,7 +1784,8 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 				char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
 
 				// Save merged image
-				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder);
+				double resultDpi;
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, true, resultDpi);
 				visualNode->addChild(sumNode, mergeNode);
 				mergeBuilder->clearMerge();
 				mergeNode = sumNode->next();
