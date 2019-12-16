@@ -2590,7 +2590,7 @@ void SvgBuilder::addSoftMaskedImage(GfxState * /*state*/, Stream *str, int width
                                     GfxImageColorMap *color_map, bool interpolate,
                                     Stream *mask_str, int mask_width, int mask_height,
                                     GfxImageColorMap *mask_color_map, bool mask_interpolate) {
-	if (sp_restore_alpha_sp) {
+	if (sp_preserve_dpi_sp) {
 		unsigned char* alphaChanel = _encodeImageAlphaMask(mask_str, mask_width, mask_height, mask_color_map, mask_interpolate);
 	    Inkscape::XML::Node *image_node = _createMaskedImage(str, width, height, color_map, interpolate, alphaChanel, mask_width, mask_height);
 	    delete [] alphaChanel;

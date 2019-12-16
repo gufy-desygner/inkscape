@@ -701,7 +701,10 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, dou
 	Geom::OptRect visualBound = _doc->getRoot()->documentVisualBounds();
 
 	double minDpi = 1200, maxDpi = 0;
-	getMinMaxDpi(item, minDpi, maxDpi, item->transform);
+	if (sp_preserve_dpi_sp) {
+		getMinMaxDpi(item, minDpi, maxDpi, item->transform);
+		if (maxDpi < minDpi) maxDpi = minDpi;
+	}
 
 	if (visualBound && adjustVisualBound) {
 		sq = visualBound.get();
@@ -724,18 +727,23 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, dou
 
 	double aproxW = (x2-x1);
 	double aproxH = (y2-y1);
+
 	if ( aproxW < 2048 && aproxH < 2048 ) {
-		if (minDpi >= 310) {
-			resultDpi = 310;
-		} else if (minDpi >= 290 && minDpi < 400) {
-			resultDpi = minDpi;
-		} else if (maxDpi >= 290) {
-			resultDpi = 285;
-		} else if (maxDpi < 290) {
-			resultDpi = maxDpi;
+		if (sp_preserve_dpi_sp) {
+			if (minDpi >= 310) {
+				resultDpi = 310;
+			} else if (minDpi >= 290 && minDpi < 310) {
+				resultDpi = minDpi;
+			} else if (maxDpi >= 290) {
+				resultDpi = 285;
+			} else if (maxDpi < 290) {
+				resultDpi = maxDpi;
+			}
+		} else {
+			resultDpi = 3 * 96;
 		}
-		aproxW *= resultDpi/96;
-		aproxH *= resultDpi/96;
+		aproxW *= resultDpi/96.0;
+		aproxH *= resultDpi/96.0;
 	}
 	sp_export_png_file(_doc, filename,
 					round(x1), height - round(y1), round(x2), height - round(y2), // crop of document x,y,W,H
