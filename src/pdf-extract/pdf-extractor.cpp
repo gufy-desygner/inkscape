@@ -39,6 +39,13 @@ void parseCLIoptions(int argc, const char **argv, poptOption *optionsTable)
 {
 	int opt;
 	poptContext optCon = poptGetContext(NULL, argc, argv, optionsTable, 0);
+
+	if ( argc < 2 )
+	{
+		poptPrintHelp(optCon, stderr, 0);
+		exit(0);
+	}
+
 	while ((opt = poptGetNextOpt(optCon)) >= 0)
 	{
 		switch (opt)
@@ -320,6 +327,7 @@ void outAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests, FILE* outFile,
 int main(int argc, const char** argv)
 {
 	parseCLIoptions(argc, argv, optionsTable);
+
 
 	GooString *gfileName = new GooString(parameters.imputFileName);
 	PDFDoc *doc = new PDFDoc (gfileName, NULL, NULL, NULL);
