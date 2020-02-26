@@ -448,6 +448,9 @@ list(APPEND inkscape_SRC
 # Load in subdirectories
 # -----------------------------------------------------------------------------
 
+#Custom desygner projects
+add_subdirectory(pdf-extract)
+
 # All folders for internal inkscape
 # these call add_inkscape_source
 add_subdirectory(debug)
@@ -552,6 +555,7 @@ set(INKSCAPE_TARGET_LIBS
         util_LIB
         gc_LIB
         curlpp
+        jsoncpp
         ${INKSCAPE_LIBS}
 )
 

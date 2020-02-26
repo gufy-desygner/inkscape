@@ -51,6 +51,8 @@ class SPCSSAttr;
 #include <vector>
 #include <glib.h>
 
+typedef std::vector<Inkscape::XML::Node*> NodeList;
+
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
@@ -106,6 +108,9 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
+    NodeList* getNodeListByTag(const char* tag, NodeList* list);
+    Inkscape::XML::Node* getMainNode();
+
     Inkscape::XML::Node *getPreferences() {
         return _preferences;
     }

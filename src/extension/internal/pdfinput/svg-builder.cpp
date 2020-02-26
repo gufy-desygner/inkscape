@@ -175,6 +175,63 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 	}
 }
 
+static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList* list)
+{
+	Inkscape::XML::Node* cursorNode = node;
+	while(cursorNode)
+	{
+		const char* nodeName = cursorNode->name();
+		if (strcasecmp(nodeName, tag) == 0)
+			list->push_back(cursorNode);
+		if (cursorNode->childCount() > 0)
+			_getNodesByTag(cursorNode->firstChild(), tag, list);
+		cursorNode = cursorNode->next();
+	}
+}
+
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list)
+{
+
+
+	Inkscape::XML::Node* rootNode = getRoot();
+
+	_getNodesByTag(rootNode, tag, list);
+
+	return list;
+}
+
+static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
+{
+	Inkscape::XML::Node* tmpNode = rootNode->firstChild();
+	Inkscape::XML::Node* mainNode = nullptr;
+	while(tmpNode)
+	{
+		if ( strcmp(tmpNode->name(),"svg:defs") == 0 )
+		{
+			mainNode = tmpNode->next();
+			while(mainNode)
+			{
+				if (strcmp(mainNode->name(), "svg:g") == 0)
+					break;
+				mainNode = mainNode->next();
+			}
+			break;
+		}
+		if (tmpNode->childCount() > 0 && (maxDeep > 1 || maxDeep == 0))
+			_getMainNode(tmpNode, (maxDeep == 0 ? maxDeep : maxDeep - 1));
+
+		tmpNode = tmpNode->next();
+	}
+	return mainNode;
+}
+
+Inkscape::XML::Node* SvgBuilder::getMainNode()
+{
+	Inkscape::XML::Node* rootNode = getRoot();
+	return _getMainNode(rootNode, 2);
+}
+
+
 /**
  * \brief Sets the current container's opacity
  */

@@ -30,8 +30,7 @@
 #include "sp-image.h"
 #include "path-chemistry.h"
 #include "xml/text-node.h"
-//#include <extension/system.h>
-//#include <extension/db.h>
+
 
 namespace Inkscape {
 namespace Extension {
@@ -1976,5 +1975,22 @@ char *readLineFromFile(FILE *fl) {
 	char *res = strdup(buff);
 	return res;
 }
+
+bool objStreamToFile(Object* obj, const char* fileName)
+{
+	  if (obj->isStream())
+	  {
+		  Stream* str = obj->getStream();
+		  GooString gooStr;
+		  str->fillGooString(&gooStr);
+		  int length = gooStr.getLength();
+		  FILE* strFile = fopen(fileName, "w");
+		  fwrite(gooStr.getCString(), length, 1, strFile);
+		  fclose(strFile);
+		  return true;
+	  }
+	  return false;
+}
+
 
 

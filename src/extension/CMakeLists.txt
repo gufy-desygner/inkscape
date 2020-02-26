@@ -65,6 +65,7 @@ set(extension_SRC
 	internal/pdfinput/pdf-parser.cpp
 	internal/pdfinput/svg-builder.cpp
 	internal/pdfinput/png-merge.cpp
+	internal/pdfinput/BookMarks.cpp
 
 	# ------
 	# Header
@@ -136,6 +137,7 @@ set(extension_SRC
 	internal/pdfinput/pdf-parser.h
 	internal/pdfinput/svg-builder.h
 	internal/pdfinput/png-merge.h
+	internal/pdfinput/BookMarks.h
 	internal/pov-out.h
 	internal/svg.h
 	internal/svgz.h

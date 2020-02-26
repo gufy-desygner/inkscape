@@ -66,6 +66,8 @@
 #include <gdkmm/general.h>
 #include <pthread.h>
 #include "xml/composite-node-observer.h"
+#include "BookMarks.h"
+#include "shared_opt.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -866,8 +868,21 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         logTime("Start parsing of PDF - default inkscape process");
         page->getContents(&obj);
-        if (!obj.isNull()) {
+        if (!obj.isNull()) { // @suppress("Invalid arguments")
+        	BookMarks* bookMarks = nullptr;
+        	if (sp_bookmarks_sh) {
+        		bookMarks = new BookMarks(sp_bookmarks_sh);
+        		if (! bookMarks->isOk()) {
+        			delete(bookMarks);
+        			bookMarks = nullptr;
+        		}
+        	}
+
+        	//pdf_parser->setBookMarks(bookMarks);
             pdf_parser->parse(&obj);
+            //pdf_parser->setBookMarks(nullptr);
+            //delete(bookMarks); !!!!!!!!!!!!!!!!!!
+
             logTime("End PDF parsing");
             prnTimer(timTEXT_FLUSH, "flush text take time");
             prnTimer(timCREATE_IMAGE, "images take time");
@@ -881,6 +896,9 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             int64_t count_of_nodes = 0;
             if (sp_export_svg_sh) { // if out format is SVG
             	// check difficult of svg
+            	//NodeList listOfTSpan;
+            	//builder->getNodeListByTag("svg:tspan", &listOfTSpan);
+            	bookMarks->MergeWithSvgBuilder(builder);
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);

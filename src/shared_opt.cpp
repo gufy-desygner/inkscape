@@ -1,6 +1,7 @@
 #include "shared_opt.h"
 gboolean sp_adjust_mask_size_sh = FALSE;
 gboolean sp_map_drop_color_sh = FALSE;
+char* sp_bookmarks_sh = nullptr;
 gboolean sp_split_spec_sh = FALSE;
 gboolean sp_bullet_point1f_sh = FALSE;
 gboolean sp_embed_images_sh = TRUE;

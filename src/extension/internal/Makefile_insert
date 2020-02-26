@@ -130,6 +130,8 @@ ink_common_sources +=	\
 	extension/internal/pdfinput/pdf-input.cpp	\
 	extension/internal/pdfinput/png-merge.h	\
 	extension/internal/pdfinput/png-merge.cpp	\
+	extension/internal/pdfinput/BookMarks.h	\
+	extension/internal/pdfinput/BookMarks.cpp
 	extension/internal/pov-out.cpp	\
 	extension/internal/pov-out.h	\
 	extension/internal/odf.cpp	\

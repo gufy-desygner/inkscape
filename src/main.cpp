@@ -390,6 +390,11 @@ struct poptOption options[] = {
 	  N_("Convert filter \"multiply drop color\" to opacity"),
 	  NULL},
 
+	{"bookmarks", 0,
+	  POPT_ARG_STRING, &sp_bookmarks_sh, 0,
+	  N_("List of PDF bookmarks as JSON file"),
+	  NULL},
+
     {"print", 'p',
      POPT_ARG_STRING, &sp_global_printer, SP_ARG_PRINT,
      N_("Print document(s) to specified output file (use '| program' for pipe)"),
