@@ -194,9 +194,9 @@ void BookMarks::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* b
 		if (resultNode) {
 			std::string alignStr = getItemValStr(i, "align");
 			if (alignStr.compare("center") == 0)
-				resultNode->setAttribute("text-anchor", "middle");
+				resultNode->setAttribute("data-align", "middle");
 			if (alignStr.compare("right") == 0)
-				resultNode->setAttribute("text-anchor", "end");
+				resultNode->setAttribute("data-align", "right");
 		}
 	}
 }
