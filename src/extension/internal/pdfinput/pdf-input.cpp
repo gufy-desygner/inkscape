@@ -898,7 +898,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	// check difficult of svg
             	//NodeList listOfTSpan;
             	//builder->getNodeListByTag("svg:tspan", &listOfTSpan);
-            	bookMarks->MergeWithSvgBuilder(builder);
+            	if (bookMarks)
+            		bookMarks->MergeWithSvgBuilder(builder);
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
