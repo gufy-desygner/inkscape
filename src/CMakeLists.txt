@@ -556,6 +556,7 @@ set(INKSCAPE_TARGET_LIBS
         gc_LIB
         curlpp
         jsoncpp
+	poppler
         ${INKSCAPE_LIBS}
 )
 
