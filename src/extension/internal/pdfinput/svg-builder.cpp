@@ -189,11 +189,15 @@ static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList*
 	}
 }
 
-NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list)
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
 {
 
 
-	Inkscape::XML::Node* rootNode = getRoot();
+	Inkscape::XML::Node* rootNode;
+	if (startNode == nullptr)
+		rootNode = getRoot();
+	else
+		rootNode = startNode;
 
 	_getNodesByTag(rootNode, tag, list);
 

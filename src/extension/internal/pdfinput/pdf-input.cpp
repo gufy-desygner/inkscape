@@ -869,9 +869,9 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         logTime("Start parsing of PDF - default inkscape process");
         page->getContents(&obj);
         if (!obj.isNull()) { // @suppress("Invalid arguments")
-        	BookMarks* bookMarks = nullptr;
+        	AdobeExtraData* bookMarks = nullptr;
         	if (sp_bookmarks_sh) {
-        		bookMarks = new BookMarks(sp_bookmarks_sh);
+        		bookMarks = new AdobeExtraData(sp_bookmarks_sh);
         		if (! bookMarks->isOk()) {
         			delete(bookMarks);
         			bookMarks = nullptr;

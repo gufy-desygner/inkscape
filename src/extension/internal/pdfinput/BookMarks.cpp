@@ -15,11 +15,178 @@
 #include "xml/repr.h"
 #include "sp-tspan.h"
 
-BookMarks::BookMarks(const char* fileName)
+
+AdobeTextFrame::AdobeTextFrame(Json::Value jsonFrame) :
+	top(0),
+	left(0),
+	height(0),
+	width(0)
+{
+	ok = true;
+
+	linkX = jsonFrame.get("x", Json::intValue).asInt(); // todo:: check type of value before
+	linkY = jsonFrame.get("y", Json::intValue).asInt(); // todo:: check type of value before
+
+	if (! jsonFrame.isMember("title"))
+	{
+		ok = false;
+		return;
+	}
+
+	std::string frameInnerDataStr = jsonFrame.get("title", Json::nullValue).asString();
+	Json::Value frameInnerDataJson;
+	Json::Reader reader;
+	const bool parsed = reader.parse(frameInnerDataStr.c_str() , frameInnerDataJson, false );
+	if (! parsed)
+	{
+		ok = false;
+		return;
+	}
+
+	Json::Value::Members keys = frameInnerDataJson.getMemberNames();
+	if (keys.size() > 0)
+	{
+		if (strstr(keys[0].c_str(), "Frame_"))
+		{
+			Json::Value frameData = frameInnerDataJson.get(keys[0].c_str(), Json::nullValue);
+
+			Json::Value leftJson = frameData.get("left", Json::nullValue);
+			if (! leftJson.isNumeric())
+			{
+				ok = false;
+				return;
+			}
+			left = leftJson.asInt();
+
+			Json::Value topJson = frameData.get("top", Json::nullValue);
+			if (! topJson.isNumeric())
+			{
+				ok = false;
+				return;
+			}
+			top = topJson.asInt();
+
+			Json::Value widthJson = frameData.get("width", Json::nullValue);
+			if (! widthJson.isNumeric())
+			{
+				ok = false;
+				return;
+			}
+			width = widthJson.asInt();
+
+			Json::Value heightJson = frameData.get("height", Json::nullValue);
+			if (! heightJson.isNumeric())
+			{
+				ok = false;
+				return;
+			}
+			height = heightJson.asInt();
+
+			Json::Value paragraphsJson = jsonFrame.get("kinds", Json::nullValue);
+			if (! paragraphsJson.isArray())
+			{
+				ok = false;
+				return;
+			}
+
+			for(int paragraphIdx = 0; paragraphIdx < paragraphsJson.size(); ++paragraphIdx )
+			{
+				AdobeParagraph* paragraph = new AdobeParagraph(paragraphsJson[paragraphIdx], this); //clean up
+				paragraphs.push_back(paragraph);
+			}
+
+		}
+	}
+}
+
+//============================================================================
+AdobeParagraph::AdobeParagraph(Json::Value paragraph, AdobeTextFrame* frame) :
+		parent(frame)
+{
+	ok = true;
+
+	Json::Value xJson = getItemVal(paragraph, "x");
+	Json::Value yJson = getItemVal(paragraph, "y");
+	Json::Value alignJson = getItemVal(paragraph, "align");
+	Json::Value startJson = getItemVal(paragraph, "start");
+	Json::Value endJson = getItemVal(paragraph, "End");
+	if (!(xJson.isNumeric() && yJson.isNumeric() && startJson.isNumeric() && endJson.isNumeric() && alignJson.isString()))
+	{
+		ok = false;
+		return;
+	}
+	x = xJson.asInt();
+	y = yJson.asInt();
+	start = startJson.asInt();
+	end = endJson.asInt();
+	setAlign(alignJson.asString().c_str());
+}
+
+const char* AdobeParagraph::getAlignName()
+{
+	switch(align)
+	{
+	case ALGN_UNKNOWN: return "unknown";
+	case ALGN_CENTER: return "center";
+	case ALGN_LEFT: return "left";
+	case ALGN_RIGHT: return "right";
+	}
+	return "unknown";
+}
+
+void AdobeParagraph::setAlign(const char* alignStr)
+{
+	align = ALGN_UNKNOWN;
+	if (strcasecmp(alignStr, "center") == 0)
+		align = ALGN_CENTER;
+	if (strcasecmp(alignStr, "left") == 0)
+		align = ALGN_LEFT;
+	if (strcasecmp(alignStr, "right") == 0)
+		align = ALGN_RIGHT;
+}
+
+Json::Value AdobeParagraph::getItemVal(Json::Value paragraph, const char* valName)
+{
+	if (paragraph.isMember(valName))
+	{
+		Json::Value result = paragraph.get(valName, Json::Value::null);
+		return result;
+	}
+
+	Json::Value val = paragraph.get("title", Json::Value::null);
+	if (! val.isString())
+		return Json::nullValue;
+
+	Json::Value root;
+	Json::Reader reader;
+	std::string titleVal = val.asString();
+	const bool parsed = reader.parse(titleVal.c_str() , root, false );
+	if (! parsed)
+		return Json::nullValue;
+
+	if (! root.isMember("paragraph"))
+		return Json::nullValue;
+	Json::Value tspanObj = root.get("paragraph", Json::Value::null);
+	if (! tspanObj.isObject())
+		return Json::nullValue;;
+
+	if (tspanObj.isMember(valName))
+	{
+		Json::Value result = tspanObj.get(valName, Json::Value::null);
+		return result;
+	}
+
+	return Json::nullValue;
+}
+
+//============================================================================
+
+AdobeExtraData::AdobeExtraData(const char* fileName)
 {
     //root;   // will contains the root value after parsing.
     Json::Reader reader;
     std::ifstream bookMarksList(fileName, std::ifstream::binary);
+    Json::Value root;
     ok = reader.parse( bookMarksList, root, false );
     if (! ok) return;
 
@@ -28,7 +195,7 @@ BookMarks::BookMarks(const char* fileName)
 
     Json::Value item;
     ok = false;
-    for(int i = 0; i< root.size(); i++)
+    for(int i = 0; i < root.size(); i++)
     {
     	item = root[i];
     	if (! item.isObject()) return;
@@ -43,100 +210,50 @@ BookMarks::BookMarks(const char* fileName)
     }
 
     if (! ok) return;
+
     ok = item.isMember("kinds");
     if (! ok) return;
+    const Json::Value& storyListJson = item.get("kinds", Json::nullValue);
+    ok = storyListJson.isArray();
+    if (! ok) return;
 
-    weBrandBooks = item.get("kinds", "");
-    ok = weBrandBooks.isArray();
+    for(int i = 0; i < storyListJson.size(); ++i)
+    {
+    	if (! storyListJson[i].isMember("kinds"))
+    		 continue;
+    	const Json::Value& frameListJson = storyListJson[i].get("kinds", Json::nullValue);
+    	if (! frameListJson.isArray())
+    	    continue;
+        for(int f = 0; f < frameListJson.size(); ++f)
+        {
+        	if (! frameListJson[f].isMember("kinds")) // no need frames without paragraphs
+        	    continue;
+
+        	AdobeTextFrame* frame = new AdobeTextFrame(frameListJson[f]); //todo: cleanup memory
+        	frames.push_back(frame);
+        }
+    }
 }
 
-Json::Value BookMarks::getItemVal(int i, const char* valName) const
+Geom::Rect AdobeExtraData::getFrameRect(int i, Geom::Rect svgDimension)
 {
-	Json::Value bookMark = weBrandBooks[i];
-	if (bookMark.isMember(valName))
-	{
-		Json::Value result = bookMark.get(valName, Json::Value::null);
-		return result;
-	}
+	AdobeTextFrame* frame = frames[i];
 
-	Json::Value val = bookMark.get("title", Json::Value::null);
-	if (! val.isString())
-		return Json::nullValue;
+	double left = frame->getLeft();
+	double top = frame->getTop();
 
-	Json::Value root;
-	Json::Reader reader;
-	std::string titleVal = val.asString();
-	const bool parsed = reader.parse(titleVal.c_str() , root, false );
-	if (! parsed)
-		return Json::nullValue;
+	const double w = frame->getWidth();
+	const double h = frame->getHeight();
 
-	if (! root.isMember("tspan"))
-		return Json::nullValue;
-	Json::Value tspanObj = root.get("tspan", Json::Value::null);
-	if (! tspanObj.isObject())
-		return Json::nullValue;;
-
-	if (tspanObj.isMember(valName))
-	{
-		Json::Value result = tspanObj.get(valName, Json::Value::null);
-		return result;
-	}
-
-	return Json::nullValue;
+	left += svgDimension.width()/2;
+	top += svgDimension.height()/2;
+	return Geom::Rect(left, top, left + w, top + h);
 }
 
-std::string BookMarks::getItemValStr(int i, const char* valName) const
+void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* builder)
 {
-	Json::Value rawVal = getItemVal(i, valName);
-	if (! rawVal.isString())
-		return nullptr;
-
-	return rawVal.asString();
-}
-
-double BookMarks::getItemValD(int i, const char* valName, double defVal) const
-{
-	Json::Value bookMark = weBrandBooks[i];
-	if (bookMark.isMember(valName))
-	{
-		Json::Value val = bookMark.get(valName, Json::Value::null);
-		if (! val.isNumeric())
-			return defVal;
-		return val.asDouble();
-	}
-
-	Json::Value val = bookMark.get("title", Json::Value::null);
-	if (! val.isString())
-		return defVal;
-
-	Json::Value root;
-	Json::Reader reader;
-	std::string titleVal = val.asString();
-	const bool parsed = reader.parse(titleVal.c_str() , root, false );
-	if (! parsed)
-		return defVal;
-
-	if (! root.isMember("tspan"))
-		return defVal;
-	Json::Value tspanObj = root.get("tspan", Json::Value::null);
-	if (! tspanObj.isObject())
-		return defVal;
-
-	if (tspanObj.isMember(valName))
-	{
-		Json::Value val = tspanObj.get(valName, Json::Value::null);
-		if (! val.isNumeric())
-			return defVal;
-		return val.asDouble();
-	}
-
-	return defVal;
-}
-
-void BookMarks::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* builder)
-{
-	NodeList listOfTSpan;
-	builder->getNodeListByTag("svg:tspan", &listOfTSpan);
+	NodeList listOfText;
+	builder->getNodeListByTag("svg:text", &listOfText);
 
 
 	SPDocument* spDoc = builder->getSpDocument();
@@ -153,50 +270,45 @@ void BookMarks::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* b
 
 	for(int i = 0; i < getCount(); i++)
 	{
-		Json::Value book = getItem(i);
+		Geom::Rect r = getFrameRect(i, dimension) * rootAffine;
 
-		double x = getItemValD(i, "x", -1);
-		double y = getItemValD(i, "y", -1);
-		double left = getItemValD(i, "left", 0);
-		double top = getItemValD(i, "top", 0);
-		double w = getItemValD(i, "width", 0);
-		double h = getItemValD(i, "height", 0);
-
-		left += dimension.width()/2;
-		top += dimension.height()/2;
-		Geom::Rect r1(left, top, left + w, top + h);
-		Geom::Rect r = r1 * rootAffine;
-		Geom::Point linkPoint(x, y);
-		linkPoint = linkPoint * rootAffine;
-
-		double destToPoint = -1;
-		Inkscape::XML::Node* resultNode = nullptr;
-		for(auto tspanNode : listOfTSpan)
+		for(auto textNode : listOfText)
 		{
-			SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
+			SPTSpan* textSpNode = (SPTSpan*)spDoc->getObjectById(textNode->attribute("id"));
 
-			Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
-			Geom::Rect tspanBBox = tspanRect.get();
-			//if (tspanRect.intersects(r))
-			if (r.intersects(tspanBBox))
+			Geom::OptRect textRect = textSpNode->documentGeometricBounds();
+			Geom::Rect textBBox = textRect.get();
+
+			if (r.intersects(textBBox))
 			{
-				double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
-				double yCatet = tspanBBox[Geom::Y][0] - linkPoint.y();
-				double sqrDest = xCatet * xCatet + yCatet * yCatet;
-				if (sqrDest < destToPoint || destToPoint < 0)
-				{
-					destToPoint = sqrDest;
-					resultNode = tspanNode;
-				}
-			}
+				NodeList listOfTSpan;
+				builder->getNodeListByTag("svg:tspan", &listOfTSpan/*, textNode*/);
 
-		}
-		if (resultNode) {
-			std::string alignStr = getItemValStr(i, "align");
-			if (alignStr.compare("center") == 0)
-				resultNode->setAttribute("data-align", "middle");
-			if (alignStr.compare("right") == 0)
-				resultNode->setAttribute("data-align", "right");
+				for(auto paragraf : getParagraphList(i)){
+					double destToPoint = -1;
+					Inkscape::XML::Node* resultNode = nullptr;
+					Geom::Point linkPoint = paragraf->getLinkPoint() * rootAffine;
+					for(auto tspanNode : listOfTSpan)
+					{
+						SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
+
+						Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
+						Geom::Rect tspanBBox = tspanRect.get();
+
+						double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
+						double yCatet = tspanBBox[Geom::Y][0] - linkPoint.y();
+						double sqrDest = xCatet * xCatet + yCatet * yCatet;
+						if (sqrDest < destToPoint || destToPoint < 0)
+						{
+							destToPoint = sqrDest;
+							resultNode = tspanNode;
+						}
+					}
+					if (resultNode)
+						resultNode->setAttribute("data-align", paragraf->getAlignName());
+				}
+				break;
+			}
 		}
 	}
 }

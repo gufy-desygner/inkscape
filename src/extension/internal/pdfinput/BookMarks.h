@@ -12,20 +12,67 @@
 #include "svg-builder.h"
 #include "sp-root.h"
 
-class BookMarks {
+class AdobeParagraph;
+
+class AdobeTextFrame
+{
 public:
-	BookMarks(const char* fileName);
-	int getCount() const { return weBrandBooks.size(); };
-	Json::Value getItem(int i) const { return weBrandBooks[i]; };
-	Json::Value getItemVal(int i, const char* valName) const;
-	std::string getItemValStr(int i, const char* valName) const;
-	double getItemValD(int i, const char* valName, double defVal) const;
+	AdobeTextFrame(Json::Value jsonFrame);
+	int getLeft() const {return left; };
+	int getTop() const {return top; };
+	int getHeight() const {return height; };
+	int getWidth() const {return width; };
+	std::vector<AdobeParagraph*> getParagraphs() const { return paragraphs; };
+private:
+
+	std::vector<AdobeParagraph*> paragraphs;
+
+	int linkX; //position of PDF link
+	int linkY; //position of PDF link
+	int left;
+	int top;
+	int height;
+	int width;
+	bool ok;
+};
+
+class AdobeParagraph
+{
+public:
+	enum {
+		ALGN_UNKNOWN,
+		ALGN_LEFT,
+		ALGN_RIGHT,
+		ALGN_CENTER,
+	};
+	AdobeParagraph(Json::Value paragraf, AdobeTextFrame* frame = nullptr);
+	Geom::Point getLinkPoint() {return Geom::Point(x, y); };
+	const char* getAlignName();
+private:
+	static Json::Value getItemVal(Json::Value paragraph, const char* valName);
+	void setAlign(const char* alignStr);
+
+	int x;
+	int y;
+	int start;
+	int end;
+	uint align;
+
+	AdobeTextFrame* parent;
+	bool ok;
+};
+
+class AdobeExtraData {
+public:
+	AdobeExtraData(const char* fileName);
+	int getCount() const { return frames.size(); };
+	Geom::Rect getFrameRect(int i, Geom::Rect svgDimension);
+	std::vector<AdobeParagraph*> getParagraphList(int frameIdx) {return frames[frameIdx]->getParagraphs() ; };
 	void MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* builder);
 	bool isOk() const { return ok; };
 private:
 	bool ok;
-	Json::Value weBrandBooks;
-	Json::Value root;
+	std::vector<AdobeTextFrame*> frames;
 };
 
 #endif /* SRC_EXTENSION_INTERNAL_PDFINPUT_BOOKMARKS_H_ */

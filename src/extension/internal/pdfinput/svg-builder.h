@@ -108,7 +108,7 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
-    NodeList* getNodeListByTag(const char* tag, NodeList* list);
+    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
     Inkscape::XML::Node* getMainNode();
 
     Inkscape::XML::Node *getPreferences() {
