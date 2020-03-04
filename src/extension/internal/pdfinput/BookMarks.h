@@ -14,6 +14,21 @@
 
 class AdobeParagraph;
 
+struct TextRange
+{
+	int start;
+	int end;
+};
+
+class TSpanSorter
+{
+public:
+	TSpanSorter(const NodeList& tspanList);
+private:
+	const NodeList* mTspanList;
+	std::vector<TextRange> textRanges;
+};
+
 class AdobeTextFrame
 {
 public:

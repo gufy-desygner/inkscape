@@ -197,7 +197,7 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	if (startNode == nullptr)
 		rootNode = getRoot();
 	else
-		rootNode = startNode;
+		rootNode = startNode->firstChild();
 
 	_getNodesByTag(rootNode, tag, list);
 

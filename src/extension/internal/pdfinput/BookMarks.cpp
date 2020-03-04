@@ -15,6 +15,22 @@
 #include "xml/repr.h"
 #include "sp-tspan.h"
 
+TSpanSorter::TSpanSorter(const NodeList& tspanList)
+{
+	mTspanList = &tspanList;
+	int lastPos = 1;
+	for(Inkscape::XML::Node* tspanNode : tspanList)
+	{
+		if (strcmp(tspanNode->name(), "svg:tspan") == 0)
+		{
+			const char* content = tspanNode->firstChild()->content();
+			int start = lastPos;
+			lastPos = start + strlen(content);
+			TextRange range = {start, lastPos};
+			textRanges.push_back(range);
+		}
+	}
+}
 
 AdobeTextFrame::AdobeTextFrame(Json::Value jsonFrame) :
 	top(0),
@@ -139,9 +155,11 @@ void AdobeParagraph::setAlign(const char* alignStr)
 	align = ALGN_UNKNOWN;
 	if (strcasecmp(alignStr, "center") == 0)
 		align = ALGN_CENTER;
-	if (strcasecmp(alignStr, "left") == 0)
+	else if (strcasecmp(alignStr, "left") == 0)
 		align = ALGN_LEFT;
-	if (strcasecmp(alignStr, "right") == 0)
+	else if (strcasecmp(alignStr, "away_binding") == 0)
+			align = ALGN_LEFT;
+	else if (strcasecmp(alignStr, "right") == 0)
 		align = ALGN_RIGHT;
 }
 
@@ -246,15 +264,67 @@ Geom::Rect AdobeExtraData::getFrameRect(int i, Geom::Rect svgDimension)
 	const double h = frame->getHeight();
 
 	left += svgDimension.width()/2;
-	top += svgDimension.height()/2;
-	return Geom::Rect(left, top, left + w, top + h);
+	top = (top * (-1)) + svgDimension.height()/2;
+	return Geom::Rect(left, top - h, left + w, top); // PDF coordinates
+}
+
+/**
+ * @describe how big part of kind rectangle intersected with main rectangle
+ *
+ * @return percent
+ */
+static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
+{
+	if (! main.intersects(kind)) return 0;
+
+	double squareOfKind = abs(kind[Geom::X][0] - kind[Geom::X][1]) * abs(kind[Geom::Y][0] - kind[Geom::Y][1]);
+
+	double x0 = (kind[Geom::X][0] < main[Geom::X][0]) ? main[Geom::X][0] : kind[Geom::X][0];
+	double x1 = (kind[Geom::X][1] > main[Geom::X][1]) ? main[Geom::X][1] : kind[Geom::X][1];
+
+	double y0 = (kind[Geom::Y][0] < main[Geom::Y][0]) ? main[Geom::Y][0] : kind[Geom::Y][0];
+	double y1 = (kind[Geom::Y][1] > main[Geom::Y][1]) ? main[Geom::Y][1] : kind[Geom::Y][1];
+
+	double squareOfintersects = abs(x1 - x0) * abs(y1 - y0);
+
+	return (squareOfintersects/squareOfKind) * 100;
+}
+
+static NodeList getTspanListBySquare(Inkscape::Extension::Internal::SvgBuilder* builder, const Geom::Rect& main)
+{
+	NodeList listOfText;
+	NodeList listOfTSpan;
+	builder->getNodeListByTag("svg:text", &listOfText);
+
+	SPDocument* spDoc = builder->getSpDocument();
+	SPRoot* spRoot = spDoc->getRoot();
+	te_update_layout_now_recursive(spRoot);
+
+	Inkscape::XML::Node* mainGroup = builder->getMainNode();
+	const char* mainGId = mainGroup->attribute("id");
+	SPItem* groupSpMain = (SPItem*)spDoc->getObjectById(mainGId);
+	Geom::Affine rootAffine = groupSpMain->transform;
+
+	// I adobe's frame should be separated by frame as min,
+	// so we will check intersect frame with text nodes
+	for(auto textNode : listOfText)
+	{
+		SPTSpan* textSpNode = (SPTSpan*)spDoc->getObjectById(textNode->attribute("id"));
+
+		Geom::OptRect textRect = textSpNode->documentGeometricBounds();
+		Geom::Rect textBBox = textRect.get() * rootAffine.inverse(); //revert to pdf system
+		if (rectIntersect(main, textBBox) > 70)
+		{
+			builder->getNodeListByTag("svg:tspan", &listOfTSpan, textNode);
+		}
+	}
+	return listOfTSpan;
 }
 
 void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuilder* builder)
 {
 	NodeList listOfText;
 	builder->getNodeListByTag("svg:text", &listOfText);
-
 
 	SPDocument* spDoc = builder->getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
@@ -268,46 +338,54 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 	Geom::Affine revertTransform = rootAffine.inverse();
 	dimension = dimension * revertTransform;
 
-	for(int i = 0; i < getCount(); i++)
+	for(int i = 0; i < getCount(); i++) // loop through all inDesigne's text frames
 	{
-		Geom::Rect r = getFrameRect(i, dimension) * rootAffine;
+		//rootAffine.
+		Geom::Rect frameRect = getFrameRect(i, dimension);
 
-		for(auto textNode : listOfText)
-		{
-			SPTSpan* textSpNode = (SPTSpan*)spDoc->getObjectById(textNode->attribute("id"));
+		NodeList listOfTSpan;
+		listOfTSpan = getTspanListBySquare(builder, frameRect);
 
-			Geom::OptRect textRect = textSpNode->documentGeometricBounds();
-			Geom::Rect textBBox = textRect.get();
+		TSpanSorter tspanSorter(listOfTSpan);
 
-			if (r.intersects(textBBox))
+		//NodeList listOfKeyNode; //node where start paragraph
+
+		std::vector<AdobeParagraph*> paragrafs = getParagraphList(i);
+		std::vector<int> tspanToParagraphMap;
+		for(auto paragraf : paragrafs){
+			double destToPoint = -1;
+			Inkscape::XML::Node* resultNode = nullptr;
+			Geom::Point linkPoint = paragraf->getLinkPoint() * rootAffine;
+			int resultIdx;
+			for(int tspanIdx = 0; tspanIdx < listOfTSpan.size(); ++tspanIdx)
 			{
-				NodeList listOfTSpan;
-				builder->getNodeListByTag("svg:tspan", &listOfTSpan/*, textNode*/);
+				auto tspanNode = listOfTSpan[tspanIdx];
+				SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
 
-				for(auto paragraf : getParagraphList(i)){
-					double destToPoint = -1;
-					Inkscape::XML::Node* resultNode = nullptr;
-					Geom::Point linkPoint = paragraf->getLinkPoint() * rootAffine;
-					for(auto tspanNode : listOfTSpan)
-					{
-						SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
+				Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
+				Geom::Rect tspanBBox = tspanRect.get();
 
-						Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
-						Geom::Rect tspanBBox = tspanRect.get();
-
-						double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
-						double yCatet = tspanBBox[Geom::Y][0] - linkPoint.y();
-						double sqrDest = xCatet * xCatet + yCatet * yCatet;
-						if (sqrDest < destToPoint || destToPoint < 0)
-						{
-							destToPoint = sqrDest;
-							resultNode = tspanNode;
-						}
-					}
-					if (resultNode)
-						resultNode->setAttribute("data-align", paragraf->getAlignName());
+				double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
+				double yCatet = tspanBBox[Geom::Y][0] - linkPoint.y();
+				double sqrDest = xCatet * xCatet + yCatet * yCatet;
+				if (sqrDest < destToPoint || destToPoint < 0)
+				{
+					destToPoint = sqrDest;
+					resultNode = tspanNode;
+					resultIdx = tspanIdx;
 				}
-				break;
+			}
+			tspanToParagraphMap.push_back(resultIdx);
+		}
+		tspanToParagraphMap.push_back(-1);
+
+		for(int paragraphIdx = 0; paragraphIdx < paragrafs.size(); ++paragraphIdx)
+		{
+			for(int tspanIdx = tspanToParagraphMap[paragraphIdx];
+					tspanIdx != tspanToParagraphMap[paragraphIdx + 1] && tspanIdx < listOfTSpan.size();
+					++tspanIdx)
+			{
+				listOfTSpan[tspanIdx]->setAttribute("data-align", paragrafs[paragraphIdx]->getAlignName());
 			}
 		}
 	}
