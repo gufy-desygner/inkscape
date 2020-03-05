@@ -418,12 +418,13 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 					++tspanIdx)
 			{
 				SPItem* textNode = (SPItem*)spDoc->getObjectById(listOfTSpan[tspanIdx]->parent()->attribute("id"));
-				Geom::Affine textAffine = textNode->transform;
+				Geom::Affine textAffine = textNode->transform; // todo: need coolect all affines to root
 				listOfTSpan[tspanIdx]->setAttribute("data-align", paragrafs[paragraphIdx]->getAlignName());
 				listOfTSpan[tspanIdx]->setAttribute("text-anchor", paragrafs[paragraphIdx]->getAnchoreName());
 				const Geom::Rect frameRectPrepared = frameRect * textAffine.inverse();
 				int x = paragrafs[paragraphIdx]->calcXByAnchore(frameRectPrepared);
 				listOfTSpan[tspanIdx]->setAttribute("x", std::to_string(x).c_str());
+				listOfTSpan[tspanIdx]->setAttribute("data-x", std::to_string(x).c_str());
 			}
 		}
 	}
