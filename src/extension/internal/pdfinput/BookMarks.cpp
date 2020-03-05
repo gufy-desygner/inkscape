@@ -150,6 +150,29 @@ const char* AdobeParagraph::getAlignName()
 	return "unknown";
 }
 
+const char* AdobeParagraph::getAnchoreName()
+{
+	switch(align)
+	{
+	case ALGN_UNKNOWN: return "unknown";
+	case ALGN_CENTER: return "middle";
+	case ALGN_LEFT: return "start";
+	case ALGN_RIGHT: return "end";
+	}
+	return "unknown";
+}
+
+int AdobeParagraph::calcXByAnchore(const Geom::Rect& frameRect)
+{
+	switch(align)
+	{
+	case ALGN_CENTER: return abs(frameRect[Geom::X][1]-frameRect[Geom::X][0])/2;
+	case ALGN_LEFT: return frameRect[Geom::X][0];
+	case ALGN_RIGHT: return frameRect[Geom::X][1];
+	}
+	return 0;
+}
+
 void AdobeParagraph::setAlign(const char* alignStr)
 {
 	align = ALGN_UNKNOWN;
@@ -340,7 +363,6 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 
 	for(int i = 0; i < getCount(); i++) // loop through all inDesigne's text frames
 	{
-		//rootAffine.
 		Geom::Rect frameRect = getFrameRect(i, dimension);
 
 		NodeList listOfTSpan;
@@ -348,26 +370,25 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 
 		TSpanSorter tspanSorter(listOfTSpan);
 
-		//NodeList listOfKeyNode; //node where start paragraph
-
 		std::vector<AdobeParagraph*> paragrafs = getParagraphList(i);
 		std::vector<int> tspanToParagraphMap;
 		for(auto paragraf : paragrafs){
 			double destToPoint = -1;
 			Inkscape::XML::Node* resultNode = nullptr;
-			Geom::Point linkPoint = paragraf->getLinkPoint() * rootAffine;
-			int resultIdx;
+			Geom::Point linkPoint = paragraf->getLinkPoint();
+			int resultIdx = -1;
 			for(int tspanIdx = 0; tspanIdx < listOfTSpan.size(); ++tspanIdx)
 			{
 				auto tspanNode = listOfTSpan[tspanIdx];
 				SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
 
 				Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
-				Geom::Rect tspanBBox = tspanRect.get();
+				Geom::Rect tspanBBox = tspanRect.get() * rootAffine.inverse();
 
 				double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
-				double yCatet = tspanBBox[Geom::Y][0] - linkPoint.y();
+				double yCatet = tspanBBox[Geom::Y][1] - linkPoint.y();
 				double sqrDest = xCatet * xCatet + yCatet * yCatet;
+				if (sqrDest > 50) continue; // if tspan so far - possible it was empty paragraph
 				if (sqrDest < destToPoint || destToPoint < 0)
 				{
 					destToPoint = sqrDest;
@@ -381,11 +402,28 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 
 		for(int paragraphIdx = 0; paragraphIdx < paragrafs.size(); ++paragraphIdx)
 		{
-			for(int tspanIdx = tspanToParagraphMap[paragraphIdx];
-					tspanIdx != tspanToParagraphMap[paragraphIdx + 1] && tspanIdx < listOfTSpan.size();
+			int startIdx = tspanToParagraphMap[paragraphIdx];
+			if ( startIdx < 0 ) continue;
+			int endIdx = -1;
+			for(int tspanIdx = startIdx + 1; tspanIdx < listOfTSpan.size() ;++tspanIdx)
+			{
+				if (tspanToParagraphMap[tspanIdx] >= 0 )
+				{
+					endIdx = tspanToParagraphMap[tspanIdx];
+					break;
+				}
+			}
+			for(int tspanIdx = startIdx;
+					tspanIdx != endIdx && tspanIdx < listOfTSpan.size();
 					++tspanIdx)
 			{
+				SPItem* textNode = (SPItem*)spDoc->getObjectById(listOfTSpan[tspanIdx]->parent()->attribute("id"));
+				Geom::Affine textAffine = textNode->transform;
 				listOfTSpan[tspanIdx]->setAttribute("data-align", paragrafs[paragraphIdx]->getAlignName());
+				listOfTSpan[tspanIdx]->setAttribute("text-anchor", paragrafs[paragraphIdx]->getAnchoreName());
+				const Geom::Rect frameRectPrepared = frameRect * textAffine.inverse();
+				int x = paragrafs[paragraphIdx]->calcXByAnchore(frameRectPrepared);
+				listOfTSpan[tspanIdx]->setAttribute("x", std::to_string(x).c_str());
 			}
 		}
 	}

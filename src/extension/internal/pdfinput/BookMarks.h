@@ -63,6 +63,8 @@ public:
 	AdobeParagraph(Json::Value paragraf, AdobeTextFrame* frame = nullptr);
 	Geom::Point getLinkPoint() {return Geom::Point(x, y); };
 	const char* getAlignName();
+	const char* getAnchoreName();
+	int calcXByAnchore(const Geom::Rect& frameRect);
 private:
 	static Json::Value getItemVal(Json::Value paragraph, const char* valName);
 	void setAlign(const char* alignStr);
