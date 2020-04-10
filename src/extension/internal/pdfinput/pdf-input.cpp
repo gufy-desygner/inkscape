@@ -68,6 +68,7 @@
 #include "xml/composite-node-observer.h"
 #include "BookMarks.h"
 #include "shared_opt.h"
+#include "svg/svg.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -942,6 +943,25 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					remNodes.clear();
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
+					NodeList listOfTSpan;
+
+
+					builder->getNodeListByTag("svg:tspan", &listOfTSpan);
+					for(auto& tspan : listOfTSpan)
+					{
+						Geom::Affine textAffine;
+						Geom::Affine newTextAffine;
+						auto textNode = tspan->parent();
+						auto newParent = textNode->parent();
+						sp_svg_transform_read(textNode->attribute("transform"), &textAffine);
+						char* tmpChar;
+						float tspanX = std::strtof(tspan->attribute("x"), &tmpChar);
+						float tspanY = std::strtof(tspan->attribute("y"), &tmpChar);
+						Geom::Point tspanTranslate(tspanX,  tspanY);
+						tspanTranslate = tspanTranslate * textAffine.inverse();
+						newTextAffine = textAffine;
+						newTextAffine.setTranslation(tspanTranslate);
+					}
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
 					logTime("Start merge mask");

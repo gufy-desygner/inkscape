@@ -286,8 +286,8 @@ Geom::Rect AdobeExtraData::getFrameRect(int i, Geom::Rect svgDimension)
 	const double w = frame->getWidth();
 	const double h = frame->getHeight();
 
-	left += svgDimension.width()/2;
-	top = (top * (-1)) + svgDimension.height()/2;
+	left += svgDimension.width();
+	top = svgDimension.height()/2 - top;
 	return Geom::Rect(left, top - h, left + w, top); // PDF coordinates
 }
 
@@ -388,7 +388,11 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 				double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
 				double yCatet = tspanBBox[Geom::Y][1] - linkPoint.y();
 				double sqrDest = xCatet * xCatet + yCatet * yCatet;
-				if (sqrDest > 50) continue; // if tspan so far - possible it was empty paragraph
+
+				// max error - half of higth
+				double maxError = (tspanBBox[Geom::Y][0] - tspanBBox[Geom::Y][1])/2;
+				maxError = maxError * maxError;
+				if (sqrDest > maxError) continue; // if tspan so far - possible it was empty paragraph
 				if (sqrDest < destToPoint || destToPoint < 0)
 				{
 					destToPoint = sqrDest;

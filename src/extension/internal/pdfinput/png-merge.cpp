@@ -358,7 +358,7 @@ Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
 	// build chain of parent nodes
 	while(tmpNode != _mainSubVisual) {
 		//listNodes.push_back(tmpNode);
-		SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
+		//SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
 		Geom::Affine aff;
 		if (sp_svg_transform_read(tmpNode->attribute("transform"), &aff)) {
 			rezult *= aff;

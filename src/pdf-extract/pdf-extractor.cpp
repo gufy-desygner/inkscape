@@ -59,6 +59,18 @@ void parseCLIoptions(int argc, const char **argv, poptOption *optionsTable)
 }
 void inspectPDFTree(Object* rootObj, const int intend = 0);
 
+std::wstring charToWString(const char* str)
+{
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	return converter.from_bytes(str);
+}
+
+std::string wstrintToUtf8(const wchar_t* wstr)
+{
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	return converter.to_bytes(wstr);
+}
+
 void printPdfArray(Array* arr, const int intend = 0)
 {
 	std::string level;
@@ -169,7 +181,18 @@ std::vector<DestParams*> parseDestNamesArray(Array* destNamesArray)
 
 		destNamesArray->get(i, &nameObj);
 		if(nameObj.isString())
-			destName = nameObj.getString()->getCString();
+		{
+			char* tmpName = nameObj.getString()->getCString();
+			GooString* gooDestName = nameObj.getString();
+			if (gooDestName->hasUnicodeMarker())
+			{
+				std::string utf8DestName = std::wstring_convert<
+				        std::codecvt_utf8_utf16<char16_t>, char16_t>{}.to_bytes((char16_t*)(gooDestName->getCString() + 3));
+				destName = (char*)malloc(utf8DestName.size() + 1);
+				memcpy(destName, utf8DestName.c_str(), utf8DestName.size() + 1);
+			} else
+				destName = nameObj.getString()->getCString();
+		}
 
 		destNamesArray->get(i + 1, &destObj);
 		if(destObj.isArray())
@@ -245,18 +268,6 @@ void printAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests,  std::string
 	}
 }
 
-std::wstring charToWString(const char* str)
-{
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-	return converter.from_bytes(str);
-}
-
-std::string wstrintToUtf8(const wchar_t* wstr)
-{
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-	return converter.to_bytes(wstr);
-}
-
 void outAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests, FILE* outFile, int page)
 {
 	PdfAnchor* tmpItem = aTree;
@@ -266,7 +277,14 @@ void outAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests, FILE* outFile,
 	while(tmpItem != nullptr)
 	{
 		fwrite("{", 1, 1, outFile);
-		char *destName = tmpItem->getDestName();
+		const char *destName = tmpItem->getDestName();
+		std::string utf8DestName;
+		if (destName[0] == '\xfe' && destName[1] == '\xff')
+		{
+			utf8DestName = std::wstring_convert<
+			        std::codecvt_utf8_utf16<char16_t>, char16_t>{}.to_bytes((char16_t*)(destName + 3));
+			destName = utf8DestName.c_str();
+		}
 		DestParams* dest = nullptr;
 		if (destName != nullptr)
 		{
@@ -290,7 +308,7 @@ void outAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests, FILE* outFile,
 
 				std::string utf8Title =wstrintToUtf8(title);
 				std::string buf("\"title\" :\"" + utf8Title +
-						"\", \"dest_name\" : \"" + tmpItem->getDestName() +
+						"\", \"dest_name\" : \"" + destName /*tmpItem->getDestName()*/ +
 						"\", \"x\" : " + std::to_string(dest->getLeft()) +
 						", \"y\" : " + std::to_string(dest->getTop()));
 				free(title);
