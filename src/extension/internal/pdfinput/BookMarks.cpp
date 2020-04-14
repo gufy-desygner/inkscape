@@ -409,16 +409,15 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 			int startIdx = tspanToParagraphMap[paragraphIdx];
 			if ( startIdx < 0 ) continue;
 			int endIdx = -1;
-			for(int tspanIdx = paragraphIdx + 1; tspanIdx < listOfTSpan.size() ;++tspanIdx)
+			if (tspanToParagraphMap[paragraphIdx+1] >= 0 )
+				endIdx = tspanToParagraphMap[paragraphIdx];
+			else
 			{
-				if (tspanToParagraphMap[tspanIdx] >= 0 )
-				{
-					endIdx = tspanToParagraphMap[tspanIdx];
-					break;
-				}
+				endIdx = listOfTSpan.size();
 			}
+			if (endIdx == startIdx) endIdx++;
 			for(int tspanIdx = startIdx;
-					tspanIdx != endIdx && tspanIdx < listOfTSpan.size();
+					tspanIdx < endIdx && tspanIdx < listOfTSpan.size();
 					++tspanIdx)
 			{
 				SPItem* textNode = (SPItem*)spDoc->getObjectById(listOfTSpan[tspanIdx]->parent()->attribute("id"));
