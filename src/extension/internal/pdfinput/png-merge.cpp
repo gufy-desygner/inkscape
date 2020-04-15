@@ -1159,6 +1159,8 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
+		const char* align1 = tspan1->attribute("data-align");
+		const char* align2 = tspan2->attribute("data-align");
 		if ( spaceSize <= 0 ) {
 			spaceSize = textSize / 3;
 		}
@@ -1169,7 +1171,9 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < spaceSize * 6)/* &&
+				(secondX - firstEndX < spaceSize * 6) &&
+				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
+				/* &&
 				spaceSize > 0*/) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);

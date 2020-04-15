@@ -14,6 +14,8 @@
 #include "text-editing.h"
 #include "xml/repr.h"
 #include "sp-tspan.h"
+#include "svg/svg.h"
+#include "svg/css-ostringstream.h"
 
 TSpanSorter::TSpanSorter(const NodeList& tspanList)
 {
@@ -426,6 +428,7 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 					tspanIdx < endIdx && tspanIdx < listOfTSpan.size();
 					++tspanIdx)
 			{
+				Inkscape::XML::Node *currentTspan = listOfTSpan[tspanIdx];
 				SPItem* textNode = (SPItem*)spDoc->getObjectById(listOfTSpan[tspanIdx]->parent()->attribute("id"));
 				Geom::Affine textAffine = textNode->transform;// * rootAffine.inverse(); // todo: need coolect all affines to root
 				listOfTSpan[tspanIdx]->setAttribute("data-align", paragrafs[paragraphIdx]->getAlignName());
@@ -433,7 +436,21 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 				const Geom::Rect frameRectPrepared = frameRect * textAffine.inverse();
 				int x = paragrafs[paragraphIdx]->calcXByAnchore(frameRectPrepared);
 				listOfTSpan[tspanIdx]->setAttribute("x", std::to_string(x).c_str());
-				//listOfTSpan[tspanIdx]->setAttribute("data-x", std::to_string(x).c_str());
+
+
+				Glib::ustring strDataX;
+
+				std::vector<SVGLength> data_x = sp_svg_length_list_read(currentTspan->attribute("data-x"));
+				strDataX.clear();
+				for(int i = 0; i < data_x.size(); i++) {
+					if (data_x[i]._set) {
+						Inkscape::CSSOStringStream os_x;
+						os_x << (data_x[i].value - x);
+						strDataX.append(os_x.str());
+						strDataX.append(" ");
+					}
+				}
+				currentTspan->setAttribute("data-x", strDataX.c_str());
 			}
 		}
 	}
