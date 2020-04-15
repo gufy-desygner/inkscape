@@ -146,6 +146,7 @@ const char* AdobeParagraph::getAlignName()
 	case ALGN_CENTER: return "center";
 	case ALGN_LEFT: return "left";
 	case ALGN_RIGHT: return "right";
+	case ALGN_JUSTIFY: return "justify";
 	}
 	return "unknown";
 }
@@ -158,6 +159,7 @@ const char* AdobeParagraph::getAnchoreName()
 	case ALGN_CENTER: return "middle";
 	case ALGN_LEFT: return "start";
 	case ALGN_RIGHT: return "end";
+	case ALGN_JUSTIFY: return "start";
 	}
 	return "unknown";
 }
@@ -167,8 +169,10 @@ int AdobeParagraph::calcXByAnchore(const Geom::Rect& frameRect)
 	switch(align)
 	{
 	case ALGN_CENTER: return abs(frameRect[Geom::X][1]-frameRect[Geom::X][0])/2;
+	case ALGN_JUSTIFY:
 	case ALGN_LEFT: return frameRect[Geom::X][0];
 	case ALGN_RIGHT: return frameRect[Geom::X][1];
+	default: return frameRect[Geom::X][0];
 	}
 	return 0;
 }
@@ -184,6 +188,8 @@ void AdobeParagraph::setAlign(const char* alignStr)
 			align = ALGN_LEFT;
 	else if (strcasecmp(alignStr, "right") == 0)
 		align = ALGN_RIGHT;
+	else if (strcasecmp(alignStr, "justify_full") == 0)
+		align = ALGN_JUSTIFY;
 }
 
 Json::Value AdobeParagraph::getItemVal(Json::Value paragraph, const char* valName)
@@ -421,13 +427,13 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 					++tspanIdx)
 			{
 				SPItem* textNode = (SPItem*)spDoc->getObjectById(listOfTSpan[tspanIdx]->parent()->attribute("id"));
-				Geom::Affine textAffine = textNode->transform; // todo: need coolect all affines to root
+				Geom::Affine textAffine = textNode->transform;// * rootAffine.inverse(); // todo: need coolect all affines to root
 				listOfTSpan[tspanIdx]->setAttribute("data-align", paragrafs[paragraphIdx]->getAlignName());
 				listOfTSpan[tspanIdx]->setAttribute("text-anchor", paragrafs[paragraphIdx]->getAnchoreName());
 				const Geom::Rect frameRectPrepared = frameRect * textAffine.inverse();
 				int x = paragrafs[paragraphIdx]->calcXByAnchore(frameRectPrepared);
 				listOfTSpan[tspanIdx]->setAttribute("x", std::to_string(x).c_str());
-				listOfTSpan[tspanIdx]->setAttribute("data-x", std::to_string(x).c_str());
+				//listOfTSpan[tspanIdx]->setAttribute("data-x", std::to_string(x).c_str());
 			}
 		}
 	}

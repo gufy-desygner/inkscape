@@ -59,6 +59,7 @@ public:
 		ALGN_LEFT,
 		ALGN_RIGHT,
 		ALGN_CENTER,
+		ALGN_JUSTIFY,
 	};
 	AdobeParagraph(Json::Value paragraf, AdobeTextFrame* frame = nullptr);
 	Geom::Point getLinkPoint() {return Geom::Point(x, y); };
