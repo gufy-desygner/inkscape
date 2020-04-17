@@ -94,6 +94,8 @@ struct SvgGlyph {
     double wordSpace;
 };
 
+void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second);
+void mergeTspanList(NodeList &tspanArray);
 /**
  * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
@@ -102,6 +104,8 @@ public:
     SvgBuilder(SPDocument *document, gchar *docname, XRef *xref);
     SvgBuilder(SvgBuilder *parent, Inkscape::XML::Node *root);
     virtual ~SvgBuilder();
+    // tools
+    void mergeTextNodesToFirst(NodeList &listNodes);
 
     // Property setting
     void setDocumentSize(double width, double height);  // Document size in px

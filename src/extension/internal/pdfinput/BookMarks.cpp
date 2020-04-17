@@ -16,6 +16,9 @@
 #include "sp-tspan.h"
 #include "svg/svg.h"
 #include "svg/css-ostringstream.h"
+#include <cmath>
+
+using Inkscape::Extension::Internal::mergeTspanList;
 
 TSpanSorter::TSpanSorter(const NodeList& tspanList)
 {
@@ -308,7 +311,8 @@ static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 {
 	if (! main.intersects(kind)) return 0;
 
-	double squareOfKind = abs(kind[Geom::X][0] - kind[Geom::X][1]) * abs(kind[Geom::Y][0] - kind[Geom::Y][1]);
+	double squareOfKind = std::fabs(kind[Geom::X][0] - kind[Geom::X][1]) * std::fabs(kind[Geom::Y][0] - kind[Geom::Y][1]);
+	if (squareOfKind == 0) return 0;
 
 	double x0 = (kind[Geom::X][0] < main[Geom::X][0]) ? main[Geom::X][0] : kind[Geom::X][0];
 	double x1 = (kind[Geom::X][1] > main[Geom::X][1]) ? main[Geom::X][1] : kind[Geom::X][1];
@@ -316,17 +320,14 @@ static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 	double y0 = (kind[Geom::Y][0] < main[Geom::Y][0]) ? main[Geom::Y][0] : kind[Geom::Y][0];
 	double y1 = (kind[Geom::Y][1] > main[Geom::Y][1]) ? main[Geom::Y][1] : kind[Geom::Y][1];
 
-	double squareOfintersects = abs(x1 - x0) * abs(y1 - y0);
+	double squareOfintersects = std::fabs(x1 - x0) * std::fabs(y1 - y0);
 
 	return (squareOfintersects/squareOfKind) * 100;
 }
 
-static NodeList getTspanListBySquare(Inkscape::Extension::Internal::SvgBuilder* builder, const Geom::Rect& main)
+static void filterTextNodeByRect(Inkscape::Extension::Internal::SvgBuilder* builder, const Geom::Rect& main,
+		NodeList &listOfText, NodeList &filteredList)
 {
-	NodeList listOfText;
-	NodeList listOfTSpan;
-	builder->getNodeListByTag("svg:text", &listOfText);
-
 	SPDocument* spDoc = builder->getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
 	te_update_layout_now_recursive(spRoot);
@@ -346,7 +347,43 @@ static NodeList getTspanListBySquare(Inkscape::Extension::Internal::SvgBuilder* 
 		Geom::Rect textBBox = textRect.get() * rootAffine.inverse(); //revert to pdf system
 		if (rectIntersect(main, textBBox) > 70)
 		{
-			builder->getNodeListByTag("svg:tspan", &listOfTSpan, textNode);
+			filteredList.push_back(textNode);
+		}
+	}
+}
+
+static NodeList getTspanListBySquare(Inkscape::Extension::Internal::SvgBuilder* builder, const Geom::Rect& main)
+{
+	NodeList listOfText;
+	NodeList filteredList;
+	NodeList listOfTSpan;
+	builder->getNodeListByTag("svg:text", &listOfText);
+
+	SPDocument* spDoc = builder->getSpDocument();
+	SPRoot* spRoot = spDoc->getRoot();
+	te_update_layout_now_recursive(spRoot);
+
+	Inkscape::XML::Node* mainGroup = builder->getMainNode();
+	const char* mainGId = mainGroup->attribute("id");
+	SPItem* groupSpMain = (SPItem*)spDoc->getObjectById(mainGId);
+	Geom::Affine rootAffine = groupSpMain->transform;
+
+	filterTextNodeByRect(builder, main, listOfText, filteredList);
+	builder->mergeTextNodesToFirst(filteredList);
+	// I adobe's frame should be separated by frame as min,
+	// so we will check intersect frame with text nodes
+	for(auto textNode : filteredList)
+	{
+		SPTSpan* textSpNode = (SPTSpan*)spDoc->getObjectById(textNode->attribute("id"));
+
+		Geom::OptRect textRect = textSpNode->documentGeometricBounds();
+		Geom::Rect textBBox = textRect.get() * rootAffine.inverse(); //revert to pdf system
+		if (rectIntersect(main, textBBox) > 70)
+		{
+			NodeList tmpListOfText;
+			builder->getNodeListByTag("svg:tspan", &tmpListOfText, textNode);
+			mergeTspanList(tmpListOfText);
+			listOfTSpan.insert(listOfTSpan.end(), tmpListOfText.begin(), tmpListOfText.end());
 		}
 	}
 	return listOfTSpan;
@@ -389,6 +426,7 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 			{
 				auto tspanNode = listOfTSpan[tspanIdx];
 				SPTSpan* tspanSpNode = (SPTSpan*)spDoc->getObjectById(tspanNode->attribute("id"));
+				te_update_layout_now_recursive(spRoot);
 
 				Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
 				Geom::Rect tspanBBox = tspanRect.get() * rootAffine.inverse();
