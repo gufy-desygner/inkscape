@@ -431,6 +431,21 @@ void AdobeExtraData::MergeWithSvgBuilder(Inkscape::Extension::Internal::SvgBuild
 				Geom::OptRect tspanRect = tspanSpNode->documentGeometricBounds();
 				Geom::Rect tspanBBox = tspanRect.get() * rootAffine.inverse();
 
+				//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				// tspanSpNode->documentGeometricBounds(); generate have big comulative error
+				// so we must calculate value of error and shift rect of tspanBBox
+				Geom::Affine tspanComulativeTransform = tspanSpNode->getRelativeTransform(groupSpMain);
+				double adjX;
+				if (! sp_repr_get_double(tspanNode, "x", &adjX)) adjX = 0;
+				double adjY;
+				if (! sp_repr_get_double(tspanNode, "y", &adjY)) adjY = 0;
+				Geom::Point adjPoint = Geom::Point(adjX, adjY) * tspanComulativeTransform;
+				Geom::Point comualtiveError(adjPoint[Geom::X] - tspanBBox[Geom::X][0], adjPoint[Geom::Y] - tspanBBox[Geom::Y][0] );
+				Geom::Affine shiftAffine;
+				shiftAffine.setTranslation(comualtiveError);
+				tspanBBox *= shiftAffine;
+				//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 				double xCatet = tspanBBox[Geom::X][0] - linkPoint.x();
 				double yCatet = tspanBBox[Geom::Y][1] - linkPoint.y();
 				double sqrDest = xCatet * xCatet + yCatet * yCatet;
