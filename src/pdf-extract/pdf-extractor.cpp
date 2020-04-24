@@ -376,6 +376,9 @@ int main(int argc, const char** argv)
 	// get hierarchy of bookmarks
 	Object rootAnchor;
 	getObjectByPath("Outlines/First", &rootObj, &rootAnchor);
+	if (! rootAnchor.isDict())
+		return 0;
+
 	PdfAnchor aTree(rootAnchor);
 
 	// Spool JSON with matched destination and bookmarks
