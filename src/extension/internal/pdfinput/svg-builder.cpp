@@ -1787,7 +1787,7 @@ void SvgBuilder::_flushText() {
                 tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
-                tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
+                tspan_node->setAttribute("data-endX", os_endX.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();

@@ -998,6 +998,8 @@ static int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::No
 }
 
 static void mergeTspanList(GPtrArray *tspanArray) {
+	if (! sp_repr_get_double(first, "data-endX", &firstEndX)) firstEndX = 0;
+	first->setAttribute("data-endX", second->attribute("data-endX"));
 	// sort form left to right, from top to bottom
 	g_ptr_array_sort(tspanArray, (GCompareFunc)tspan_compare_position);
 	double textSize;
@@ -1020,7 +1022,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
 
-		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
+		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
 		const char* align1 = tspan1->attribute("data-align");
@@ -1141,7 +1143,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 					double adjY;
 					if (! sp_repr_get_double(currentTspan, "y", &adjY)) adjY = 0;
 					double adjEndX;
-					if (! sp_repr_get_double(currentTspan, "sodipodi:end_x", &adjEndX)) adjEndX = 0;
+					if (! sp_repr_get_double(currentTspan, "data-endX", &adjEndX)) adjEndX = 0;
 					Geom::Point adjPoint = Geom::Point(adjX, adjY);
 					Geom::Point endPoint = Geom::Point(adjEndX, adjY);
 					adjPoint *= currentAffine;
@@ -1165,7 +1167,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 					currentTspan->setAttribute("data-x", strDataX.c_str());
 
 					// save adjasted data
-					sp_repr_set_svg_double(currentTspan, "sodipodi:end_x", endPoint.x());
+					sp_repr_set_svg_double(currentTspan, "data-endX", endPoint.x());
 					sp_repr_set_svg_double(currentTspan, "x", adjPoint.x());
 					sp_repr_set_svg_double(currentTspan, "y", adjPoint.y());
 
