@@ -998,6 +998,8 @@ static int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::No
 }
 
 static void mergeTspanList(GPtrArray *tspanArray) {
+	if (! sp_repr_get_double(first, "data-endX", &firstEndX)) firstEndX = 0;
+	first->setAttribute("data-endX", second->attribute("data-endX"));
 	// sort form left to right, from top to bottom
 	g_ptr_array_sort(tspanArray, (GCompareFunc)tspan_compare_position);
 	double textSize;
