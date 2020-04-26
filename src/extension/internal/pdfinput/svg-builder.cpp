@@ -195,7 +195,7 @@ void SvgBuilder::mergeTextNodesToFirst(NodeList &listNodes)
 					double adjY;
 					if (! sp_repr_get_double(currentTspan, "y", &adjY)) adjY = 0;
 					double adjEndX;
-					if (! sp_repr_get_double(currentTspan, "sodipodi:end_x", &adjEndX)) adjEndX = 0;
+					if (! sp_repr_get_double(currentTspan, "data-endX", &adjEndX)) adjEndX = 0;
 					Geom::Point adjPoint = Geom::Point(adjX, adjY);
 					Geom::Point endPoint = Geom::Point(adjEndX, adjY);
 					adjPoint *= currentAffine;
@@ -219,7 +219,7 @@ void SvgBuilder::mergeTextNodesToFirst(NodeList &listNodes)
 					currentTspan->setAttribute("data-x", strDataX.c_str());
 
 					// save adjasted data
-					sp_repr_set_svg_double(currentTspan, "sodipodi:end_x", endPoint.x());
+					sp_repr_set_svg_double(currentTspan, "data-endX", endPoint.x());
 					sp_repr_set_svg_double(currentTspan, "x", adjPoint.x());
 					sp_repr_set_svg_double(currentTspan, "y", adjPoint.y());
 
@@ -332,7 +332,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
 	}
 
 	//if (! sp_repr_get_double(first, "sodipodi:space_size", &spaceSize)) spaceSize = 0;
-	if (! sp_repr_get_double(first, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
+	if (! sp_repr_get_double(first, "data-endX", &firstEndX)) firstEndX = 0;
 	if (! sp_repr_get_double(second, "x", &secondX)) secondX = 0;
 
 	gchar *firstDx = g_strdup(first->attribute("dx"));
@@ -416,7 +416,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
 				addSpace,
 				second->firstChild()->content());
 	first->firstChild()->setContent(mergedContent);
-	first->setAttribute("sodipodi:end_x", second->attribute("sodipodi:end_x"));
+	first->setAttribute("data-endX", second->attribute("data-endX"));
 	free(mergedContent);
 	free(firstDx);
 	free(secondDx);
@@ -446,7 +446,7 @@ void mergeTspanList(NodeList &tspanArray)
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
 
-		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
+		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
 		const char* align1 = tspan1->attribute("data-align");
@@ -1787,7 +1787,7 @@ void SvgBuilder::_flushText() {
                 tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
-                tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
+                tspan_node->setAttribute("data-endX", os_endX.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();
