@@ -227,6 +227,8 @@ Inkscape::XML::Node *MergeBuilder::generateNode(char* imgPath, SvgBuilder *build
 	tmpNode->setAttribute("width", "1");
 	tmpNode->setAttribute("height", "1");
 	tmpNode->setAttribute("preserveAspectRatio", "none");
+	//tmpNode->setAttribute("sodipodi:img_width", "10");
+	//tmpNode->setAttribute("sodipodi:img_height", "10");
 
 	sumNode->appendChild(tmpNode);
 
@@ -727,7 +729,7 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, dou
 	double aproxW = (x2-x1);
 	double aproxH = (y2-y1);
 
-	if ( aproxW < 2048 && aproxH < 2048 ) {
+	if ( aproxW < 2048 && aproxH < 2048 && maxDpi > 0) {
 		if (sp_preserve_dpi_sp) {
 			if (minDpi >= 310) {
 				resultDpi = 310;
