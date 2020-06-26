@@ -51,6 +51,8 @@ class SPCSSAttr;
 #include <vector>
 #include <glib.h>
 
+typedef std::vector<Inkscape::XML::Node*> NodeList;
+
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
@@ -92,6 +94,8 @@ struct SvgGlyph {
     double wordSpace;
 };
 
+void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second);
+void mergeTspanList(NodeList &tspanArray);
 /**
  * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
@@ -100,12 +104,17 @@ public:
     SvgBuilder(SPDocument *document, gchar *docname, XRef *xref);
     SvgBuilder(SvgBuilder *parent, Inkscape::XML::Node *root);
     virtual ~SvgBuilder();
+    // tools
+    void mergeTextNodesToFirst(NodeList &listNodes);
 
     // Property setting
     void setDocumentSize(double width, double height);  // Document size in px
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
+    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
+    Inkscape::XML::Node* getMainNode();
+
     Inkscape::XML::Node *getPreferences() {
         return _preferences;
     }

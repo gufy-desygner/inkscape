@@ -13,12 +13,13 @@
 #include "util/list.h"
 #include "svg-builder.h"
 #include "sp-item.h"
+#include "Object.h"
 
 #define PROFILER_ENABLE 0
 
 void print_node(Inkscape::XML::Node *node, uint level);
 
-
+bool objStreamToFile(Object* obj, const char* fileName);
 void print_node_attribs(Inkscape::XML::Node *node, uint level);
 
 bool isImage_node(Inkscape::XML::Node *node);

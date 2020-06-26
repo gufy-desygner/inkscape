@@ -53,6 +53,7 @@
 #include "png-merge.h"
 #include "xml/sp-css-attr.h"
 
+
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
@@ -152,6 +153,327 @@ void SvgBuilder::_init() {
     _ttm_is_set = false;
 }
 
+// compare all component except "translate"
+static bool isCompatibleAffine(Geom::Affine firstAffine, Geom::Affine secondAffine) {
+	for(int i = 0; i < 4; i++) {
+		if (firstAffine[i] != secondAffine[i])
+			return false;
+	}
+	return true;
+}
+
+// SVG:TEXT merger
+// Merge text node and change TSPAN x,y
+void SvgBuilder::mergeTextNodesToFirst(NodeList &listNodes)
+{
+	if (listNodes.size() == 0) return;
+	// load first text node
+	Inkscape::XML::Node *mainTextNode = listNodes[0];
+	SPItem *mainSpText = (SPItem*)this->getSpDocument()->getObjectByRepr(mainTextNode);
+	Geom::Affine mainAffine = mainSpText->transform;
+
+	// process for each text node
+	for(int i = 1; i < listNodes.size(); i++) {
+		// load current text node
+		Inkscape::XML::Node *currentTextNode = listNodes[i];
+		SPItem *currentSpText = (SPItem*)this->getSpDocument()->getObjectByRepr(currentTextNode);
+		Geom::Affine currentAffine = currentSpText->transform;
+
+		bool styleIsEqualent = (0 == strcmp(mainTextNode->attribute("style"),
+				currentTextNode->attribute("style")));
+		if (isCompatibleAffine(mainAffine, currentAffine) && styleIsEqualent) {
+			Inkscape::XML::Node *currentTspan = currentTextNode->firstChild();
+
+			// scan TSPAN nodes
+			while(currentTspan) {
+				// if it no TSPAN = something is wrong - go to next text node
+                // need check style too
+				if (strcmp(currentTspan->name(), "svg:tspan") == 0) {
+					// we must adjust position data of tspan for new text transform
+					double adjX;
+					if (! sp_repr_get_double(currentTspan, "x", &adjX)) adjX = 0;
+					double adjY;
+					if (! sp_repr_get_double(currentTspan, "y", &adjY)) adjY = 0;
+					double adjEndX;
+					if (! sp_repr_get_double(currentTspan, "data-endX", &adjEndX)) adjEndX = 0;
+					Geom::Point adjPoint = Geom::Point(adjX, adjY);
+					Geom::Point endPoint = Geom::Point(adjEndX, adjY);
+					adjPoint *= currentAffine;
+					adjPoint *= mainAffine.inverse();
+					endPoint = (endPoint * currentAffine) * mainAffine.inverse();
+
+					// adjast data-x attribute
+					Glib::ustring strDataX;
+					std::vector<SVGLength> data_x = sp_svg_length_list_read(currentTspan->attribute("data-x"));
+					strDataX.clear();
+					for(int i = 0; i < data_x.size(); i++) {
+						if (data_x[i]._set) {
+							Geom::Point adjDataX = Geom::Point(data_x[i].value, adjY);
+							adjDataX = (adjDataX * currentAffine) * mainAffine.inverse();
+							Inkscape::CSSOStringStream os_x;
+							os_x << adjDataX.x();
+							strDataX.append(os_x.str());
+							strDataX.append(" ");
+						}
+					}
+					currentTspan->setAttribute("data-x", strDataX.c_str());
+
+					// save adjasted data
+					sp_repr_set_svg_double(currentTspan, "data-endX", endPoint.x());
+					sp_repr_set_svg_double(currentTspan, "x", adjPoint.x());
+					sp_repr_set_svg_double(currentTspan, "y", adjPoint.y());
+
+					// move it to the main text node
+					mainTextNode->addChild(currentTspan->duplicate(currentTspan->document()), mainTextNode->lastChild());
+					Inkscape::XML::Node *remNode = currentTspan;
+					currentTspan = currentTspan->next();
+					currentTextNode->removeChild(remNode);
+				} else {
+					break;
+				}
+			}
+
+			// if was merged all TSPAN nodes
+			if (! currentTspan) {
+				currentTextNode->parent()->removeChild(currentTextNode);
+				listNodes.erase(listNodes.begin() + i);
+				i--;
+			}
+		} else {
+			// if affine is not compatible we must start from other "main text node" (current node)
+			// so start new merge transaction
+			mainTextNode = currentTextNode;
+			mainSpText = (SPItem*)this->getSpDocument()->getObjectByRepr(mainTextNode);
+			mainAffine = mainSpText->transform;
+		}
+	}
+}
+
+static bool tspan_compare_position(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
+{
+	double firstX;
+	double firstY;
+    double secondX;
+	double secondY;
+	static double textSize = 1;
+	static Inkscape::XML::Node *parentNode = 0;
+	if (first->parent() != parentNode) {
+		parentNode = first->parent();
+		SPCSSAttr *style = sp_repr_css_attr(parentNode, "style");
+		gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "1");
+		textSize = g_ascii_strtod(fntStrSize, NULL);
+		delete style;
+	}
+
+	if (! sp_repr_get_double(first,  "x", &firstX) ) firstX  = 0;
+	if (! sp_repr_get_double(second, "x", &secondX)) secondX = 0;
+	if (! sp_repr_get_double(first,  "y", &firstY) ) firstY  = 0;
+	if (! sp_repr_get_double(second, "y", &secondY)) secondY = 0;
+
+	//compare
+	// round Y to 20% of font size and compare
+	if (textSize == 0) textSize = 0.00001;
+	if (fabs(firstY - secondY)/textSize < 0.2) {
+		if (firstX == secondX) return false;
+		else
+			if (firstX < secondX) return true;
+			else return false;
+	} else {
+		if (firstY < secondY) return true;
+		else return false;
+	}
+}
+
+int utf8_strlen(const char *str)
+{
+    int c,i,ix,q;
+    for (q=0, i=0, ix=strlen(str); i < ix; i++, q++)
+    {
+        c = (unsigned char) str[i];
+        if      (c>=0   && c<=127) i+=0;
+        else if ((c & 0xE0) == 0xC0) i+=1;
+        else if ((c & 0xF0) == 0xE0) i+=2;
+        else if ((c & 0xF8) == 0xF0) i+=3;
+        //else if (($c & 0xFC) == 0xF8) i+=4; // 111110bb //byte 5, unnecessary in 4 byte UTF-8
+        //else if (($c & 0xFE) == 0xFC) i+=5; // 1111110b //byte 6, unnecessary in 4 byte UTF-8
+        else return 0;//invalid utf8
+    }
+    return q;
+}
+
+void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
+{
+	static Inkscape::XML::Node *lastPassedFirstTspan = 0;
+	// todo: calculate averidge parmetrs DX and if current more -> this is space char.
+	static int firstTspanCharMerged = 0;
+	static double avrDxMerged = 0;
+
+	double firstEndX;
+	double secondX;
+	double spaceSize; // posible variant -read it from font
+	double wordSpace; // additional distantion betweene words
+	static gdouble fntSize;
+
+	gchar const *firstContent = first->firstChild()->content();
+	gchar const *secondContent = second->firstChild()->content();
+
+	if (lastPassedFirstTspan != first) {
+		// calculate space size
+		SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
+		gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
+		fntSize = g_ascii_strtod(fntStrSize, NULL);
+		sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize);
+		if ( spaceSize <= 0 ) {
+			spaceSize = fntSize / 3;
+		}
+
+		if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
+		delete style;
+	}
+
+	//if (! sp_repr_get_double(first, "sodipodi:space_size", &spaceSize)) spaceSize = 0;
+	if (! sp_repr_get_double(first, "data-endX", &firstEndX)) firstEndX = 0;
+	if (! sp_repr_get_double(second, "x", &secondX)) secondX = 0;
+
+	gchar *firstDx = g_strdup(first->attribute("dx"));
+	gchar *secondDx = g_strdup(second->attribute("dx"));
+	double different = secondX - firstEndX; // gap for second content
+
+	// if we have some space between space - we can put space to it
+	if (different < spaceSize) {
+		if ((spaceSize - different)/spaceSize < 0.75) {
+			spaceSize = different;
+		}
+	}
+	// Will put space between tspan
+	gchar addSpace[2] = {0, 0};
+	if ((different >= spaceSize) || (different > fntSize/4)) {
+		different = different - spaceSize;
+		addSpace[0] = ' ';
+	}
+
+	// check: need dx attribute or it is empty
+	if (fabs(different) > 0 || (secondDx && strlen(secondDx) > 0) || (firstDx && strlen(firstDx) > 0)) {
+		// represent different to string
+		Inkscape::CSSOStringStream os_diff;
+		os_diff << different;
+		//fill dx if empty
+		if ((! firstDx) || strlen(firstDx) == 0) {
+			if (firstDx) free(firstDx);
+			firstDx = (gchar*)malloc(strlen(firstContent) * 2 + 2);
+			firstDx[0] = 0;
+			for(int i = 0; i < (utf8_strlen(firstContent) * 2); i = i + 2) {
+				firstDx[i] = '0';
+				firstDx[i+1] = ' ';
+				firstDx[i+2] = 0;
+			}
+		}
+		if ((! secondDx) || strlen(secondDx) == 0) {
+			if (secondDx) free(secondDx);
+			secondDx = (gchar*)malloc(strlen(secondContent) * 2 + 2);
+			secondDx[0] = 0;
+			for(int i = 0; i < (utf8_strlen(secondContent) * 2); i = i + 2) {
+				secondDx[i] = '0';
+				secondDx[i+1] = ' ';
+				secondDx[i+2] = 0;
+			}
+		}
+
+		gchar *mergedDx;
+		// We put additional space between tspan
+		if (addSpace[0]) {
+			mergedDx = g_strdup_printf("%s %s %s ", firstDx, os_diff.str().c_str(), secondDx);
+		} else {
+			mergedDx = g_strdup_printf("%s %s%s", firstDx, os_diff.str().c_str(), (secondDx + 1));
+		}
+		first->setAttribute("dx", mergedDx);
+		free(mergedDx);
+	}
+
+	gchar const *firstDataX = first->attribute("data-x");
+	if (! firstDataX || strlen(firstDataX) == 0) {
+		firstDataX = first->attribute("x");
+	}
+	gchar const *secondDataX = second->attribute("data-x");
+	if (! secondDataX || strlen(secondDataX) == 0) {
+		secondDataX = second->attribute("x");
+	}
+	gchar *mergeDataX;
+	if (addSpace[0]) {
+		Inkscape::CSSOStringStream os;
+		os << firstEndX;
+		mergeDataX = g_strdup_printf("%s  %s %s", firstDataX, os.str().c_str(), secondDataX);
+	} else {
+		mergeDataX = g_strdup_printf("%s  %s", firstDataX, secondDataX);
+	}
+	first->setAttribute("data-x", mergeDataX);
+	free(mergeDataX);
+
+
+	gchar *mergedContent =
+			g_strdup_printf("%s%s%s",
+				first->firstChild()->content(),
+				addSpace,
+				second->firstChild()->content());
+	first->firstChild()->setContent(mergedContent);
+	first->setAttribute("data-endX", second->attribute("data-endX"));
+	free(mergedContent);
+	free(firstDx);
+	free(secondDx);
+}
+
+void mergeTspanList(NodeList &tspanArray)
+{
+	// sort form left to right, from top to bottom
+	std::sort(tspanArray.begin(), tspanArray.end(), tspan_compare_position);
+	double textSize;
+	if (tspanArray.size() > 0) {
+	    Inkscape::XML::Node *textNode = tspanArray[0]->parent();
+		SPCSSAttr *style = sp_repr_css_attr(textNode, "style");
+		gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
+		textSize = g_ascii_strtod(fntStrSize, NULL);
+		delete style;
+	}
+
+	for(int i = 0; i < tspanArray.size() - 1; i++) {
+	    double firstY;
+	    double secondY;
+	    double firstEndX;
+	    double secondX;
+	    double spaceSize;
+		Inkscape::XML::Node *tspan1 = tspanArray[i];
+		Inkscape::XML::Node *tspan2 = tspanArray[i + 1];
+		sp_repr_get_double(tspan1, "y", &firstY);
+		sp_repr_get_double(tspan2, "y", &secondY);
+
+		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
+		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
+		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
+		const char* align1 = tspan1->attribute("data-align");
+		const char* align2 = tspan2->attribute("data-align");
+		if ( spaceSize <= 0 ) {
+			spaceSize = textSize / 3;
+		}
+
+		if (textSize == 0) textSize = 0.00001;
+		// round Y to 20% of font size and compare
+		// if gap more then 3.5 of text size - mind other column
+		if (fabs(firstY - secondY)/textSize < 0.2 &&
+			// litle negative gap
+				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
+				(secondX - firstEndX < spaceSize * 6) &&
+				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
+				/* &&
+				spaceSize > 0*/) {
+			mergeTwoTspan(tspan1, tspan2);
+			tspan2->parent()->removeChild(tspan2);
+			//tspanArray.erase(tspanArray.begin() + i+1);
+			tspanArray.erase(std::remove(tspanArray.begin() + i + 1, tspanArray.begin() + i + 1, nullptr));
+			i--;
+		}
+	}
+}
+
 void SvgBuilder::setDocumentSize(double width, double height) {
     sp_repr_set_svg_double(_root, "width", width);
     sp_repr_set_svg_double(_root, "height", height);
@@ -174,6 +496,67 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 		_container->setAttribute("data-layoutname", layout_name);
 	}
 }
+
+static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList* list)
+{
+	Inkscape::XML::Node* cursorNode = node;
+	while(cursorNode)
+	{
+		const char* nodeName = cursorNode->name();
+		if (strcasecmp(nodeName, tag) == 0)
+			list->push_back(cursorNode);
+		if (cursorNode->childCount() > 0)
+			_getNodesByTag(cursorNode->firstChild(), tag, list);
+		cursorNode = cursorNode->next();
+	}
+}
+
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+{
+
+
+	Inkscape::XML::Node* rootNode;
+	if (startNode == nullptr)
+		rootNode = getRoot();
+	else
+		rootNode = startNode->firstChild();
+
+	_getNodesByTag(rootNode, tag, list);
+
+	return list;
+}
+
+static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
+{
+	Inkscape::XML::Node* tmpNode = rootNode->firstChild();
+	Inkscape::XML::Node* mainNode = nullptr;
+	while(tmpNode)
+	{
+		if ( strcmp(tmpNode->name(),"svg:defs") == 0 )
+		{
+			mainNode = tmpNode->next();
+			while(mainNode)
+			{
+				if (strcmp(mainNode->name(), "svg:g") == 0)
+					break;
+				mainNode = mainNode->next();
+			}
+			break;
+		}
+		if (tmpNode->childCount() > 0 && (maxDeep > 1 || maxDeep == 0))
+			_getMainNode(tmpNode, (maxDeep == 0 ? maxDeep : maxDeep - 1));
+
+		tmpNode = tmpNode->next();
+	}
+	return mainNode;
+}
+
+Inkscape::XML::Node* SvgBuilder::getMainNode()
+{
+	Inkscape::XML::Node* rootNode = getRoot();
+	return _getMainNode(rootNode, 2);
+}
+
 
 /**
  * \brief Sets the current container's opacity
@@ -1404,7 +1787,7 @@ void SvgBuilder::_flushText() {
                 tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
                 Inkscape::CSSOStringStream os_endX;
                 os_endX << tspanEndXPos;
-                tspan_node->setAttribute("sodipodi:end_x", os_endX.str().c_str());
+                tspan_node->setAttribute("data-endX", os_endX.str().c_str());
 
                 // Clear temporary buffers
                 x_coords.clear();

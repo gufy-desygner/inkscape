@@ -30,8 +30,7 @@
 #include "sp-image.h"
 #include "path-chemistry.h"
 #include "xml/text-node.h"
-//#include <extension/system.h>
-//#include <extension/db.h>
+
 
 namespace Inkscape {
 namespace Extension {
@@ -359,7 +358,7 @@ Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
 	// build chain of parent nodes
 	while(tmpNode != _mainSubVisual) {
 		//listNodes.push_back(tmpNode);
-		SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
+		//SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
 		Geom::Affine aff;
 		if (sp_svg_transform_read(tmpNode->attribute("transform"), &aff)) {
 			rezult *= aff;
@@ -963,7 +962,8 @@ void MergeBuilder::removeGFromNode(Inkscape::XML::Node *node){
 	}
 }
 
-int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **second) {
+static int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **second)
+{
 	double firstX;
 	double firstY;
     double secondX;
@@ -997,144 +997,7 @@ int tspan_compare_position(Inkscape::XML::Node **first, Inkscape::XML::Node **se
 	}
 }
 
-int utf8_strlen(const char *str)
-{
-    int c,i,ix,q;
-    for (q=0, i=0, ix=strlen(str); i < ix; i++, q++)
-    {
-        c = (unsigned char) str[i];
-        if      (c>=0   && c<=127) i+=0;
-        else if ((c & 0xE0) == 0xC0) i+=1;
-        else if ((c & 0xF0) == 0xE0) i+=2;
-        else if ((c & 0xF8) == 0xF0) i+=3;
-        //else if (($c & 0xFC) == 0xF8) i+=4; // 111110bb //byte 5, unnecessary in 4 byte UTF-8
-        //else if (($c & 0xFE) == 0xFC) i+=5; // 1111110b //byte 6, unnecessary in 4 byte UTF-8
-        else return 0;//invalid utf8
-    }
-    return q;
-}
-
-void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second) {
-	static Inkscape::XML::Node *lastPassedFirstTspan = 0;
-	// todo: calculate averidge parmetrs DX and if current more -> this is space char.
-	static int firstTspanCharMerged = 0;
-	static double avrDxMerged = 0;
-
-	double firstEndX;
-	double secondX;
-	double spaceSize; // posible variant -read it from font
-	double wordSpace; // additional distantion betweene words
-	static gdouble fntSize;
-
-	gchar const *firstContent = first->firstChild()->content();
-	gchar const *secondContent = second->firstChild()->content();
-
-	if (lastPassedFirstTspan != first) {
-		// calculate space size
-		SPCSSAttr *style = sp_repr_css_attr(first->parent(), "style");
-		gchar const *fntStrSize = sp_repr_css_property(style, "font-size", "0.0001");
-		fntSize = g_ascii_strtod(fntStrSize, NULL);
-		sp_repr_get_double(first, "sodipodi:spaceWidth", &spaceSize);
-		if ( spaceSize <= 0 ) {
-			spaceSize = fntSize / 3;
-		}
-
-		if (! sp_repr_get_double(first, "sodipodi:wordSpace", &wordSpace)) wordSpace = 0;
-		delete style;
-	}
-
-	//if (! sp_repr_get_double(first, "sodipodi:space_size", &spaceSize)) spaceSize = 0;
-	if (! sp_repr_get_double(first, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
-	if (! sp_repr_get_double(second, "x", &secondX)) secondX = 0;
-
-	gchar *firstDx = g_strdup(first->attribute("dx"));
-	gchar *secondDx = g_strdup(second->attribute("dx"));
-	double different = secondX - firstEndX; // gap for second content
-
-	// if we have some space between space - we can put space to it
-	if (different < spaceSize) {
-		if ((spaceSize - different)/spaceSize < 0.75) {
-			spaceSize = different;
-		}
-	}
-	// Will put space between tspan
-	gchar addSpace[2] = {0, 0};
-	if ((different >= spaceSize) || (different > fntSize/4)) {
-		different = different - spaceSize;
-		addSpace[0] = ' ';
-	}
-
-	// check: need dx attribute or it is empty
-	if (fabs(different) > 0 || (secondDx && strlen(secondDx) > 0) || (firstDx && strlen(firstDx) > 0)) {
-		// represent different to string
-		Inkscape::CSSOStringStream os_diff;
-		os_diff << different;
-		//fill dx if empty
-		if ((! firstDx) || strlen(firstDx) == 0) {
-			if (firstDx) free(firstDx);
-			firstDx = (gchar*)malloc(strlen(firstContent) * 2 + 2);
-			firstDx[0] = 0;
-			for(int i = 0; i < (utf8_strlen(firstContent) * 2); i = i + 2) {
-				firstDx[i] = '0';
-				firstDx[i+1] = ' ';
-				firstDx[i+2] = 0;
-			}
-		}
-		if ((! secondDx) || strlen(secondDx) == 0) {
-			if (secondDx) free(secondDx);
-			secondDx = (gchar*)malloc(strlen(secondContent) * 2 + 2);
-			secondDx[0] = 0;
-			for(int i = 0; i < (utf8_strlen(secondContent) * 2); i = i + 2) {
-				secondDx[i] = '0';
-				secondDx[i+1] = ' ';
-				secondDx[i+2] = 0;
-			}
-		}
-
-		gchar *mergedDx;
-		// We put additional space between tspan
-		if (addSpace[0]) {
-			mergedDx = g_strdup_printf("%s %s %s ", firstDx, os_diff.str().c_str(), secondDx);
-		} else {
-			mergedDx = g_strdup_printf("%s %s%s", firstDx, os_diff.str().c_str(), (secondDx + 1));
-		}
-		first->setAttribute("dx", mergedDx);
-		free(mergedDx);
-	}
-
-	gchar const *firstDataX = first->attribute("data-x");
-	if (! firstDataX || strlen(firstDataX) == 0) {
-		firstDataX = first->attribute("x");
-	}
-	gchar const *secondDataX = second->attribute("data-x");
-	if (! secondDataX || strlen(secondDataX) == 0) {
-		secondDataX = second->attribute("x");
-	}
-	gchar *mergeDataX;
-	if (addSpace[0]) {
-		Inkscape::CSSOStringStream os;
-		os << firstEndX;
-		mergeDataX = g_strdup_printf("%s  %s %s", firstDataX, os.str().c_str(), secondDataX);
-	} else {
-		mergeDataX = g_strdup_printf("%s  %s", firstDataX, secondDataX);
-	}
-	first->setAttribute("data-x", mergeDataX);
-	free(mergeDataX);
-
-
-	gchar *mergedContent =
-			g_strdup_printf("%s%s%s",
-				first->firstChild()->content(),
-				addSpace,
-				second->firstChild()->content());
-	first->firstChild()->setContent(mergedContent);
-	first->setAttribute("sodipodi:end_x", second->attribute("sodipodi:end_x"));
-	free(mergedContent);
-	free(firstDx);
-	free(secondDx);
-}
-
-void mergeTspanList(GPtrArray *tspanArray) {
+static void mergeTspanList(GPtrArray *tspanArray) {
 	// sort form left to right, from top to bottom
 	g_ptr_array_sort(tspanArray, (GCompareFunc)tspan_compare_position);
 	double textSize;
@@ -1157,9 +1020,11 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
 
-		if (! sp_repr_get_double(tspan1, "sodipodi:end_x", &firstEndX)) firstEndX = 0;
+		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
+		const char* align1 = tspan1->attribute("data-align");
+		const char* align2 = tspan2->attribute("data-align");
 		if ( spaceSize <= 0 ) {
 			spaceSize = textSize / 3;
 		}
@@ -1170,7 +1035,9 @@ void mergeTspanList(GPtrArray *tspanArray) {
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < spaceSize * 6)/* &&
+				(secondX - firstEndX < spaceSize * 6) &&
+				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
+				/* &&
 				spaceSize > 0*/) {
 			mergeTwoTspan(tspan1, tspan2);
 			tspan2->parent()->removeChild(tspan2);
@@ -1274,7 +1141,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 					double adjY;
 					if (! sp_repr_get_double(currentTspan, "y", &adjY)) adjY = 0;
 					double adjEndX;
-					if (! sp_repr_get_double(currentTspan, "sodipodi:end_x", &adjEndX)) adjEndX = 0;
+					if (! sp_repr_get_double(currentTspan, "data-endX", &adjEndX)) adjEndX = 0;
 					Geom::Point adjPoint = Geom::Point(adjX, adjY);
 					Geom::Point endPoint = Geom::Point(adjEndX, adjY);
 					adjPoint *= currentAffine;
@@ -1298,7 +1165,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 					currentTspan->setAttribute("data-x", strDataX.c_str());
 
 					// save adjasted data
-					sp_repr_set_svg_double(currentTspan, "sodipodi:end_x", endPoint.x());
+					sp_repr_set_svg_double(currentTspan, "data-endX", endPoint.x());
 					sp_repr_set_svg_double(currentTspan, "x", adjPoint.x());
 					sp_repr_set_svg_double(currentTspan, "y", adjPoint.y());
 
@@ -1976,5 +1843,22 @@ char *readLineFromFile(FILE *fl) {
 	char *res = strdup(buff);
 	return res;
 }
+
+bool objStreamToFile(Object* obj, const char* fileName)
+{
+	  if (obj->isStream())
+	  {
+		  Stream* str = obj->getStream();
+		  GooString gooStr;
+		  str->fillGooString(&gooStr);
+		  int length = gooStr.getLength();
+		  FILE* strFile = fopen(fileName, "w");
+		  fwrite(gooStr.getCString(), length, 1, strFile);
+		  fclose(strFile);
+		  return true;
+	  }
+	  return false;
+}
+
 
 
