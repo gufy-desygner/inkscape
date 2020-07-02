@@ -1381,7 +1381,7 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 				Geom::Affine aff2;
 				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
 				// move children to 'pos'
-				moveTextNode(builder, pos, chNode, aff*aff2);
+				moveTextNode(builder, pos, chNode, aff2 * aff );
 			}
 		}
 		chNode = nextNode;
