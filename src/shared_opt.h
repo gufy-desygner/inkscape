@@ -34,6 +34,7 @@ extern gboolean sp_try_origin_jpeg_sp;
 extern gboolean sp_preserve_dpi_sp;
 extern gboolean sp_merge_jpeg_sp;
 extern gboolean sp_merge_mask_clean_sp;
+extern gint sp_max_difficult_sp;
 extern gboolean sp_mapping_off_sh;
 extern gboolean sp_merge_mask_sh;
 extern char *sp_font_postfix_sh;

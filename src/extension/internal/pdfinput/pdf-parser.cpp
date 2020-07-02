@@ -333,7 +333,8 @@ PdfParser::PdfParser(XRef *xrefA,
     operatorHistory(NULL),
     backgroundCandidat(NULL),
 	layoutIsNew(false),
-	layoutProperties(NULL)
+	layoutProperties(NULL),
+	simulate(false)
 {
   setDefaultApproximationPrecision();
   builder->setDocumentSize(Inkscape::Util::Quantity::convert(state->getPageWidth(), "pt", "px"),
@@ -397,7 +398,8 @@ PdfParser::PdfParser(XRef *xrefA,
     clipHistory(new ClipHistoryEntry()),
     operatorHistory(NULL),
 	backgroundCandidat(NULL),
-	layoutProperties(NULL)
+	layoutProperties(NULL),
+	simulate(false)
 {
   setDefaultApproximationPrecision();
   
@@ -442,8 +444,16 @@ PdfParser::~PdfParser() {
   g_ptr_array_free(savedFontsList, false);
 }
 
+void PdfParser::simulateParse(Object *obj, GBool topLevel) {
+	simulate = true;
+	parse(obj, topLevel);
+	simulate = false;
+}
+
 void PdfParser::parse(Object *obj, GBool topLevel) {
   Object obj2;
+  if (topLevel)
+	  cmdCounter = 0;
 
   if (obj->isArray()) {
     for (int i = 0; i < obj->arrayGetLength(); ++i) {
@@ -492,7 +502,9 @@ void PdfParser::go(GBool /*topLevel*/)
 	fflush(stdout);
       }
       // Run the operation
-      execOp(&obj, args, numArgs);
+      cmdCounter++;
+      if (! simulate)
+    	  execOp(&obj, args, numArgs);
 
       obj.free();
       for (int i = 0; i < numArgs; ++i)

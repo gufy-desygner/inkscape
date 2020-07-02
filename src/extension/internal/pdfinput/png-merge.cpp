@@ -209,7 +209,7 @@ Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 	return resNode;
 }
 
-Inkscape::XML::Node *MergeBuilder::generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt) {
+Inkscape::XML::Node *MergeBuilder::generateNode(const char* imgPath, SvgBuilder *builder, Geom::Rect *rt, Geom::Affine affine) {
 	// Insert node with merged image
 	Geom::Affine aff;
 
@@ -646,7 +646,7 @@ Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, b
 		fName = g_strdup_printf("%s.png", name);
 	}
 	free(mergedImagePath);
-	Inkscape::XML::Node *node = generateNode(fName, builder, &rct);
+	Inkscape::XML::Node *node = generateNode(fName, builder, &rct, affine);
 	g_free(fName);
 	return node;
 }

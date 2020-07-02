@@ -31,6 +31,7 @@ gboolean sp_try_origin_jpeg_sp = FALSE;
 gboolean sp_preserve_dpi_sp = FALSE;
 gboolean sp_merge_jpeg_sp = FALSE;
 gboolean sp_merge_mask_clean_sp = FALSE;
+gint sp_max_difficult_sp=0;
 gboolean sp_mapping_off_sh = FALSE;
 gboolean sp_merge_mask_sh = FALSE;
 char *sp_font_postfix_sh = 0;

@@ -150,6 +150,10 @@ public:
 
   virtual ~PdfParser();
 
+  bool simulate;
+  int cmdCounter;
+
+  void simulateParse(Object *obj, GBool topLevel = gTrue);
   // Interpret a stream or array of streams.
   void parse(Object *obj, GBool topLevel = gTrue);
 

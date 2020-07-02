@@ -879,8 +879,31 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         		}
         	}
 
+        	pdf_parser->simulateParse(&obj);
+        	if ((sp_max_difficult_sp == 0) || (pdf_parser->cmdCounter < sp_max_difficult_sp))
+        	{
         	//pdf_parser->setBookMarks(bookMarks);
-            pdf_parser->parse(&obj);
+        		pdf_parser->parse(&obj);
+        	}
+        	else
+        	{
+        		std::string imgFileName(builder->getDocName());
+        		std::string convertedImagePath(sp_export_svg_path_sh + imgFileName);
+        		std::string cmd("pdftocairo -singlefile -png " + std::string(uri) + " " + convertedImagePath);
+        		system(cmd.c_str());
+        		imgFileName.append(".png");
+        		Inkscape::XML::Node *rootNode = builder->getRoot();
+        		float width, height;
+        		sp_svg_number_read_f(rootNode->attribute("width"), &width);
+        		sp_svg_number_read_f(rootNode->attribute("height"), &height);
+        		Geom::Rect rt( 0, 0, width, height );
+        		Geom::Affine affine;
+        		Inkscape::XML::Node *mainNode = builder->getMainNode();
+        		sp_svg_transform_read(mainNode->attribute("transform"), &affine);
+        		Inkscape::XML::Node *node = MergeBuilder::generateNode(imgFileName.c_str(), builder, &rt, affine.inverse());
+        		mainNode->appendChild(node);
+        		rootNode->setAttribute("data-cmdcnt", std::to_string(pdf_parser->cmdCounter).c_str());
+        	}
             //pdf_parser->setBookMarks(nullptr);
             //delete(bookMarks); !!!!!!!!!!!!!!!!!!
 

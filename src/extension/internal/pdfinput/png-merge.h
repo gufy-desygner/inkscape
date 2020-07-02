@@ -117,7 +117,7 @@ public:
 	Geom::Affine getAffine(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
-	Inkscape::XML::Node *generateNode(char* imgPath, SvgBuilder *builder, Geom::Rect *rt);
+	static Inkscape::XML::Node *generateNode(const char* imgPath, SvgBuilder *builder, Geom::Rect *rt, Geom::Affine affine);
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *getDefNodeById(char *nodeId, Inkscape::XML::Node *mydef = 0);
