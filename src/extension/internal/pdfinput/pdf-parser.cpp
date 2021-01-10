@@ -2274,6 +2274,15 @@ bool checkExcludeListChars(char c) {
 	return false;
 }
 
+bool checkExcludeListCharsStatic(char c, const char* charList = ",") {
+	Inkscape::Preferences *prefs = Inkscape::Preferences::get();
+
+	for(int i = 0; i < strlen(charList); i++) {
+		if (charList[i] == c) return true;
+	}
+	return false;
+}
+
 char* prepareFamilyName(char *fontName, bool encode) {
 	  if (fontName) {
 		CURL *curl = curl_easy_init();
@@ -2313,8 +2322,24 @@ char* prepareFileFontName(char *fontName, bool isCIDFont) {
 		  fontExt = g_strdup_printf("%s", "ttf");
 	  }
 	  if (fontName) {
-		char *fname = prepareFamilyName(fontName);
+		GooString *gooFileName= new GooString(fontName);
+
+		for(int strPos = 0; strPos < gooFileName->getLength(); strPos++) {
+			while(checkExcludeListCharsStatic(gooFileName->getChar(strPos), " ")){
+				gooFileName->del(strPos, 1);
+			}
+		}
+
+		char *preparedFontName = g_strdup(gooFileName->getCString());
+
+		delete(gooFileName);
+
+		char *fname = prepareFamilyName(preparedFontName);
 	    char *fnameEx = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, fname, fontExt);
+
+
+
+	    free(preparedFontName);
 	    free(fontExt);
 	    free(fname);
 	    return fnameEx;
