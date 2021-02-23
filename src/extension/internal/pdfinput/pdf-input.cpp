@@ -992,14 +992,16 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					logTime("Start merge gradients");
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
+					uint nodeMergeCount = 0, regionMergeCount = 0;
+					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
-						mergeImagePathToLayerSave(builder, true) > 15) {
+						nodeMergeCount > 15) {
 
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
-						mergeImagePathToLayerSave(builder);
+						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
 					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);

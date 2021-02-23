@@ -52,6 +52,11 @@
 #include "GlobalParams.h"
 #include "png-merge.h"
 #include "xml/sp-css-attr.h"
+#include "sp-path.h"
+#include "display/curve.h"
+#include "2geom/path.h"
+#include "2geom/path-intersection.h"
+#include "text-editing.h"
 
 
 namespace Inkscape {
@@ -555,6 +560,196 @@ Inkscape::XML::Node* SvgBuilder::getMainNode()
 {
 	Inkscape::XML::Node* rootNode = getRoot();
 	return _getMainNode(rootNode, 2);
+}
+
+struct NodeState {
+	Inkscape::XML::Node* node;
+	SPItem* spNode;
+	bool isConnected;
+	bool isRejected;
+	Geom::Rect sqBBox;
+	unsigned int z;
+
+	void initGeometry(SPDocument *spDoc);
+
+	NodeState(Inkscape::XML::Node* _node) :
+		spNode(nullptr),
+		isConnected(false),
+		isRejected(true),
+		z(0)
+	{
+		node = _node;
+	};
+};
+
+void NodeState::initGeometry(SPDocument *spDoc)
+{
+	spNode = (SPItem*)spDoc->getObjectByRepr(node);
+
+	Geom::OptRect visualBound(spNode->visualBounds());
+	if (visualBound.is_initialized())
+	{
+		sqBBox = visualBound.get();
+		Geom::Affine nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
+		sqBBox = sqBBox * nodeAffine;
+	}
+}
+
+static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeState> &nodesStatesList, std::vector<std::string> &tags)
+{
+	static unsigned int zCounter = 0;
+	if (inList(tags, startNode->name()))
+	{
+		zCounter++;
+		NodeState nodeState(startNode);
+		nodeState.z = zCounter;
+		nodesStatesList.push_back(nodeState);
+		//return;
+	}
+
+	Inkscape::XML::Node *tmpNode = startNode->firstChild();
+	while(tmpNode)
+	{
+		appendGraphNodes(tmpNode, nodesStatesList, tags);
+		tmpNode = tmpNode->next();
+	}
+}
+/*
+struct RegionsStat {
+	int passIntersect = 0;
+	int passAt = 0;
+	int nodesCount = 0;
+};
+*/
+bool inList(std::vector<std::string> &tags, const char* tag)
+{
+	for(auto &item :  tags)
+	{
+		if (strcasecmp(item.c_str(), tag) == 0)
+		 return true;
+	}
+	return false;
+}
+
+bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNode)
+{
+	NodeList firstParents, secondParents;
+	Inkscape::XML::Node* tmpNode = firstNode->parent();
+	while(tmpNode) {
+		firstParents.push_back(tmpNode);
+		tmpNode = tmpNode->parent();
+	}
+
+	tmpNode = secondNode->parent();
+	while(tmpNode) {
+		secondParents.push_back(tmpNode);
+		tmpNode = tmpNode->parent();
+	}
+
+	int firstIdx = firstParents.size()-1;
+	int secondIdx = secondParents.size()-1;
+	Inkscape::XML::Node* commonNode = firstParents[firstIdx];
+
+	for(;firstParents[firstIdx] == secondParents[secondIdx]; firstIdx--, secondIdx--);
+	if (firstParents[firstIdx]->next() == secondParents[secondIdx]) return true;
+
+	return false;
+	/*
+	tmpNode = firstParents[firstIdx]->next();
+	while(tmpNode && tmpNode != secondParents[secondIdx])
+	{
+		if (has_visible_text(tmpNode)) return false;
+		tmpNode = tmpNode->next();
+	}
+*/
+}
+
+std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
+{
+	std::vector<NodeList> result;
+
+   	SPDocument *spDoc = getSpDocument();
+	SPRoot* spRoot = spDoc->getRoot();
+	te_update_layout_now_recursive(spRoot);
+
+	Inkscape::XML::Node *mainNode = getMainNode();
+	Inkscape::XML::Document *currentDocument = mainNode->document();
+	SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+
+	std::vector<NodeState> nodesStatesList;
+	appendGraphNodes(mainNode, nodesStatesList, tags);
+
+	// cashe list parameters
+	for(NodeState& nodeState : nodesStatesList)
+	{
+		nodeState.initGeometry(spDoc);
+	}
+
+	while(true) // it will ended when we make empty region
+	{
+		long int regionNodesCount = -1;
+		std::vector<NodeState*> currentRegion;
+		bool startNewRegion = false;
+
+		while(regionNodesCount != currentRegion.size() && (!startNewRegion)) // if count of paths for region changed - try found other paths
+		{
+			long int regionChecked = regionNodesCount;
+			regionNodesCount = currentRegion.size();
+			if (regionChecked < 0) regionChecked = 0;
+
+			for(NodeState& nodeState : nodesStatesList)
+			{
+				if (nodeState.isConnected) continue;
+
+				if (currentRegion.size() == 0) // it will first path in the symbol
+				{
+					currentRegion.push_back(&nodeState);
+					nodeState.isConnected = true;
+					continue;
+				}
+// we can merge objects it do not exist layout beetwine
+				if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
+					startNewRegion = true;
+					break;
+				}
+
+				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
+				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
+				{
+					NodeState* regionNode = currentRegion[regionIdx];
+					const char* rId = regionNode->node->attribute("id");
+					const char* nId = nodeState.node->attribute("id");
+					//printf("region %s : node %s\n", rId, nId);
+
+
+					if (regionNode->sqBBox.intersects(nodeState.sqBBox) ||
+							regionNode->sqBBox.contains(nodeState.sqBBox))
+					{
+						nodeState.isConnected = true;
+						currentRegion.push_back(&nodeState);
+						break;
+					}
+				} // end for
+			} // for by node states
+		} //end while (region was changed)
+		//start new region
+
+		std::sort(currentRegion.begin(), currentRegion.end(),
+		          [] (NodeState* const a, NodeState* const b) { return a->z < b->z; });
+
+		if (currentRegion.size() > 0)
+		{
+			NodeList region;
+			for(NodeState* regionNode : currentRegion)
+			{
+				region.push_back(regionNode->node);
+			}
+			result.push_back(region);
+		}
+		else break;
+	};
+
+	return result;
 }
 
 

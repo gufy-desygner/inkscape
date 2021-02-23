@@ -45,7 +45,7 @@ void mergeMaskGradientToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
 void enumerationTags(Inkscape::XML::Node *inNode);
-uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate=false);
+uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions = true, bool simulate=false, uint* regionsCount = nullptr);
 void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
@@ -95,9 +95,9 @@ public:
 	Inkscape::XML::Node *findNodeById(Inkscape::XML::Node *fromNode, const char* id);
 	void mergeAll(char* rebasePath);
 	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
-	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi);
+	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
 	void getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Affine &innerAffine);
-	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi);
+	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
 	void getMainSize(float *w, float *h);
@@ -129,6 +129,9 @@ public:
 	char linkedID[100]; // last value of attribute of node from haveTagAttrFormList()
 	float mainMatrix[6];
 	~MergeBuilder(void);
+	Inkscape::XML::Document* getXmlDoc() { return _xml_doc; };
+	SPDocument *spDocument() { return _doc; };
+	std::vector<Geom::Rect> getRegions();
 private:
     SPDocument *_doc;
     Inkscape::XML::Node *_root;

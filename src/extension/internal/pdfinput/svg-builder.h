@@ -68,6 +68,7 @@ struct SvgGraphicsState {
     Inkscape::XML::Node *softmask; // Points to current softmask node
     int group_depth;    // Depth of nesting groups at this level
 };
+bool inList(std::vector<std::string> &tags, const char* tag);
 
 /**
  * Holds information about glyphs added by PdfParser which haven't been added
@@ -118,6 +119,9 @@ public:
     Inkscape::XML::Node *getPreferences() {
         return _preferences;
     }
+
+    std::vector<NodeList> getRegions(std::vector<std::string> &tags);
+
 
     // Handling the node stack
     Inkscape::XML::Node *pushGroup();

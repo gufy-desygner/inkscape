@@ -30,6 +30,8 @@
 #include "sp-image.h"
 #include "path-chemistry.h"
 #include "xml/text-node.h"
+#include "extension/db.h"
+#include "extension/system.h"
 
 
 namespace Inkscape {
@@ -46,7 +48,7 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 	_xml_doc = _doc->getReprDoc();
 	_sourceRoot = sourceTree;
 
-	// copy all attributes
+	// copy all attributes to root element
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = sourceTree->attributeList();
 	while( attrList ) {
 	    _root->setAttribute(g_quark_to_string(attrList->key), attrList->value);
@@ -54,16 +56,32 @@ MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 	}
 
 
+	SPDefs *spDefs = _doc->getDefs();
+	_myDefs = spDefs->getRepr();
 	Inkscape::XML::Node *tmpNode = sourceTree->firstChild();
 	// Copy all no visual nodes from original doc
 	Inkscape::XML::Node *waitNode;
 	while(tmpNode) {
+		if ( strcmp(tmpNode->name(),"svg:metadata") == 0 )
+		{
+			tmpNode = tmpNode->next();
+			continue;
+		}
 		if ( strcmp(tmpNode->name(),"svg:g") != 0 ) {
-			waitNode = copyAsChild(_root, tmpNode, rebasePath);
 			if ( strcmp(tmpNode->name(),"svg:defs") == 0 ) {
 				_defs = tmpNode;
-				_myDefs = waitNode;
+				//_myDefs = waitNode;
+
+				Inkscape::XML::Node *defNode = tmpNode->firstChild();
+				while(defNode)
+				{
+					waitNode = copyAsChild(_myDefs, defNode, rebasePath);
+					defNode = defNode->next();
+				}
+				tmpNode = tmpNode->next();
+				continue;
 			}
+			waitNode = copyAsChild(_root, tmpNode, rebasePath);
 		}
 		else {
 			break;
@@ -138,7 +156,9 @@ Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
 
 void MergeBuilder::clearMerge(void) {
     while(_mainSubVisual->firstChild()){
+    	Inkscape::XML::Node *tmpNode = _mainSubVisual->firstChild();
     	_mainSubVisual->removeChild(_mainSubVisual->firstChild());
+    	delete(tmpNode);
     }
 }
 
@@ -391,6 +411,7 @@ Inkscape::XML::Node *MergeBuilder::findNodeById(Inkscape::XML::Node *fromNode, c
 Inkscape::XML::Node *MergeBuilder::fillTreeOfParents(Inkscape::XML::Node *fromNode) {
 	if (_sourceSubVisual == fromNode) return fromNode;
 	Inkscape::XML::Node *tmpNode = fromNode->parent();
+	if (tmpNode == nullptr) tmpNode = _sourceSubVisual;
 	Inkscape::XML::Node *chkParent = findNodeById(_mainSubVisual, tmpNode->attribute("id"));
 	if (chkParent) return chkParent;
 	std::vector<Inkscape::XML::Node *> listNodes;
@@ -436,6 +457,152 @@ void MergeBuilder::mergeAll(char* rebasePath) {
 		copyAsChild(_mainSubVisual, node, rebasePath);
 		node = node->next();
 	}
+}
+
+struct NodeState {
+	Inkscape::XML::Node* node;
+	SPItem* spNode;
+	bool isConnected;
+	bool isRejected;
+	Geom::Rect sqBBox;
+	unsigned int z;
+
+	void initGeometry(SPDocument *spDoc);
+
+	NodeState(Inkscape::XML::Node* _node) :
+		spNode(nullptr),
+		isConnected(false),
+		isRejected(true),
+		z(0)
+	{
+		node = _node;
+	};
+};
+
+static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeState> &nodesStatesList, std::vector<std::string> &tags)
+{
+	static unsigned int zCounter = 0;
+	if (inList(tags, startNode->name()))
+	{
+		zCounter++;
+		NodeState nodeState(startNode);
+		nodeState.z = zCounter;
+		nodesStatesList.push_back(nodeState);
+		//return;
+	}
+
+	Inkscape::XML::Node *tmpNode = startNode->firstChild();
+	while(tmpNode)
+	{
+		appendGraphNodes(tmpNode, nodesStatesList, tags);
+		tmpNode = tmpNode->next();
+	}
+}
+
+std::vector<Geom::Rect> MergeBuilder::getRegions()
+{
+	std::vector<std::string> tags;
+	tags.push_back("svg:path");
+	tags.push_back("svg:image");
+	tags.push_back("svg:rect");
+	std::vector<Geom::Rect> result;
+
+   	SPDocument *spDoc = _doc;
+	SPRoot* spRoot = spDoc->getRoot();
+	te_update_layout_now_recursive(spRoot);
+
+	Inkscape::XML::Node *mainNode = _mainVisual;// getMainNode();
+	Inkscape::XML::Document *currentDocument = mainNode->document();
+	SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+
+	std::vector<NodeState> nodesStatesList;
+	appendGraphNodes(mainNode, nodesStatesList, tags);
+
+	// cashe list parameters
+	for(NodeState& nodeState : nodesStatesList)
+	{
+		nodeState.initGeometry(spDoc);
+	}
+
+	while(true) // it will ended when we make empty region
+	{
+		long int regionNodesCount = -1;
+		std::vector<NodeState*> currentRegion;
+		bool startNewRegion = false;
+
+		while(regionNodesCount != currentRegion.size() && (!startNewRegion)) // if count of paths for region changed - try found other paths
+		{
+			long int regionChecked = regionNodesCount;
+			regionNodesCount = currentRegion.size();
+			if (regionChecked < 0) regionChecked = 0;
+
+			for(NodeState& nodeState : nodesStatesList)
+			{
+				if (nodeState.isConnected) continue;
+
+				if (currentRegion.size() == 0) // it will first path in the symbol
+				{
+					currentRegion.push_back(&nodeState);
+					nodeState.isConnected = true;
+					continue;
+				}
+
+				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
+				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
+				{
+					NodeState* regionNode = currentRegion[regionIdx];
+					const char* rId = regionNode->node->attribute("id");
+					const char* nId = nodeState.node->attribute("id");
+					//printf("region %s : node %s\n", rId, nId);
+
+
+					if (regionNode->sqBBox.intersects(nodeState.sqBBox) ||
+							regionNode->sqBBox.contains(nodeState.sqBBox))
+					{
+						nodeState.isConnected = true;
+						currentRegion.push_back(&nodeState);
+						break;
+					}
+				} // end for
+			} // for by node states
+		} //end while (region was changed)
+		//start new region
+
+		std::sort(currentRegion.begin(), currentRegion.end(),
+		          [] (NodeState* const a, NodeState* const b) { return a->z < b->z; });
+
+		if (currentRegion.size() > 0)
+		{
+			//NodeList region;
+			double x1,x2,y1,y2;
+			bool squareInit = false;
+			for(NodeState* regionNode : currentRegion)
+			{
+				if (! squareInit)
+				{
+					x1 = regionNode->sqBBox[Geom::X][0];
+					x2 = regionNode->sqBBox[Geom::X][1];
+					y1 = regionNode->sqBBox[Geom::Y][0];
+					y2 = regionNode->sqBBox[Geom::Y][1];
+					squareInit = true;
+				}
+				if (regionNode->sqBBox[Geom::X][0] < x1)
+					x1 = regionNode->sqBBox[Geom::X][0];
+				if (regionNode->sqBBox[Geom::X][1] > x2)
+					x2 = regionNode->sqBBox[Geom::X][1];
+				if (regionNode->sqBBox[Geom::Y][0] < y1)
+					y1 = regionNode->sqBBox[Geom::Y][0];
+				if (regionNode->sqBBox[Geom::Y][1] > y2)
+					y2 = regionNode->sqBBox[Geom::Y][1];
+				//region.push_back(regionNode->node);
+			}
+			Geom::Rect sqBBox(x1,y1,x2,y2);
+			result.push_back(sqBBox);
+		}
+		else break;
+	};
+
+	return result;
 }
 
 Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
@@ -620,12 +787,12 @@ bool isTrans(char *patch) {
 	}
 }
 
-Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi) {
+Inkscape::XML::Node *MergeBuilder::saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi, Geom::Rect* rect) {
 
 	// Save merged image
 	gchar* mergedImagePath = g_strdup_printf("%s%s.png", sp_export_svg_path_sh, name);
 	gchar *fName;
-	Geom::Rect rct = save(mergedImagePath, visualBound, resultDpi);
+	Geom::Rect rct = save(mergedImagePath, visualBound, resultDpi, rect);
 	removeOldImages();
 	//try convert to jpeg (if do not have transparent regions)
 	if (sp_create_jpeg_sp && isTrans(mergedImagePath)) {
@@ -682,7 +849,7 @@ void MergeBuilder::getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Af
 }
 
 
-Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, double &resultDpi) {
+Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, double &resultDpi, Geom::Rect* rect) {
 	std::vector<SPItem*> x;
 	char *c;
 	Geom::Rect sq = Geom::Rect();
@@ -708,7 +875,8 @@ Geom::Rect MergeBuilder::save(gchar const *filename, bool adjustVisualBound, dou
 	}
 
 	if (visualBound && adjustVisualBound) {
-		sq = visualBound.get();
+		if (rect) sq = *rect;
+		else sq = visualBound.get();
 	} else {
 		sq = Geom::Rect(Geom::Point(0, 0),Geom::Point(width, height));
 	}
@@ -1047,6 +1215,17 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			i--;
 		}
 	}
+}
+
+NodeList gArrayNodesToVectorNodes(GPtrArray *tspanArray)
+{
+	NodeList nodeList;
+	for(int i = 0; i < tspanArray->len - 1; i++)
+	{
+		Inkscape::XML::Node *tspan = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i);
+		nodeList.push_back(tspan);
+	}
+	return nodeList;
 }
 
 // do merge TSPAN for input text node and return resulted text node
@@ -1403,7 +1582,7 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
  * @return count of generated images
  * */
 
-uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
+uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions, bool simulate, uint* regionsCount) {
   //================== merge paths and images ==================
   sp_merge_images_sh = (sp_merge_limit_sh > 0) &&
 			 (sp_merge_limit_sh <= builder->getCountOfImages());
@@ -1411,6 +1590,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 			 (sp_merge_limit_path_sh <= builder->getCountOfPath());
   uint img_count = 0;
 
+  // if we have number of paths or images more than "limit" we should merge it to image
   if (sp_merge_images_sh || sp_merge_path_sh) {
 	Inkscape::XML::Node *root = builder->getRoot();
 	//Inkscape::XML::Node *remNode;
@@ -1423,11 +1603,13 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 	//find image nodes
 	mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
 
+	// if number of images more than limit - add <image> to merge treating
 	if (sp_merge_images_sh) {
 	  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 	  if (! simulate ) warning3tooManyImages = TRUE;
 	}
 
+	// if number of paths more than limit - add <path> and <image> to merge treating
 	if (sp_merge_path_sh) {
       mergeBuilder->addTagName(g_strdup_printf("svg:path"));
       if (sp_rect_how_path_sh) {
@@ -1443,7 +1625,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 
 	while(mergeNode) {
 		countMergedNodes = numberInNode - 1;
-		if (! simulate) mergeBuilder->clearMerge();
+		mergeBuilder->clearMerge();
 		while (mergeNode->next() && mergeBuilder->haveTagFormList(mergeNode->next(), &countMergedNodes)) {
 			if (! simulate) {
 				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
@@ -1465,20 +1647,48 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool simulate) {
 		//merge image
 		if (countMergedNodes) {
 			img_count++;
+
 			if (! simulate) {
 				if (has_visible_text(builder->getSpDocument()->getObjectById(mergeNode->attribute("id")))) {
 					moveTextNode(builder, mergeNode);
 				}
-				mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
-				remNodes.push_back(mergeNode);
+			}
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			remNodes.push_back(mergeNode);
 
-				tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
+			std::vector<Geom::Rect> regions;
+			if (splitRegions)
+			{
+				regions = mergeBuilder->getRegions();
+				if (regionsCount)
+					*regionsCount += regions.size();
+			}
+
+			if (! simulate) {
 
 				// Insert node with merged image
 				double resultDpi;
-				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder, true, resultDpi);
-				visualNode->addChild(sumNode, mergeNode);
-				mergeNode = sumNode->next();
+
+				if (splitRegions)
+				{
+					Inkscape::XML::Node *tmpMergedNode = mergeNode;
+					int counter = 0;
+					for(Geom::Rect rect : regions)
+					{
+						counter++;
+						tmpName = g_strdup_printf("%s_img%i%s", builder->getDocName(), counter, mergeNode->attribute("id"));
+						Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder, true, resultDpi, &rect);
+						visualNode->addChild(sumNode, tmpMergedNode);
+						tmpMergedNode = sumNode;
+					}
+					mergeNode = tmpMergedNode->next();
+				} else
+				{
+					tmpName = g_strdup_printf("%s_img%s", builder->getDocName(), mergeNode->attribute("id"));
+					Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(tmpName, builder, true, resultDpi);
+					visualNode->addChild(sumNode, mergeNode);
+					mergeNode = sumNode->next();
+				}
 
 				for(int i = 0; i < remNodes.size(); i++) {
 					mergeBuilder->removeRelateDefNodes(remNodes[i]);
