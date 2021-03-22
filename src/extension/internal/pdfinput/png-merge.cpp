@@ -328,10 +328,17 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  // style tag is right only if it have some parametrs
 					  if (strcmp(attrName, "style") == 0) {
 						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
-								  (strstr(styleValue, "url(#pattern") > 0);
+								  (strstr(styleValue, "url(#pattern") > 0) ||
+								  (strstr(styleValue, "fill:url(#linearGradient") > 0);
+						  printf("style=%s\n",styleValue);
+						  printf("id=%s\n",tmpNode->attribute("id"));
+						  printf("%s\n", additionCond ? "true" : "false");
 					  }
 					  if (strcmp(attrName, "mask") == 0) {
 					  	  return true;
+					  }
+					  if (strcmp(attrName, "fill") == 0) {
+						  additionCond = (strstr("url(#linearGradient", styleValue) > 0);
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;
@@ -349,12 +356,19 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 			  attrList++;
 		  }
 
-		  if ((tmpNode->childCount() == 0) && tmpNode->next()) {
-			  tmpNode = tmpNode->next();
+		  if (tmpNode->childCount() > 0)
+		  {
+			  if(haveTagAttrFormList(tmpNode->firstChild()))
+			  	  return true;
+		  }
+
+		  if (/*(tmpNode->childCount() == 0) && */tmpNode->next()) {
+			  //tmpNode = tmpNode->next();
 			  coun--;
 		  } else {
-		      tmpNode = tmpNode->firstChild();
+		      //tmpNode = tmpNode->firstChild();
 		  }
+		  tmpNode = tmpNode->next();
 		  // if empty <g> tag - exit
 		  if (! tmpNode ) break;
 	  }
@@ -1847,6 +1861,7 @@ void mergeMaskGradientToLayer(SvgBuilder *builder) {
 
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "fill"));
 		  // queue for delete
 		  std::vector<Inkscape::XML::Node *> remNodes;
 
