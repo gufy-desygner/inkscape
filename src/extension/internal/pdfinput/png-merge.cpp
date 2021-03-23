@@ -330,9 +330,9 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
 								  (strstr(styleValue, "url(#pattern") > 0) ||
 								  (strstr(styleValue, "fill:url(#linearGradient") > 0);
-						  printf("style=%s\n",styleValue);
-						  printf("id=%s\n",tmpNode->attribute("id"));
-						  printf("%s\n", additionCond ? "true" : "false");
+						  //printf("style=%s\n",styleValue);
+						  //printf("id=%s\n",tmpNode->attribute("id"));
+						  //printf("%s\n", additionCond ? "true" : "false");
 					  }
 					  if (strcmp(attrName, "mask") == 0) {
 					  	  return true;
