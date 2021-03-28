@@ -3030,6 +3030,13 @@ void PdfParser::doShowText(GooString *s) {
       n = font->getNextChar(p, len, &code,
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
+      // stub for photoshop's PDF - it do not want set widths
+      if (dx == 1)
+      {
+    	  FT_GlyphSlot ftGlyph = builder->getFTGlyph(state->getFont(), state->getFontSize(), (uint)code, 10000);
+    	  dx = ftGlyph->metrics.width;
+    	  dx = dx / 10000;
+      }
 
       if (actualMarkerBegin)
     	  replaceFromActulaHidenText(&u, code);
