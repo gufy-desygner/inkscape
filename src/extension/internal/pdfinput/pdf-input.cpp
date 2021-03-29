@@ -851,6 +851,27 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         // Create parser  (extension/internal/pdfinput/pdf-parser.h)
         PdfParser *pdf_parser = new PdfParser(pdf_doc->getXRef(), builder, page_num-1, page->getRotate(),
                                               page->getResourceDict(), page->getCropBox(), clipToBox);
+        Object objInfo;
+        gchar *retval = NULL;
+        GooString *gooCreator;
+        char* strCreator = nullptr;
+
+        pdf_doc->getXRef()->getDocInfo(&objInfo);
+        if (objInfo.isDict ()) {
+          //retval = info_dict_get_string (obj.getDict(), "Creator");
+          Object obj2;
+          gchar *result;
+
+          if (objInfo.getDict()->lookup ((gchar *)"Creator", &obj2)->isString ())
+          {
+
+        	  gooCreator = obj2.getString ();
+        	  strCreator = strdup(gooCreator->getCString());
+        	  pdf_parser->creator = strCreator;
+			  //printf("%s\n", gooCreator->getCString());
+          }
+          obj2.free();
+        }
 
         // Set up approximation precision for parser. Used for convering Mesh Gradients into tiles.
         double color_delta;
@@ -1116,6 +1137,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         obj.free();
         delete pdf_parser;
         delete builder;
+        if (strCreator) free(strCreator);
         g_free(docname);
     }
     else

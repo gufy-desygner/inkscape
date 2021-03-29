@@ -334,7 +334,8 @@ PdfParser::PdfParser(XRef *xrefA,
     backgroundCandidat(NULL),
 	layoutIsNew(false),
 	layoutProperties(NULL),
-	simulate(false)
+	simulate(false),
+	creator(nullptr)
 {
   setDefaultApproximationPrecision();
   builder->setDocumentSize(Inkscape::Util::Quantity::convert(state->getPageWidth(), "pt", "px"),
@@ -399,7 +400,8 @@ PdfParser::PdfParser(XRef *xrefA,
     operatorHistory(NULL),
 	backgroundCandidat(NULL),
 	layoutProperties(NULL),
-	simulate(false)
+	simulate(false),
+	creator(nullptr)
 {
   setDefaultApproximationPrecision();
   
@@ -3031,7 +3033,7 @@ void PdfParser::doShowText(GooString *s) {
 			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
       // stub for photoshop's PDF - it do not want set widths
-      if (dx == 1)
+      if (dx == 1 && creator && strstr(creator, "Adobe Photoshop"))
       {
     	  FT_GlyphSlot ftGlyph = builder->getFTGlyph(state->getFont(), state->getFontSize(), (uint)code, 10000);
     	  dx = ftGlyph->metrics.width;
