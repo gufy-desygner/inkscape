@@ -180,6 +180,7 @@ public:
   GPtrArray *cidFontList;
   GPtrArray *savedFontsList;
   GPtrArray *exportFontThreads;
+  char* creator;
 
 private:
 

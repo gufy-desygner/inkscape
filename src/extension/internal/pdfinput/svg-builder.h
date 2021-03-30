@@ -130,6 +130,7 @@ public:
     Inkscape::XML::Node *createElement(char const *name);
 
     char *getGlyph(SvgGlyph * svgGlyph, FT_Face face);
+    FT_GlyphSlot getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom);
     const char *generateClipsFormLetters(Inkscape::XML::Node *container);
 
     // Path adding

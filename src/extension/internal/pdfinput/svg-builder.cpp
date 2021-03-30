@@ -1978,6 +1978,7 @@ void SvgBuilder::_flushText() {
                 tspan_node->appendChild(text_content);
                 Inkscape::GC::release(text_content);
                 text_node->appendChild(tspan_node);
+                // when text used as mask for image
                 tspan_node->setAttribute("sodipodi:glyphs_list", glyphs_buffer.c_str());
                 tspan_node->setAttribute("sodipodi:glyphs_transform", path_transform);
                 Inkscape::CSSOStringStream os_endX;
@@ -2058,6 +2059,7 @@ void SvgBuilder::_flushText() {
         	originalDx -= glyph.charSpace;
         }
         tspanEndXPos = delta_pos[0] + originalDx * _font_scaling;
+
         if (glipCount == 0)
           first_glyphX = delta_pos[0];
         glipCount++;
@@ -2833,6 +2835,7 @@ Inkscape::XML::Node *SvgBuilder::_createMask(double width, double height) {
     Inkscape::CSSOStringStream coord; \
 	coord << D * GLYPH_SCALE; USTR.append(coord.str()); USTR.append(" "); \
 }
+
 char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	int firstPoint;
 	int lastPoint;
@@ -2986,6 +2989,41 @@ char *SvgBuilder::getGlyph(SvgGlyph *svgGlyph, FT_Face face) {
 	  }
 	}
 	return g_strdup(path.c_str());
+}
+
+FT_GlyphSlot SvgBuilder::getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom) {
+
+	static GfxFont      *_font = nullptr;
+	static FT_Face       face;
+    static FT_Library    ft_lib;
+    static FT_Byte      *buf = nullptr;
+    int len;
+    FT_Error      error;
+
+    // first entry - should init library
+    if (_font == nullptr)
+    	FT_Init_FreeType(&ft_lib);
+
+    // load new font
+    if (_font != font)
+    {
+    	if (buf != nullptr)
+    		free(buf);
+		_font = font;
+		FT_Byte *buf = (FT_Byte *)_font->readEmbFontFile(_xref, &len);
+		error = FT_New_Memory_Face(ft_lib, buf, len, 0, &face);
+    }
+
+    // set zoom of glyph
+	error = FT_Set_Char_Size( face, 0, (uint)(fontSize * zoom),
+	                            0, 72);                /* set character size */
+
+	// load current glyph
+	if (FT_Load_Glyph(face, (FT_UInt)gidCode, FT_LOAD_NO_BITMAP) == 0) {
+	  return face->glyph;
+	} else
+		return nullptr;
+
 }
 
 void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
