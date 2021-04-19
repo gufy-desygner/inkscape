@@ -868,6 +868,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         	  gooCreator = obj2.getString ();
         	  strCreator = strdup(gooCreator->getCString());
         	  pdf_parser->creator = strCreator;
+        	  sp_creator_sh = strCreator;
 			  //printf("%s\n", gooCreator->getCString());
           }
           obj2.free();

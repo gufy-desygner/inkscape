@@ -41,6 +41,7 @@ gint sp_merge_limit_path_sh = 0;
 gboolean sp_rect_how_path_sh = FALSE;
 gint sp_thumb_width_sh = 0;
 float sp_export_dpi_sh = 72;
+char *sp_creator_sh = nullptr;
 gboolean warning1IsNotText = FALSE;
 gboolean warning2wasRasterized = FALSE;
 gboolean warning3tooManyImages = FALSE;

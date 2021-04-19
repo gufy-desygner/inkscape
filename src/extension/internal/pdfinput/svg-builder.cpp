@@ -3265,9 +3265,12 @@ void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int heig
      } else {*/
 		 if (image_node) {
 			 _container->appendChild(image_node);
-			 double fillColor = fetchAverageColor(_container, image_node);
-			 if (fillColor > 0)
-				 image_node->setAttribute("visibility", "hidden");
+			 if (sp_creator_sh && strstr(sp_creator_sh, "Adobe Photoshop"))
+			 {
+				 double fillColor = fetchAverageColor(_container, image_node);
+				 if (fillColor > 0)
+					 image_node->setAttribute("visibility", "hidden");
+			 }
 			Inkscape::GC::release(image_node);
 		 }
      //}
