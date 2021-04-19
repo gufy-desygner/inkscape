@@ -17,6 +17,10 @@
 
 #include <string> 
 #include <math.h>
+#include <cairo.h>
+#include "display/drawing-context.h"
+#include "display/drawing.h"
+
 
 //#define HAVE_POPPLER
 #ifdef HAVE_POPPLER
@@ -57,6 +61,8 @@
 #include "2geom/path.h"
 #include "2geom/path-intersection.h"
 #include "text-editing.h"
+//#include "helper/png-write.h"
+//#include "display/cairo-utils.h"
 
 
 namespace Inkscape {
@@ -3040,7 +3046,140 @@ void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
 	}
 }
 
+double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::XML::Node *image_node)
+{
+	// if we have not any text in the container - skip this function
+	GPtrArray *listSpans = g_ptr_array_new();
+	lookUpTspans(container, listSpans);
+	if (listSpans->len == 0)
+	{
+		g_ptr_array_free(listSpans, false);
+		return 0;
+	}
+
+	// for normal rendering - we should set current folder = SVG's folder
+	char current_path[PATH_MAX];
+	// remember current folder
+	getwd(current_path);
+	chdir(sp_export_svg_path_sh);
+
+	_doc->ensureUpToDate();
+	// calculate geometry params for image
+	SPItem *imgItem = (SPItem*)_doc->getObjectByRepr(image_node);
+	Geom::OptRect imgVisualBound(imgItem->visualBounds());
+	Geom::Affine imgAffine= imgItem->getRelativeTransform(_doc->getRoot());
+	Geom::Rect imgSqBBox = imgVisualBound.get() * imgAffine;
+	Geom::IntRect imgIntBBox(
+			round(imgSqBBox[Geom::X][0]),
+			round(imgSqBBox[Geom::Y][0]),
+			round(imgSqBBox[Geom::X][1]),
+			round(imgSqBBox[Geom::Y][1]));
+
+
+	// calculate geometry params for text
+	SPItem *textItem = (SPItem*)_doc->getObjectByRepr(container);
+	Geom::Affine textAffine= textItem->getRelativeTransform(_doc->getRoot());
+	Geom::OptRect textVisualBound(textItem->visualBounds());
+	Geom::Rect textSqBBox = textVisualBound.get() * textAffine;
+	Geom::IntRect textIntBBox(
+			round(textSqBBox[Geom::X][0]),
+			round(textSqBBox[Geom::Y][0]),
+			round(textSqBBox[Geom::X][1]),
+			round(textSqBBox[Geom::Y][1]));
+	//Geom::IntRect intBBox(0, 0, 1, 1);
+	//intBBox = intBBox *affine;
+
+    /* Create new drawing */
+    Inkscape::Drawing drawing;
+    //drawing.setExact(true); // export with maximum blur rendering quality
+    unsigned const dkey = SPItem::display_key_new(1);
+
+    // Create ArenaItems and set transform
+    drawing.setRoot(imgItem->invoke_show(drawing, dkey, SP_ITEM_SHOW_DISPLAY));
+    drawing.root()->setTransform(imgAffine);
+    /* Update to renderable state */
+    drawing.update(imgIntBBox);
+
+    // allocate memory for pixels array
+    unsigned long int width = abs(textIntBBox[Geom::X][1] - textIntBBox[Geom::X][0]);
+    unsigned long int num_rows = abs(textIntBBox[Geom::Y][1] - textIntBBox[Geom::Y][0]);;
+    int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+    unsigned char *px = g_new(guchar, num_rows * stride);
+
+    // fill surface - background color
+    cairo_surface_t *s = cairo_image_surface_create_for_data(
+        (unsigned char *)px, CAIRO_FORMAT_ARGB32, width, num_rows, stride);
+    Inkscape::DrawingContext dc(s, textSqBBox.min());
+    dc.setSource(0xFFFFFF00);
+    dc.setOperator(CAIRO_OPERATOR_SOURCE);
+    dc.paint();
+    dc.setOperator(CAIRO_OPERATOR_OVER);
+
+    /* Render */
+    drawing.render(dc, textIntBBox);
+    chdir(current_path);
+    cairo_status_t state = cairo_surface_write_to_png(s, "test_file.png");
+    cairo_surface_destroy(s);
+    //convert_pixels_argb32_to_pixbuf((unsigned char *)px, width, num_rows, stride);
+
+
+    // calculate color for each tspan
+    Inkscape::XML::Node *tmpNode;
+    for(int i = 0; i < listSpans->len; i++) {
+    	// calculate geometry of tspan
+    	tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
+    	SPItem *tmpSpItem = (SPItem*)_doc->getObjectByRepr(tmpNode);
+    	Geom::Affine tspanAffine= tmpSpItem->getRelativeTransform(_doc->getRoot());
+    	Geom::OptRect tspanVisualBound(tmpSpItem->visualBounds());
+    	Geom::Rect tspanSqBBox = tspanVisualBound.get() * tspanAffine *
+    			Geom::Translate(-textIntBBox[Geom::X][0], -textIntBBox[Geom::Y][0]);
+    	uint64_t r = 0;
+    	uint64_t g = 0;
+    	uint64_t b = 0;
+    	uint64_t a = 0;
+    	// set up geometry of tspan
+    	int x1 = round(tspanSqBBox[Geom::X][0]);
+    	int y1 = round(tspanSqBBox[Geom::Y][0]);
+    	int x2 = round(tspanSqBBox[Geom::X][1]);
+    	int y2 = round(tspanSqBBox[Geom::Y][1]);
+    	if (x1 == x2) x2++;
+    	if (y1 == y2) y2++;
+    	uint64_t square = abs((x2-x1) * (y2 -y1));
+    	// averige color
+    	for(int rowIdx = y1; rowIdx < y2; rowIdx++ )
+    	{
+    		for(int colIdx = x1 * 4; colIdx < x2 * 4; colIdx += 4)
+    		{
+    			uint32_t pointIdx = rowIdx * stride + colIdx;
+    			r += px[pointIdx];
+				g += px[pointIdx+1];
+				b += px[pointIdx+2];
+				a += px[pointIdx+3];
+    		}
+    	}
+
+    	//set up fill attribute
+    	int ia = a/square;
+    	int ir = r/square;
+    	int ig = g/square;
+    	int ib = b/square;
+    	char fill[10];
+    	sprintf(fill, "#%02x%02x%02x%02x", ir, ig, ib, ia);
+    	tmpNode->setAttribute("fill", fill);
+    }
+
+    // cleanup
+    g_free(px);
+    // release item
+    imgItem->invoke_hide(dkey);
+    guint size = listSpans->len;
+    g_ptr_array_free(listSpans, false);
+
+	return size;
+}
+
 const char *SvgBuilder::generateClipsFormLetters(Inkscape::XML::Node *container) {
+
 	Inkscape::XML::Node *ch = container->firstChild();
 	Inkscape::XML::Node *clipNode = 0;
 	GPtrArray *listSpans = g_ptr_array_new();
@@ -3111,8 +3250,9 @@ void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int heig
                           GfxImageColorMap *color_map, bool interpolate, int *mask_colors) {
 
      Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, interpolate, mask_colors);
-     const char *clipId = generateClipsFormLetters(_container);
-     if (clipId && image_node) {
+
+     //const char *clipId = generateClipsFormLetters(_container);
+     /*if (clipId && image_node) {
     	 Inkscape::XML::Node *gNode = _xml_doc->createElement("svg:g");
     	 gchar *urltext = g_strdup_printf ("url(#%s)", clipId);
     	 gNode->setAttribute("clip-path", urltext);
@@ -3121,12 +3261,16 @@ void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int heig
          Inkscape::GC::release(image_node);
          _container->appendChild(gNode);
          Inkscape::GC::release(gNode);
-     } else {
+         double fillColor = fetchAverageColor(_container, image_node);
+     } else {*/
 		 if (image_node) {
 			 _container->appendChild(image_node);
+			 double fillColor = fetchAverageColor(_container, image_node);
+			 if (fillColor > 0)
+				 image_node->setAttribute("visibility", "hidden");
 			Inkscape::GC::release(image_node);
 		 }
-     }
+     //}
 }
 
 void SvgBuilder::addImageMask(GfxState *state, Stream *str, int width, int height,
