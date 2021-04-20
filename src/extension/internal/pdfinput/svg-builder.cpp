@@ -3051,7 +3051,8 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
 	// if we have not any text in the container - skip this function
 	GPtrArray *listSpans = g_ptr_array_new();
 	lookUpTspans(container, listSpans);
-	if (listSpans->len == 0)
+	const guint size = listSpans->len;
+	if (size == 0)
 	{
 		g_ptr_array_free(listSpans, false);
 		return 0;
@@ -3086,8 +3087,6 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
 			round(textSqBBox[Geom::Y][0]),
 			round(textSqBBox[Geom::X][1]),
 			round(textSqBBox[Geom::Y][1]));
-	//Geom::IntRect intBBox(0, 0, 1, 1);
-	//intBBox = intBBox *affine;
 
     /* Create new drawing */
     Inkscape::Drawing drawing;
@@ -3120,8 +3119,6 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     chdir(current_path);
     cairo_status_t state = cairo_surface_write_to_png(s, "test_file.png");
     cairo_surface_destroy(s);
-    //convert_pixels_argb32_to_pixbuf((unsigned char *)px, width, num_rows, stride);
-
 
     // calculate color for each tspan
     Inkscape::XML::Node *tmpNode;
@@ -3163,16 +3160,23 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     	int ir = r/square;
     	int ig = g/square;
     	int ib = b/square;
-    	char fill[10];
-    	sprintf(fill, "#%02x%02x%02x%02x", ir, ig, ib, ia);
-    	tmpNode->setAttribute("fill", fill);
+    	char fill[16];
+    	char opacity[16];
+    	sprintf(fill, "#%02x%02x%02x", ir, ig, ib);
+    	//sprintf(opacity, "%f", ia/255);
+    	SPCSSAttr *style = sp_repr_css_attr(tmpNode->parent(), "style");
+    	sp_repr_css_set_property(style, "fill", fill);
+    	//sp_repr_css_set_property(style, "fill-opacity", opacity);
+    	Glib::ustring strCss;
+    	sp_repr_css_write_string(style, strCss);
+    	tmpNode->parent()->setAttribute("style", strCss.c_str());
     }
+
 
     // cleanup
     g_free(px);
     // release item
     imgItem->invoke_hide(dkey);
-    guint size = listSpans->len;
     g_ptr_array_free(listSpans, false);
 
 	return size;
