@@ -1032,6 +1032,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					logTime("Start enumerate tags");
 					enumerationTagsStart(builder);
             	}
+            	builder->adjustEndX();
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT)
             		delete mergeBuilder;
             }

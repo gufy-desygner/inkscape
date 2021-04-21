@@ -3046,6 +3046,30 @@ void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
 	}
 }
 
+void SvgBuilder::adjustEndX()
+{
+	Inkscape::XML::Node *container = getRoot();
+	GPtrArray *listSpans = g_ptr_array_new();
+	lookUpTspans(container, listSpans);
+
+    // calculate color for each tspan
+    Inkscape::XML::Node *tmpNode;
+    for(int i = 0; i < listSpans->len; i++) {
+    	// calculate geometry of tspan
+    	tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
+    	SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
+    	//Geom::OptRect visualBound(spNode->visualBounds());
+    	Geom::Affine affine= spNode->getRelativeTransform(_doc->getRoot());
+    	double endX = 0;
+    	sp_repr_get_double(tmpNode, "data-endX", &endX);
+    	Geom::Point position = Geom::Point(endX, 0) * affine;
+    	sp_repr_set_svg_double(tmpNode, "data-endX", position.x());
+    }
+
+
+	g_ptr_array_free(listSpans, false);
+}
+
 double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::XML::Node *image_node)
 {
 	// if we have not any text in the container - skip this function
