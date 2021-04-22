@@ -662,6 +662,16 @@ struct poptOption options[] = {
 	 N_("set folder with font which will useig for render thumb, work only with exportFonts option."),
 	 NULL},
 
+	{"scale-endx", 0,
+	 POPT_ARG_INT, &sp_scale_endx_sp, 0,
+	 N_("scale endX attribute: 0 - without scale (default),"\
+			 " 1 - scale to <SVG> node," \
+			 " 2 - scale to main container node (usually scaled 1.3333)," \
+			 " 5 - scale to <SVG> node for Photohop creator only," \
+			 " 6 - scale to main container node for Photohop creator only"),
+	 NULL
+	},
+
     {"export-pdf", 'A',
      POPT_ARG_STRING, &sp_export_pdf, SP_ARG_EXPORT_PDF,
      N_("Export document to a PDF file"),

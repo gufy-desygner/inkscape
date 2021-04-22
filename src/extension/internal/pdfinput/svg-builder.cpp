@@ -3048,7 +3048,15 @@ void lookUpTspans(Inkscape::XML::Node *container, GPtrArray *result) {
 
 void SvgBuilder::adjustEndX()
 {
-	Inkscape::XML::Node *container = getRoot();
+#define TO_ROOT 1
+#define TO_CONT 2
+	Inkscape::XML::Node *container;
+	if (sp_scale_endx_sp & TO_CONT)
+		container = this->getContainer();
+	else if (sp_scale_endx_sp & TO_ROOT)
+		container =getRoot();
+	else return;
+	SPItem *spCont = (SPItem*)_doc->getObjectByRepr(container);
 	GPtrArray *listSpans = g_ptr_array_new();
 	lookUpTspans(container, listSpans);
 
@@ -3059,7 +3067,7 @@ void SvgBuilder::adjustEndX()
     	tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
     	SPItem *spNode = (SPItem*)_doc->getObjectByRepr(tmpNode);
     	//Geom::OptRect visualBound(spNode->visualBounds());
-    	Geom::Affine affine= spNode->getRelativeTransform(_doc->getRoot());
+    	Geom::Affine affine= spNode->getRelativeTransform(spCont);
     	double endX = 0;
     	sp_repr_get_double(tmpNode, "data-endX", &endX);
     	Geom::Point position = Geom::Point(endX, 0) * affine;

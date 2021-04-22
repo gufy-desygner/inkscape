@@ -45,6 +45,7 @@ extern gboolean sp_rect_how_path_sh;
 extern gint sp_thumb_width_sh;
 extern float sp_export_dpi_sh;
 extern char *sp_creator_sh;
+extern int sp_scale_endx_sp;
 extern gboolean warning1IsNotText;
 extern gboolean warning2wasRasterized;
 extern gboolean warning3tooManyImages;
