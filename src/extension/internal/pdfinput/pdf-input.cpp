@@ -1037,7 +1037,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 #define FOR_PHOTOSHOP 4
             	//if (sp_creator_sh && strstr(sp_creator_sh, "Adobe Photoshop"))
             	if (sp_scale_endx_sp != 0)
-					if (/*(sp_scale_endx_sp & FOR_PHOTOSHOP) == 0 ||*/
+					if ((sp_scale_endx_sp & FOR_PHOTOSHOP) == 0 ||
 							(sp_creator_sh && strstr(sp_creator_sh, "Adobe Photoshop")))
 						builder->adjustEndX();
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT)
