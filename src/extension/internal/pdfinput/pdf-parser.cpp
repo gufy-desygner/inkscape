@@ -3036,7 +3036,7 @@ void PdfParser::doShowText(GooString *s) {
       if (dx == 1 && creator && strstr(creator, "Adobe Photoshop"))
       {
     	  FT_GlyphSlot ftGlyph = builder->getFTGlyph(state->getFont(), state->getFontSize(), (uint)code, 10000);
-    	  dx = ftGlyph->metrics.width;
+    	  dx = ftGlyph->metrics.horiAdvance;// width + ftGlyph->metrics.horiBearingX;
     	  dx = dx / 10000;
       }
 
