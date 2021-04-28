@@ -350,6 +350,12 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
 	gchar *secondDx = g_strdup(second->attribute("dx"));
 	double different = secondX - firstEndX; // gap for second content
 
+	// avoid too low numbers (with exponential form)
+	if (sp_creator_sh && strstr(sp_creator_sh, "Adobe Photoshop"))
+	{
+		if (fabs(different) < 1e-04) different = 0;
+	}
+
 	// if we have some space between space - we can put space to it
 	if (different < spaceSize) {
 		if ((spaceSize - different)/spaceSize < 0.75) {
@@ -1792,6 +1798,7 @@ void SvgBuilder::updateFont(GfxState *state) {
         if ( font_matrix[0] != 0.0 ) {
             css_font_size *= font_matrix[3] / font_matrix[0];
             if (css_font_size < 0) {
+            	// TODO: here need use fabs instead abs ( Sergey )
             	css_font_size = abs(css_font_size);
             }
         }
