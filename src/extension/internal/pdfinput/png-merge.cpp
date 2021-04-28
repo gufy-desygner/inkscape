@@ -967,29 +967,6 @@ char *prepareStringForFloat(char *str) {
 	return str;
 }
 
-void MergeBuilder::getMainSize(float *w, float *h) {
-	char *cm;
-	char *ct;
-	char *strMatrix = g_strdup_printf("%s",_sourceVisual->attribute("transform"));
-	prepareStringForFloat(strMatrix);
-	cm = &strMatrix[7];
-	for(int i = 0; i < 6; i++) {
-		mainMatrix[i] = strtof(cm, &ct);
-		cm = ct + 1;
-	}
-	free(strMatrix);
-
-	strMatrix = g_strdup_printf("%s", _sourceRoot->attribute("height"));
-	prepareStringForFloat(strMatrix);
-	*h = abs(strtof(strMatrix, &ct)/mainMatrix[0]);
-	free(strMatrix);
-
-	strMatrix = g_strdup_printf("%s", _sourceRoot->attribute("width"));
-	prepareStringForFloat(strMatrix);
-	*w = abs(strtof(strMatrix, &ct)/mainMatrix[3]);
-	free(strMatrix);
-}
-
 void MergeBuilder::getMainClipSize(float *w, float *h) {
 	Inkscape::XML::Node *mainPath = NULL;
 	mainPath = _defs->firstChild();

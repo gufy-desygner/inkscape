@@ -100,7 +100,6 @@ public:
 	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
 	void saveThumbW(int w, gchar const *filename);
 	void getMainClipSize(float *w, float *h);
-	void getMainSize(float *w, float *h);
 	void removeOldImagesEx(Inkscape::XML::Node *startNode);
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
