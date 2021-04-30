@@ -3029,7 +3029,7 @@ FT_GlyphSlot SvgBuilder::getFTGlyph(GfxFont *font, double fontSize, uint gidCode
 
     // set zoom of glyph
 	error = FT_Set_Char_Size( face, 0, (uint)(fontSize * zoom),
-	                            0, 72);                /* set character size */
+	                            0, sp_export_dpi_sh/*72*/);                /* set character size */
 
 	// load current glyph
 	if (FT_Load_Glyph(face, (FT_UInt)gidCode, FT_LOAD_NO_BITMAP) == 0) {
@@ -3067,7 +3067,6 @@ void SvgBuilder::adjustEndX()
 	GPtrArray *listSpans = g_ptr_array_new();
 	lookUpTspans(container, listSpans);
 
-    // calculate color for each tspan
     Inkscape::XML::Node *tmpNode;
     for(int i = 0; i < listSpans->len; i++) {
     	// calculate geometry of tspan
@@ -3289,6 +3288,15 @@ const char *SvgBuilder::generateClipsFormLetters(Inkscape::XML::Node *container)
     else return 0;
 }
 
+static void removeImg(const char* fileName)
+{
+	char current_path[PATH_MAX];
+	getwd(current_path);
+	chdir(sp_export_svg_path_sh);
+	remove(fileName);
+	chdir(current_path);
+}
+
 void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int height,
                           GfxImageColorMap *color_map, bool interpolate, int *mask_colors) {
 
@@ -3310,9 +3318,14 @@ void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int heig
 			 _container->appendChild(image_node);
 			 if (sp_creator_sh && strstr(sp_creator_sh, "Adobe Photoshop"))
 			 {
-				 double fillColor = fetchAverageColor(_container, image_node);
-				 if (fillColor > 0)
-					 image_node->setAttribute("visibility", "hidden");
+				 double tspanCount = fetchAverageColor(_container, image_node);
+				 if (tspanCount > 0)
+				 {
+					const char* tmpName = image_node->attribute("xlink:href");
+					removeImg(tmpName);
+					_container->removeChild(image_node);
+					 //image_node->setAttribute("visibility", "hidden");
+				 }
 			 }
 			Inkscape::GC::release(image_node);
 		 }
