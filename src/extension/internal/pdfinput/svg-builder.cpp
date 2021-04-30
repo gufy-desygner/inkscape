@@ -3029,7 +3029,7 @@ FT_GlyphSlot SvgBuilder::getFTGlyph(GfxFont *font, double fontSize, uint gidCode
 
     // set zoom of glyph
 	error = FT_Set_Char_Size( face, 0, (uint)(fontSize * zoom),
-	                            0, sp_export_dpi_sh/*72*/);                /* set character size */
+	                            0, 72);                /* set character size */
 
 	// load current glyph
 	if (FT_Load_Glyph(face, (FT_UInt)gidCode, FT_LOAD_NO_BITMAP) == 0) {
@@ -3160,6 +3160,11 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
 
     // calculate color for each tspan
     Inkscape::XML::Node *tmpNode;
+    uint64_t textSquare = 0;
+	float texta = 0;
+	float textr = 0;
+	float textg = 0;
+	float textb = 0;
     for(int i = 0; i < listSpans->len; i++) {
     	// calculate geometry of tspan
     	tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
@@ -3180,6 +3185,7 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     	if (x1 == x2) x2++;
     	if (y1 == y2) y2++;
     	uint64_t square = abs((x2-x1) * (y2 -y1));
+    	if (square == 0) continue;
     	// averige color
     	for(int rowIdx = y1; rowIdx < y2; rowIdx++ )
     	{
@@ -3194,13 +3200,25 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     	}
 
     	//set up fill attribute
-    	int ia = a/square;
-    	int ir = r/square;
-    	int ig = g/square;
-    	int ib = b/square;
-    	char fill[16];
-    	char opacity[16];
-    	sprintf(fill, "#%02x%02x%02x", ir, ig, ib);
+    	float ia = a/square;
+    	float ir = r/square;
+    	float ig = g/square;
+    	float ib = b/square;
+
+    	uint64_t commonSquare = textSquare + square;
+    	texta = texta * textSquare/commonSquare + ia * square/commonSquare;
+    	textr = textr * textSquare/commonSquare + ir * square/commonSquare;
+    	textg = textg * textSquare/commonSquare + ig * square/commonSquare;
+    	textb = textb * textSquare/commonSquare + ib * square/commonSquare;
+    	textSquare = commonSquare;
+    }
+	char fill[16];
+	char opacity[16];
+	sprintf(fill, "#%02x%02x%02x", (uint)round(textr), (uint)round(textg), (uint)round(textb));
+    for(int i = 0; i < listSpans->len; i++) {
+    	// calculate geometry of tspan
+    	tmpNode = (Inkscape::XML::Node *)g_ptr_array_index(listSpans, i);
+
     	//sprintf(opacity, "%f", ia/255);
     	SPCSSAttr *style = sp_repr_css_attr(tmpNode->parent(), "style");
     	sp_repr_css_set_property(style, "fill", fill);
