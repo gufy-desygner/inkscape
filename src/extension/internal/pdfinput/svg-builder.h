@@ -133,6 +133,12 @@ public:
     FT_GlyphSlot getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom);
     const char *generateClipsFormLetters(Inkscape::XML::Node *container);
     void adjustEndX();
+    enum todoRemoveClip {
+    	CLIP_NOTFOUND,
+    	REMOVE_CLIP,
+    	KEEP_CLIP,
+    };
+    todoRemoveClip checkClipAroundText(Inkscape::XML::Node *gNode);
     double fetchAverageColor(Inkscape::XML::Node *container, Inkscape::XML::Node *image_node);
 
     // Path adding

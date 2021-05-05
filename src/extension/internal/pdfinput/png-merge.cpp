@@ -1439,9 +1439,12 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 	while(tmpNode) {
 		bool fl = false;
 		posNode = tmpNode;
+		// repeat all for children nodes
+		if (tmpNode && tmpNode->childCount()) {
+			scanGtagForCompress(tmpNode, builder);
+		}
 		if (strcmp(tmpNode->name(), "svg:g") == 0) {
 			fl = true;
-			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 			// Remove only group with <text> tag
 			if (tmpNode->childCount() > 0 &&
 			    strcmp(tmpNode->firstChild()->name(), "svg:text") != 0 &&
@@ -1449,6 +1452,10 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 			{
 				fl = false;
 			}
+
+			SvgBuilder::todoRemoveClip canRemoveClip = builder->checkClipAroundText(tmpNode);
+			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
+			// We can remove only empty <g> or if it contains only info-attributes
 			while( attrList && fl) {
 				// if one from compare is right (== 0) if = false
 				if (strncmp(g_quark_to_string(attrList->key), "sodipodi:", 8) &&
@@ -1461,10 +1468,7 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 				}
 			    attrList++;
 			}
-			// repeat all for children nodes
-			if (tmpNode && tmpNode->childCount()) {
-				scanGtagForCompress(tmpNode, builder);
-			}
+
 			// Adjust children and remove group
 			if (fl) {
 				Geom::Affine mainAffine;

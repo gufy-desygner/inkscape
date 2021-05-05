@@ -46,6 +46,7 @@
 #include "display/nr-filter-utils.h"
 #include "libnrtype/font-instance.h"
 #include "shared_opt.h"
+#include "sp-clippath.h"
 
 #include "Function.h"
 #include "GfxState.h"
@@ -3082,6 +3083,68 @@ void SvgBuilder::adjustEndX()
 
 
 	g_ptr_array_free(listSpans, false);
+}
+
+SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *gNode)
+{
+	/*
+	 Node should keep structuere:
+	 <g clip-path="#url(XXX)">
+	 	 <g>
+	 	 <text><tspan></tspan></text>
+	 	 </g>
+	 </g>
+
+	 or
+
+	 <g clip-path="#url(XXX)">
+	 	 <text><tspan></tspan></text>
+	 </g>
+
+	 or
+
+	 <g clip-path="#url(XXX)">
+	 </g>
+
+	 */
+	if (strcmp(gNode->name(), "svg:g") != 0) return CLIP_NOTFOUND;
+
+	//if (gNode->childCount() == 0) return CLIP_NOTFOUND;
+	Inkscape::XML::Node *firstChild = gNode->firstChild();
+	Inkscape::XML::Node *firstFirstChild = nullptr;
+	if (firstChild != nullptr)
+		firstFirstChild = firstChild->firstChild();
+	if (firstChild)
+	{
+		if (strcmp(firstChild->name(), "svg:text") != 0)
+		{
+			if (strcmp(firstChild->name(), "svg:g") != 0) return CLIP_NOTFOUND;
+			if (firstFirstChild == nullptr) return CLIP_NOTFOUND;
+			if (strcmp(firstFirstChild->name(), "svg:text") != 0) return CLIP_NOTFOUND;
+		}
+	}
+
+	const char* clipUrl = gNode->attribute("clip-path");
+	if (clipUrl == nullptr) return CLIP_NOTFOUND;
+
+	gchar clip_path_id[32];
+	strncpy(clip_path_id, &clipUrl[5], strlen(clipUrl) - 6);
+	clip_path_id[strlen(clipUrl) - 6] = 0;
+	SPDocument* spDoc = this->getSpDocument();
+	SPClipPath* spClipPath = (SPClipPath*)spDoc->getObjectById(clip_path_id);
+	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
+	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
+
+	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
+	if (firstChild == nullptr || bbox.contains(spGNode->geometricBounds(affine)))
+	{
+		gNode->setAttribute("clip-path", nullptr);
+		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
+		clipNode->parent()->removeChild(clipNode);
+		return REMOVE_CLIP;
+	}
+
+	return CLIP_NOTFOUND;
 }
 
 double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::XML::Node *image_node)
