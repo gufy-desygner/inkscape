@@ -3892,7 +3892,20 @@ void PdfParser::saveState() {
 	  Object objName;
 	  if (layoutProperties->lookupNF("Name", &objName) != nullptr && objName.isString())
 	  {
-		  builder->setLayoutName(objName.getString()->getCString());
+		  GooString* layoutName = objName.getString();
+		  int len = layoutName->getLength();
+		  char* cLayoutName = layoutName->getCString();
+		  // wrong unicode string. Right marker is 0xFEFF instead 0xFFFE
+		  if ((len > 3) && (cLayoutName[0] == (char)0xFF) && (cLayoutName[1] == (char)0xFE))
+		  {
+			  int idx;
+			  for(idx=2; idx < (len - 1); idx+=2)
+			  {
+				  cLayoutName[idx/2 - 1] = cLayoutName[idx];
+			  }
+			  cLayoutName[idx] = 0;
+		  }
+		  builder->setLayoutName(cLayoutName);
 		  layoutIsNew = false;
 	  }
   }
