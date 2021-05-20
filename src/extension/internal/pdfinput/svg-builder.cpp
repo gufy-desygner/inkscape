@@ -1885,6 +1885,28 @@ static double calculateSvgDx(const SvgGlyph& glyph, const SvgGlyph& prevGlyph, d
     return calc_dx;
 }
 
+void sortGlyphs(std::vector<SvgGlyph> &glyphs)
+{
+	bool isSorted = false;
+	while(isSorted == false)
+	{
+		isSorted = true;
+		for(int idx = 0; idx < (glyphs.size() - 1); idx++)
+		{
+			SvgGlyph glyph1 = glyphs[idx];
+			SvgGlyph glyph2 = glyphs[idx + 1];
+			if (glyph1.position[0] > glyph2.position[0] && glyph1.position[1] == glyph2.position[1] && (! glyph2.style_changed))
+			{
+				glyph2.style_changed = glyph1.style_changed;
+				glyph1.style_changed = false;
+				glyphs[idx] = glyph2;
+				glyphs[idx + 1] = glyph1;
+				isSorted = false;
+			}
+		}
+	}
+}
+
 /**
  * \brief Writes the buffered characters to the SVG document
  */
@@ -1894,6 +1916,14 @@ void SvgBuilder::_flushText() {
         _glyphs.clear();
         return;
     }
+
+    sortGlyphs(_glyphs);
+    /*for(SvgGlyph gl : _glyphs)
+    {
+    	printf("%s %f %s\n", gl.code.c_str(), gl.position[0], gl.style_changed ? "new style" : "");
+
+    }*/
+
     double lastDeltaX = 0;
     double first_glyphX = 0;
     double tspanEndXPos = 0;
