@@ -3146,12 +3146,12 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		firstFirstChild = firstChild->firstChild();
 	if (firstChild)
 	{
-		if (strcmp(firstChild->name(), "svg:text") != 0)
+		/*if (strcmp(firstChild->name(), "svg:text") != 0)
 		{
 			if (strcmp(firstChild->name(), "svg:g") != 0) return CLIP_NOTFOUND;
 			if (firstFirstChild == nullptr) return CLIP_NOTFOUND;
 			if (strcmp(firstFirstChild->name(), "svg:text") != 0) return CLIP_NOTFOUND;
-		}
+		}*/
 	}
 
 	const char* clipUrl = gNode->attribute("clip-path");
