@@ -1918,6 +1918,7 @@ void SvgBuilder::_flushText() {
     }
 
     sortGlyphs(_glyphs);
+
     /*for(SvgGlyph gl : _glyphs)
     {
     	printf("%s %f %s\n", gl.code.c_str(), gl.position[0], gl.style_changed ? "new style" : "");
@@ -2146,6 +2147,19 @@ void SvgBuilder::_flushText() {
         ++i;
     }
     _container->appendChild(text_node);
+
+    SvgTextPosition textPosition;
+
+    textPosition.text = (gchar*) malloc (1);
+    g_stpcpy(textPosition.text, "\0");
+
+    for(SvgGlyph gl : _glyphs) {
+        textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
+    }
+
+    textPosition.pNode = text_node->firstChild()->duplicate(_xml_doc);
+    textPositionList.push_back(textPosition);
+
     Inkscape::GC::release(text_node);
 
     _glyphs.clear();
@@ -3626,6 +3640,46 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         _state_stack.back().softmask = NULL;
         popGroup();
     }
+}
+
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
+
+    // Parse this vector textPositionList
+    // And get exact text inside the area.
+
+    if ( textPositionList.empty()) {
+        textPositionList.clear();
+        return {};
+    }
+
+    std::vector<SvgTextPosition> textInAreaList;
+
+    for(SvgTextPosition textPosition : textPositionList) {
+
+        gchar const *t_attr = textPosition.pNode->attribute("sodipodi:glyphs_transform");
+
+        if (t_attr) {
+            Geom::Affine transform;
+
+            if (sp_svg_transform_read(t_attr, &transform)) {
+                double x = transform[4];
+                double y = transform[5];
+
+                if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+
+                    SvgTextPosition tmpTextPosition;
+                    tmpTextPosition.pNode = textPosition.pNode->duplicate(_xml_doc);
+                    tmpTextPosition.text = (gchar*) malloc (strlen(tmpTextPosition.pNode->firstChild()->content()));
+                    g_stpcpy(tmpTextPosition.text, textPosition.pNode->firstChild()->content());
+                    //printf("[%f, %f]  %s\n", x, y, tmpTextPosition.text);
+
+                    textInAreaList.push_back(tmpTextPosition);
+                }
+            }
+        }
+    }
+
+    return textPositionList;
 }
 
 } } } /* namespace Inkscape, Extension, Internal */

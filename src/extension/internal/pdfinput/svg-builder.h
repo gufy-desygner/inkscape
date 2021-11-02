@@ -100,6 +100,12 @@ void mergeTspanList(NodeList &tspanArray);
 /**
  * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
+
+struct SvgTextPosition {
+    gchar* text;
+    Inkscape::XML::Node* pNode;
+};
+
 class SvgBuilder {
 public:
     SvgBuilder(SPDocument *document, gchar *docname, XRef *xref);
@@ -210,6 +216,11 @@ public:
     SPDocument *getSpDocument(void){ return _doc;};
     double glipEndX, glipEndY;
     double spaceWidth;
+
+    std::vector<SvgTextPosition> getTextPositionList() { return textPositionList; }
+    void setTextPositionList(std::vector<SvgTextPosition> _textPositionList) { textPositionList = _textPositionList; }
+    std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2);
+
 private:
     void _init();
 
@@ -282,6 +293,8 @@ private:
     int _countOfImages;
     int _countOfPath;
     bool _ttm_is_set;
+
+    std::vector<SvgTextPosition> textPositionList;
 };
 
 

@@ -990,8 +990,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeTspan(builder);
 					NodeList listOfTSpan;
 
-
 					builder->getNodeListByTag("svg:tspan", &listOfTSpan);
+
+                        std::vector<SvgTextPosition> mergedTextPositionList;
+
 					for(auto& tspan : listOfTSpan)
 					{
 						Geom::Affine textAffine;
@@ -1006,7 +1008,19 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						tspanTranslate = tspanTranslate * textAffine.inverse();
 						newTextAffine = textAffine;
 						newTextAffine.setTranslation(tspanTranslate);
+
+                             if (mergeBuilder->haveContent(tspan->firstChild())) {
+                                  SvgTextPosition textPosition;
+                                  textPosition.text = (gchar*) malloc (strlen(tspan->firstChild()->content()));
+                                  g_stpcpy(textPosition.text, tspan->firstChild()->content());
+                                  textPosition.pNode = tspan->duplicate(doc->getReprDoc());
+                                  mergedTextPositionList.push_back(textPosition);
+                                  //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
+                             }
 					}
+
+                        builder->setTextPositionList(mergedTextPositionList);
+
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
 					logTime("Start merge mask");
