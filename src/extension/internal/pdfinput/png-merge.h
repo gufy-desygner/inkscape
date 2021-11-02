@@ -92,7 +92,7 @@ double GetTickCount(void);
 
 class TabLine {
 	private:
-		Inkscape::XML::Node* node;
+
 
 		bool isVert;
 		bool lookLikeTab;
@@ -104,7 +104,7 @@ class TabLine {
 		Geom::Point end;
 
 	public:
-
+		Inkscape::XML::Node* node;
 		double x1, x2, y1, y2;
 	TabLine(Inkscape::XML::Node* node, SPDocument *spDoc);
 	Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
@@ -114,18 +114,66 @@ class TabLine {
 	bool isVertical() { return isVert; }
 };
 
+struct TableCell {
+	double x, y, width, height;
+	 TabLine *topLine;
+	 TabLine *bottomLine;
+	 TabLine *leftLine;
+	 TabLine *rightLine;
+};
+
+class TableDefenition
+{
+private:
+	TableCell* _cells;
+
+
+	int countCol, countRow;
+
+	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r);
+
+
+public:
+	double x, y, width, height;
+	TableDefenition(unsigned int width, unsigned int height) :
+		countCol(width),
+		countRow(height),
+		x(0),
+		y(0),
+		width(0),
+		height(0)
+	{
+		_cells = new TableCell[countCol*countRow];
+
+	}
+	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
+	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
+	TableCell* getCell(int xIdx, int yIdx);
+
+
+	Inkscape::XML::Node* render(SvgBuilder *builder);
+};
+
 class TableRegion
 {
 private:
-	std::vector<TabLine*> lines;
+
 	double x1, x2, y1, y2;
 	SvgBuilder *_builder;
 	SPDocument* spDoc;
 	bool _isTable;
+	TableDefenition* tableDef;
 public:
+	std::vector<TabLine*> lines;
+	~TableRegion()
+	{
+		if (tableDef)
+			delete(tableDef);
+	}
 	TableRegion(SvgBuilder *builder) :
 		_builder(builder),
 		_isTable(true),
+		tableDef(nullptr),
 		x1(0),
 		x2(0),
 		y1(0),
@@ -136,18 +184,11 @@ public:
 
 	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
 
-	bool addLine(Inkscape::XML::Node* node)
-	{
-
-		TabLine* line = new TabLine(node, spDoc);
-		lines.push_back(line);
-		if (! line->isTableLine()) _isTable = false;
-
-		return isTable();
-	}
+	bool addLine(Inkscape::XML::Node* node);
 
 	bool isTable(){	return _isTable;	}
-	void buildKnote();
+	void buildKnote(SvgBuilder *builder);
+	Inkscape::XML::Node* render(SvgBuilder *builder);
 };
 typedef std::vector<TableRegion*> TableList;
 
