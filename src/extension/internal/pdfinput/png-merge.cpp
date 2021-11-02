@@ -1610,7 +1610,13 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 		{
 			if (! line->isVertical()) continue;
 			if (line->x1 != xCoord) continue;
-			if (line->y1 > xCoord || line->y2 < yCoord) continue;
+			if (line->y1 > yCoord || line->y2 < yCoord) continue;
+
+			return line;
+		} else {
+			if (line->isVertical()) continue;
+			if (line->y1 != yCoord) continue;
+			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
 			return line;
 		}

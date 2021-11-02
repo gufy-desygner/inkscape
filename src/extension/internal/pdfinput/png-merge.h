@@ -111,7 +111,7 @@ class TabLine {
 
 
 	bool isTableLine() { return  lookLikeTab; }
-	bool isVertical() { return isVert; }
+	bool isVertical() { return x1 == x2; }
 };
 
 struct TableCell {
