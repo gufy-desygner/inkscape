@@ -515,23 +515,31 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 	}
 }
 
-static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList* list)
+static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> &tags, NodeList* list)
 {
 	Inkscape::XML::Node* cursorNode = node;
 	while(cursorNode)
 	{
 		const char* nodeName = cursorNode->name();
-		if (strcasecmp(nodeName, tag) == 0)
-			list->push_back(cursorNode);
+		for(int tagIdx = 0; tags.size() < tagIdx; tagIdx++)
+		{
+			if (strcasecmp(nodeName, tags[tagIdx].c_str()) == 0)
+			{
+				list->push_back(cursorNode);
+				break;
+			}
+
+		}
 		if (cursorNode->childCount() > 0)
-			_getNodesByTag(cursorNode->firstChild(), tag, list);
+			_getNodesByTags(cursorNode->firstChild(), tags, list);
 		cursorNode = cursorNode->next();
 	}
 }
 
-NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode)
 {
 
+	if (tags.size() == 0) return list;
 
 	Inkscape::XML::Node* rootNode;
 	if (startNode == nullptr)
@@ -539,9 +547,20 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	else
 		rootNode = startNode->firstChild();
 
-	_getNodesByTag(rootNode, tag, list);
+	_getNodesByTags(rootNode, tags, list);
 
 	return list;
+}
+
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+{
+
+	if (tag == nullptr) return list;
+
+	std::vector<std::string> tags;
+	tags.push_back("tag");
+
+	return getNodeListByTags(tags, list, startNode);
 }
 
 static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
@@ -677,9 +696,10 @@ bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNo
 */
 }
 
-std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
+std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 {
-	std::vector<NodeList> result;
+	std::vector<NodeList>* _result = new std::vector<NodeList>();
+	std::vector<NodeList>& result = *_result;
 
    	SPDocument *spDoc = getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
@@ -721,10 +741,10 @@ std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
 					continue;
 				}
 // we can merge objects it do not exist layout beetwine
-				if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
+				/*if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
 					startNewRegion = true;
 					break;
-				}
+				}*/
 
 				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
 				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
@@ -762,7 +782,7 @@ std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
 		else break;
 	};
 
-	return result;
+	return _result;
 }
 
 

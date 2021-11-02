@@ -32,6 +32,7 @@
 #include "xml/text-node.h"
 #include "extension/db.h"
 #include "extension/system.h"
+#include "sp-path.h"
 
 
 namespace Inkscape {
@@ -1567,6 +1568,207 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	if (mainNode->parent() != currNode)
 		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
 	moveTextNode(builder, mainNode, currNode, aff);
+}
+
+TabLine::TabLine(Inkscape::XML::Node* node, SPDocument *spDoc) :
+		isVert(false)
+{
+	lookLikeTab = false;
+
+	if (strcmp(node->name(), "svg:path") != 0)
+		return;
+
+	spPath = (SPPath*)spDoc->getObjectByRepr(node);
+	curve = spPath->getCurve();
+	segmentCount = curve->get_segment_count();
+	if (segmentCount > 1 )
+		return;
+
+	firstSegment = (Geom::Curve*)curve->first_segment();
+	if (! firstSegment->isLineSegment())
+		return;
+
+	start = firstSegment->initialPoint();
+	end = firstSegment->finalPoint();
+
+	x1 = start[0];
+	x2 = end[0];
+	y1 = start[1];
+	y2 = end[1];
+	if (start[0] == end[0] || start[1] == end[1])
+		lookLikeTab = true;
+
+	if (start[1] == end[1]) isVert = true;
+}
+
+TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVerticale)
+{
+	for(auto& line : lines)
+	{
+		if (isVerticale)
+		{
+			if (! line->isVertical()) continue;
+			if (line->x1 != xCoord) continue;
+			if (line->y1 > xCoord || line->y2 < yCoord) continue;
+
+			return line;
+		}
+	}
+
+	return nullptr;
+}
+
+
+
+struct TableCell {
+	double x, y, width, height;
+	 TabLine *topLine;
+	 TabLine *bottomLine;
+	 TabLine *leftLine;
+	 TabLine *rightLine;
+};
+
+class TableDefenition
+{
+private:
+	TableCell* _cells;
+
+	unsigned int _width, _height;
+
+	std::string cellSvg(int c, int r)
+	{
+		std::string svg;
+
+		TableCell* cell = getCell(c, r);
+
+		svg.append("<g class=\"table-cell index-r-" + std::to_string(r) + "index-c-" + std::to_string(0) + "\">\n");
+		svg.append("  <g id=\"svg_8\" class=\"textarea subelement active original-font-size-24\">");
+		svg.append("    <rect x=\"" + std::to_string(cell->x) + "\" y=\"" + std::to_string(cell->y) + "\" width=\"" + std::to_string(cell->width) + "\" height=\"" + std::to_string(cell->height) + "\" fill=\"none\" stroke-width=\"0\" class=\"\"> </rect>");
+		svg.append("    <g class=\"text\" fill=\"#000000\" font-family=\"Lato\" font-size=\"24\" text-anchor=\"middle\" stroke-width=\"0\" font-weight=\"400\" data-original-font-size=\"24\">");
+		svg.append("       <text x=\"102.26828134059906\" y=\"201.4151153564453\" class=\" eol\" xml:space=\"preserve\">&nbsp;</text>");
+		svg.append("    </g>");
+		svg.append("  </g>");
+		svg.append("</g>");
+	}
+
+
+public:
+	TableDefenition(unsigned int width, unsigned int height) :
+		_width(width),
+		_height(height)
+	{
+		_cells = new TableCell[width*height];
+
+	}
+	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
+	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
+	TableCell* getCell(int xIdx, int yIdx);
+
+
+	void render()
+	{
+		std::string svg;
+	}
+};
+
+TableCell* TableDefenition::getCell(int xIdx, int yIdx)
+{
+	return &_cells[xIdx * _width + yIdx];
+}
+
+void TableDefenition::setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine)
+{
+	TableCell *cell = getCell(xIdx, yIdx);
+	cell->topLine = topLine;
+	cell->bottomLine = bottomLine;
+	cell->leftLine = leftLine;
+	cell->rightLine = rightLine;
+}
+
+void TableDefenition::setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd)
+{
+	TableCell *cell = getCell(xIdx, yIdx);
+	cell->x = xStart;
+	cell->width = xEnd - xStart;
+	cell->y = yStart;
+	cell->height = yEnd - yStart;
+}
+
+void TableRegion::buildKnote()
+{
+	std::vector<double> xList, yList;
+
+	for(auto& line : this->lines)
+	{
+		xList.push_back(line->x1);
+		xList.push_back(line->x2);
+		yList.push_back(line->y1);
+		yList.push_back(line->y2);
+	}
+
+	std::sort(xList.begin(), xList.end());
+	std::sort(yList.begin(), yList.end());
+	auto lastX = std::unique(xList.begin(), xList.end());
+	auto lastY = std::unique(yList.begin(), yList.end());
+	xList.erase(lastX, xList.end());
+	yList.erase(lastY, yList.end());
+
+	TableDefenition tableDef(xList.size(), yList.size());
+	double xStart, yStart, xEnd, yEnd;
+	xStart = xList[0];
+	yStart = yList[0];
+	for(int yIdx = 1; yIdx < xList.size() -1; yIdx++)
+	{
+		for(int xIdx = 1; xIdx < xList.size() -1; xIdx++)
+		{
+			double xMediane = (xStart - xList[xIdx])/2 + xStart;
+			double yMediane = (yStart - yList[1])/2 + yStart;
+			TabLine* topLine = searchByPoint(xMediane, yStart, false);
+			TabLine* leftLine = searchByPoint(xStart, yMediane, true);
+			TabLine* bottomLine = searchByPoint(xMediane, yList[1], false);
+			TabLine* rightLine = searchByPoint(xList[xIdx], yMediane, true);
+
+			tableDef.setStroke(xIdx, yIdx, topLine, bottomLine, leftLine, rightLine);
+			tableDef.setVertex(xIdx, yIdx, xStart, yStart, xList[xIdx], yList[1]);
+
+			xStart = xList[xIdx];
+		}
+		yStart = yList[yIdx];
+	}
+}
+
+/**
+ * @describe do merge tags without text between
+ * @param builder representation of SVG document
+ * @param simulate if true - do not change source document (default false)
+ *
+ * @return count of generated images
+ * */
+
+TableList* detectTables(SvgBuilder *builder, TableList* tables) {
+  bool splitRegions = true;
+
+
+	Inkscape::XML::Node *root = builder->getRoot();
+
+	std::vector<std::string> tags;
+	tags.push_back("svg:path");
+	tags.push_back("svg:rect");
+
+	auto regions = builder->getRegions(tags);
+	for(NodeList& vecRegionNodes : *regions)
+	{
+		TableRegion* tabRegionStat= new TableRegion(builder);
+		bool isTable = true;
+		for(Inkscape::XML::Node* node: vecRegionNodes)
+		{
+			isTable = tabRegionStat->addLine(node);
+			if (! isTable) break;
+		}
+		if (isTable) tables->push_back(tabRegionStat);
+	}
+
+	return tables;
 }
 
 /**

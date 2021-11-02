@@ -316,7 +316,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gFalse),
-    printCommands(false),
+    printCommands(true),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(sp_export_dpi_sh/*72.0*/, sp_export_dpi_sh /*72.0*/, box, rotate, gTrue)),
     fontChanged(gFalse),
@@ -383,7 +383,7 @@ PdfParser::PdfParser(XRef *xrefA,
     xref(xrefA),
     builder(builderA),
     subPage(gTrue),
-    printCommands(false),
+    printCommands(true),
     res(new GfxResources(xref, resDict, NULL)), // start the resource stack
     state(new GfxState(72, 72, box, 0, gFalse)),
     fontChanged(gFalse),
@@ -2893,7 +2893,7 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 		if (*u != nullptr)
 			uCopy = **u;
 		else
-			uCopy = 0x20;
+			uCopy = code;//0x20;
 		const CharCode codeCopy = code;
 		uActual = 0;
 		*u = &uActual;

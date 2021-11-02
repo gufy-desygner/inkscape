@@ -1015,6 +1015,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
+					TableList regions;
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
@@ -1023,8 +1024,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
-						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
+						detectTables(builder, &regions);
+						//mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
+
 					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);

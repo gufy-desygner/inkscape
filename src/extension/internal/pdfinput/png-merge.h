@@ -13,6 +13,7 @@
 #include "util/list.h"
 #include "svg-builder.h"
 #include "sp-item.h"
+#include "sp-path.h"
 #include "Object.h"
 
 #define PROFILER_ENABLE 0
@@ -85,7 +86,74 @@ extern double profiler_timer_up[];
 #define prnTimer
 #endif
 
+
+
 double GetTickCount(void);
+
+class TabLine {
+	private:
+		Inkscape::XML::Node* node;
+
+		bool isVert;
+		bool lookLikeTab;
+		SPPath* spPath;
+		SPCurve* curve;
+		size_t segmentCount;
+		Geom::Curve* firstSegment;
+		Geom::Point start;
+		Geom::Point end;
+
+	public:
+
+		double x1, x2, y1, y2;
+	TabLine(Inkscape::XML::Node* node, SPDocument *spDoc);
+	Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+
+
+	bool isTableLine() { return  lookLikeTab; }
+	bool isVertical() { return isVert; }
+};
+
+class TableRegion
+{
+private:
+	std::vector<TabLine*> lines;
+	double x1, x2, y1, y2;
+	SvgBuilder *_builder;
+	SPDocument* spDoc;
+	bool _isTable;
+public:
+	TableRegion(SvgBuilder *builder) :
+		_builder(builder),
+		_isTable(true),
+		x1(0),
+		x2(0),
+		y1(0),
+		y2(0)
+	{
+		spDoc = _builder->getSpDocument();
+	}
+
+	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+
+	bool addLine(Inkscape::XML::Node* node)
+	{
+
+		TabLine* line = new TabLine(node, spDoc);
+		lines.push_back(line);
+		if (! line->isTableLine()) _isTable = false;
+
+		return isTable();
+	}
+
+	bool isTable(){	return _isTable;	}
+	void buildKnote();
+};
+typedef std::vector<TableRegion*> TableList;
+
+TableList* detectTables(SvgBuilder *builder, TableList* tables);
+
+
 
 class MergeBuilder {
 public:

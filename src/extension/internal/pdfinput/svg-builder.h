@@ -113,6 +113,7 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
+    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode);
     NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
     Inkscape::XML::Node* getMainNode();
 
@@ -120,7 +121,7 @@ public:
         return _preferences;
     }
 
-    std::vector<NodeList> getRegions(std::vector<std::string> &tags);
+    std::vector<NodeList>* getRegions(std::vector<std::string> &tags);
 
 
     // Handling the node stack
