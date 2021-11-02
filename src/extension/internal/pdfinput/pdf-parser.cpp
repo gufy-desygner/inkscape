@@ -2889,7 +2889,11 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 	static Unicode uActual = 0; // memory must exist after out
 	actualMarkerPosition++;
 	if (actualtextString->getLength() >= (actualMarkerPosition * 2 + 2)) {
-		const Unicode uCopy = **u;
+		Unicode uCopy;
+		if (*u != nullptr)
+			uCopy = **u;
+		else
+			uCopy = 0x20;
 		const CharCode codeCopy = code;
 		uActual = 0;
 		*u = &uActual;
