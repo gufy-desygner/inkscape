@@ -1732,7 +1732,7 @@ void TableDefenition::setVertex(int xIdx, int yIdx, double xStart, double yStart
 	cell->height = yEnd - yStart;
 }
 
-void TableRegion::buildKnote(SvgBuilder *builder)
+bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
 	std::vector<double> yList;
@@ -1755,11 +1755,15 @@ void TableRegion::buildKnote(SvgBuilder *builder)
 		line->x2 = round(secondPoint.x());
 		line->y2 = round(secondPoint.y());
 
-		xList.push_back(line->x1);
-		xList.push_back(line->x2);
-		yList.push_back(line->y1);
-		yList.push_back(line->y2);
+		if (line->x1 == line->x2)
+			xList.push_back(line->x1);
+
+		if (line->y1 == line->y2)
+			yList.push_back(line->y1);
+
 	}
+
+	if (xList.size() == 0 || yList.size() == 0) return false;
 
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end());
@@ -1768,7 +1772,7 @@ void TableRegion::buildKnote(SvgBuilder *builder)
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
 
-	tableDef = new TableDefenition(xList.size(), yList.size());
+	tableDef = new TableDefenition(xList.size() -1 , yList.size() -1);
 	tableDef->x = xList[0];
 	tableDef->y = yList[0];
 	double xStart, yStart, xEnd, yEnd;
@@ -1777,9 +1781,10 @@ void TableRegion::buildKnote(SvgBuilder *builder)
 
 	tableDef->width = xList[xList.size() - 1] - xStart;
 	tableDef->width = yList[yList.size() - 1] - yStart;
-	for(int yIdx = 1; yIdx < yList.size() -1; yIdx++)
+	for(int yIdx = 1; yIdx < yList.size() ; yIdx++)
 	{
-		for(int xIdx = 1; xIdx < xList.size() -1; xIdx++)
+		xStart = xList[0];
+		for(int xIdx = 1; xIdx < xList.size() ; xIdx++)
 		{
 			double xMediane = (xStart - xList[xIdx])/2 + xStart;
 			double yMediane = (yStart - yList[1])/2 + yStart;
@@ -1795,6 +1800,7 @@ void TableRegion::buildKnote(SvgBuilder *builder)
 		}
 		yStart = yList[yIdx];
 	}
+	return true;
 }
 
 Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder)

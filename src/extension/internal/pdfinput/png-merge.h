@@ -187,7 +187,7 @@ public:
 	bool addLine(Inkscape::XML::Node* node);
 
 	bool isTable(){	return _isTable;	}
-	void buildKnote(SvgBuilder *builder);
+	bool buildKnote(SvgBuilder *builder);
 	Inkscape::XML::Node* render(SvgBuilder *builder);
 };
 typedef std::vector<TableRegion*> TableList;

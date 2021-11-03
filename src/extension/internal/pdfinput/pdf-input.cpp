@@ -1028,14 +1028,15 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
 						for(TableRegion* tabRegion : regions)
 						{
-							tabRegion->buildKnote(builder);
-
-							TabLine* firstPathLine = tabRegion->lines[0];
-							Inkscape::XML::Node* tabPathNode = firstPathLine->node;
-							Inkscape::XML::Node* tabParent = tabPathNode->parent();
-							Inkscape::XML::Node* tabNode = tabRegion->render(builder);
-							if (tabParent)
-								tabParent->appendChild(tabNode);
+							if (tabRegion->buildKnote(builder))
+							{
+								TabLine* firstPathLine = tabRegion->lines[0];
+								Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+								Inkscape::XML::Node* tabParent = tabPathNode->parent();
+								Inkscape::XML::Node* tabNode = tabRegion->render(builder);
+								if (tabParent)
+									tabParent->appendChild(tabNode);
+							}
 						}
 
 

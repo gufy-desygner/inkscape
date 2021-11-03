@@ -754,9 +754,11 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 					const char* nId = nodeState.node->attribute("id");
 					//printf("region %s : node %s\n", rId, nId);
 
+					Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0] -1, regionNode->sqBBox[Geom::Y][0] -1,
+							regionNode->sqBBox[Geom::X][1] +1, regionNode->sqBBox[Geom::Y][1] +1);
 
-					if (regionNode->sqBBox.intersects(nodeState.sqBBox) ||
-							regionNode->sqBBox.contains(nodeState.sqBBox))
+					if (extendedBBox.intersects(nodeState.sqBBox) ||
+							extendedBBox.contains(nodeState.sqBBox))
 					{
 						nodeState.isConnected = true;
 						currentRegion.push_back(&nodeState);
