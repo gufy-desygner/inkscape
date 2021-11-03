@@ -32,6 +32,7 @@
 #include "xml/text-node.h"
 #include "extension/db.h"
 #include "extension/system.h"
+#include "sp-path.h"
 
 
 namespace Inkscape {
@@ -1567,6 +1568,403 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	if (mainNode->parent() != currNode)
 		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
 	moveTextNode(builder, mainNode, currNode, aff);
+}
+
+TabLine::TabLine(Inkscape::XML::Node* node, SPDocument *spDoc) :
+		isVert(false),
+		node(node)
+{
+	lookLikeTab = false;
+
+	if (strcmp(node->name(), "svg:path") != 0)
+		return;
+
+	spPath = (SPPath*)spDoc->getObjectByRepr(node);
+	curve = spPath->getCurve();
+	segmentCount = curve->get_segment_count();
+	if (segmentCount > 1 )
+		return;
+
+	firstSegment = (Geom::Curve*)curve->first_segment();
+	if (! firstSegment->isLineSegment())
+		return;
+
+	start = firstSegment->initialPoint();
+	end = firstSegment->finalPoint();
+
+	x1 = start[0];
+	x2 = end[0];
+	y1 = start[1];
+	y2 = end[1];
+	if (start[0] == end[0] || start[1] == end[1])
+		lookLikeTab = true;
+
+	if (start[1] == end[1]) isVert = true;
+}
+
+TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVerticale)
+{
+	for(auto& line : lines)
+	{
+		if (isVerticale)
+		{
+			if (! line->isVertical()) continue;
+			if (line->x1 != xCoord) continue;
+			if (line->y1 > yCoord || line->y2 < yCoord) continue;
+
+			return line;
+		} else {
+			if (line->isVertical()) continue;
+			if (line->y1 != yCoord) continue;
+			if (line->x1 > xCoord || line->x2 < xCoord) continue;
+
+			return line;
+		}
+	}
+
+	return nullptr;
+}
+
+
+std::string doubleToCss(double num)
+{
+	//printf("ldkfldsfld\n");
+	Inkscape::CSSOStringStream os;
+	os << num;
+	return os.str();
+}
+
+Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r)
+{
+	static int cellId = 0;
+	cellId++;
+	std::string svg;
+
+	TableCell* cell = getCell(c, r);
+
+	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+	// TODO: Fix this
+	// The cell can contain many text items with different styles, for now we take only the first item.
+
+	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
+	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
+	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
+
+	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
+	std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
+
+	Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
+	nodeCellRect->setAttribute("x", doubleToCss(cell->x).c_str());
+	nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
+	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
+	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
+	nodeCellRect->setAttribute("fill", "none");
+	nodeCellRect->setAttribute("stroke-width", "1");
+	nodeCellRect->setAttribute("stroke", "blue");
+
+	Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
+	nodeTextAttribs2->setAttribute("class", "text");
+
+	if (textInAreaList.size() > 0) {
+		nodeTextAttribs2->setAttribute("style", textInAreaList[0].ptextNode->attribute("style"));
+	} else {
+		nodeTextAttribs2->setAttribute("fill", "#000000");
+		nodeTextAttribs2->setAttribute("font-family", "#Lato");
+		nodeTextAttribs2->setAttribute("font-size", "24");
+		nodeTextAttribs2->setAttribute("text-anchor", "middle");
+		nodeTextAttribs2->setAttribute("stroke-width", "0");
+		nodeTextAttribs2->setAttribute("font-weight", "400");
+		nodeTextAttribs2->setAttribute("data-original-font-size", "24");
+	}
+
+
+	//TODO: The cell can contain many text items with different styles, will fix this later!
+	//for (SvgTextPosition textInCell: textInAreaList)
+	if (textInAreaList.size() > 0) {
+		nodeTextAttribs2->setAttribute("style", textInAreaList[0].ptextNode->attribute("style"));
+	}
+
+	Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
+
+	//for (SvgTextPosition textInCell: textInAreaList)
+	if (textInAreaList.size() > 0)
+	{
+		nodeText->setAttribute("x", std::to_string(textInAreaList[0].x));
+		nodeText->setAttribute("y", std::to_string(textInAreaList[0].y));
+		nodeText->setAttribute("class", " eol");
+		nodeText->setAttribute("xml:space", "preserve");
+
+		nodeText->setContent(textInAreaList[0].text);
+		//printf("%s\n", nodeText->content());
+	}
+
+	nodeCellIdx->appendChild(nodeTextAttribs);
+	nodeTextAttribs->appendChild(nodeCellRect);
+	nodeTextAttribs->appendChild(nodeTextAttribs2);
+	nodeTextAttribs2->appendChild(nodeText);
+
+	return nodeCellIdx;
+}
+
+Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder)
+{
+	Inkscape::XML::Node* nodeTable = builder->createElement("svg:g");
+	nodeTable->setAttribute("class", "element table");
+
+	Inkscape::XML::Node* nodeTableRect = builder->createElement("svg:rect");
+	nodeTableRect->setAttribute("x", doubleToCss(x).c_str());
+	nodeTableRect->setAttribute("y", doubleToCss(y).c_str());
+	nodeTableRect->setAttribute("width", doubleToCss(width).c_str());
+	nodeTableRect->setAttribute("height", doubleToCss(height).c_str());
+	nodeTableRect->setAttribute("fill", "none");
+	nodeTableRect->setAttribute("stroke-width", "0");
+
+	for (int rowIdx = 0; rowIdx < countRow; rowIdx++)
+	{
+		Inkscape::XML::Node* nodeRow = builder->createElement("svg:g");
+		std::string rowCalsses("table-row index-"); rowCalsses.append(std::to_string(rowIdx));
+		nodeRow->setAttribute("class", rowCalsses.c_str());
+
+		nodeTable->appendChild(nodeRow);
+
+		for (int colIdx = 0; colIdx < countCol; colIdx++)
+		{
+			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx));
+		}
+	}
+
+	return nodeTable;
+
+}
+
+TableCell* TableDefenition::getCell(int xIdx, int yIdx)
+{
+	return &_cells[yIdx * countCol + xIdx];
+}
+
+void TableDefenition::setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine)
+{
+	TableCell *cell = getCell(xIdx, yIdx);
+	cell->topLine = topLine;
+	cell->bottomLine = bottomLine;
+	cell->leftLine = leftLine;
+	cell->rightLine = rightLine;
+}
+
+void TableDefenition::setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd)
+{
+	TableCell *cell = getCell(xIdx, yIdx);
+	cell->x = xStart;
+	cell->width = xEnd - xStart;
+	cell->y = yStart;
+	cell->height = yEnd - yStart;
+}
+
+static bool tableRowsSorter(const double &a, const double &b)
+{
+	return a > b;
+}
+
+struct CellCoord {
+	int col, row;
+	CellCoord(int c, int r) :
+		col(c),
+		row(r)
+	{
+	}
+};
+
+struct SkipCells {
+	std::vector<CellCoord> list;
+
+	void addRect(int col1, int row1, int col2, int row2, bool ignoreFirst = false)
+	{
+		for(int colIdx = col1; colIdx <= col2; colIdx++)
+		{
+			for(int rowIdx = row1; rowIdx <= row2; rowIdx++)
+			{
+				if (ignoreFirst && colIdx == col1 && rowIdx == row1) continue;
+				list.push_back(CellCoord(colIdx, rowIdx));
+			}
+		}
+	}
+
+	bool isExist(int col, int row)
+	{
+		for(auto& cell : list)
+		{
+			if ( cell.col == col && cell.row == row ) return true;
+		}
+		return false;
+	}
+};
+
+bool TableRegion::buildKnote(SvgBuilder *builder)
+{
+	std::vector<double> xList;
+	std::vector<double> yList;
+
+	SPDocument* spDoc = builder->getSpDocument();
+	SPObject* spMainNode = spDoc->getObjectByRepr( builder->getMainNode() );
+	SkipCells skipCell;
+
+	for(auto& line : this->lines)
+	{
+		SPPath* spLine = (SPPath*)spDoc->getObjectByRepr(line->node);
+		Geom::Affine lineAffine = spLine->getRelativeTransform(spMainNode);
+		Geom::Point firstPoint(line->x1, line->y1);
+		Geom::Point secondPoint(line->x2, line->y2);
+
+		firstPoint = firstPoint * lineAffine;
+		secondPoint = secondPoint * lineAffine;
+
+		line->x1 = round(firstPoint.x());
+		line->y1 = round(firstPoint.y());
+		line->x2 = round(secondPoint.x());
+		line->y2 = round(secondPoint.y());
+
+		if (line->x1 == line->x2)
+			xList.push_back(line->x1);
+
+		if (line->y1 == line->y2)
+			yList.push_back(line->y1);
+
+	}
+
+	if (xList.size() == 0 || yList.size() == 0) return false;
+
+	std::sort(xList.begin(), xList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter);
+	auto lastX = std::unique(xList.begin(), xList.end());
+	auto lastY = std::unique(yList.begin(), yList.end());
+	xList.erase(lastX, xList.end());
+	yList.erase(lastY, yList.end());
+
+	tableDef = new TableDefenition(xList.size() -1 , yList.size() -1);
+	tableDef->x = xList[0];
+	tableDef->y = yList[0];
+	double xStart, yStart, xEnd, yEnd;
+	xStart = xList[0];
+	yStart = yList[0];
+
+	tableDef->x = xList[0];
+	tableDef->y = yList[0];
+	tableDef->width = xList[xList.size() - 1] - xStart;
+	tableDef->height = yStart - yList[yList.size() - 1];
+
+	for(int yIdx = 1; yIdx < yList.size() ; yIdx++)
+	{
+		xStart = xList[0];
+		for(int xIdx = 1; xIdx < xList.size() ; xIdx++)
+		{
+			if (skipCell.isExist(xIdx - 1, yIdx - 1))
+			{
+				xStart = xList[xIdx];
+				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
+				continue;
+			}
+			double xMediane = (xList[xIdx] - xStart)/2 + xStart;
+			double yMediane = (yStart - yList[yIdx])/2 + yList[yIdx];
+			TabLine* topLine = searchByPoint(xMediane, yStart, false);
+			TabLine* leftLine = searchByPoint(xStart, yMediane, true);
+
+			TabLine* rightLine = nullptr;
+			int xShift = 0;
+			while(rightLine == nullptr && (xIdx + xShift) < xList.size())
+			{
+				rightLine = searchByPoint(xList[xIdx + xShift], yMediane, true);
+
+				if (rightLine == nullptr && (xIdx + xShift) < xList.size())
+				{
+					xShift++;
+				}
+			}
+
+			TabLine* bottomLine = nullptr;
+			int yShift = 0;
+			while(bottomLine == nullptr && (yIdx + yShift) < yList.size())
+			{
+				bottomLine = searchByPoint(xMediane, yList[yIdx + yShift], false);
+
+				if (bottomLine == nullptr && (yIdx + yShift) < yList.size())
+				{
+					yShift++;
+				}
+			}
+
+			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
+			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
+
+			if (xShift >0 || yShift >0)
+			{
+				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
+			}
+
+			xIdx += xShift;
+			xStart = xList[xIdx];
+		}
+		yStart = yList[yIdx];
+	}
+	return true;
+}
+
+Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder)
+{
+	Inkscape::XML::Node* result = tableDef->render(builder);
+	for(auto line : lines)
+	{
+		line->node->parent()->removeChild(line->node);
+		delete(line->node);
+	}
+	return result;
+}
+
+/**
+ * @describe do merge tags without text between
+ * @param builder representation of SVG document
+ * @param simulate if true - do not change source document (default false)
+ *
+ * @return count of generated images
+ * */
+
+TableList* detectTables(SvgBuilder *builder, TableList* tables) {
+  bool splitRegions = true;
+
+
+	Inkscape::XML::Node *root = builder->getRoot();
+
+	std::vector<std::string> tags;
+	tags.push_back("svg:path");
+	tags.push_back("svg:rect");
+
+	auto regions = builder->getRegions(tags);
+	for(NodeList& vecRegionNodes : *regions)
+	{
+		TableRegion* tabRegionStat= new TableRegion(builder);
+		bool isTable = true;
+		if (vecRegionNodes.size() < 5) continue;
+		for(Inkscape::XML::Node* node: vecRegionNodes)
+		{
+			isTable = tabRegionStat->addLine(node);
+			if (! isTable) break;
+		}
+
+		if (isTable) tables->push_back(tabRegionStat);
+	}
+
+	return tables;
+}
+
+bool TableRegion::addLine(Inkscape::XML::Node* node)
+{
+
+	TabLine* line = new TabLine(node, spDoc);
+	lines.push_back(line);
+	if (! line->isTableLine()) _isTable = false;
+
+	return isTable();
 }
 
 /**

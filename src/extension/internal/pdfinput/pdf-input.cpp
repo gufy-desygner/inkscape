@@ -1012,8 +1012,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
                              if (mergeBuilder->haveContent(tspan->firstChild())) {
                                   SvgTextPosition textPosition;
                                   textPosition.text = (gchar*) malloc (strlen(tspan->firstChild()->content()));
+                                  textPosition.x = tspanX;
+                                  textPosition.y = tspanY;
                                   g_stpcpy(textPosition.text, tspan->firstChild()->content());
-                                  textPosition.pNode = tspan->duplicate(doc->getReprDoc());
+                                  textPosition.ptextNode = textNode->duplicate(doc->getReprDoc());
                                   mergedTextPositionList.push_back(textPosition);
                                   //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
                              }
@@ -1029,6 +1031,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
+					TableList regions;
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
@@ -1037,8 +1040,26 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
-						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
+						detectTables(builder, &regions);
+
+						for(TableRegion* tabRegion : regions)
+						{
+							if (tabRegion->buildKnote(builder))
+							{
+								TabLine* firstPathLine = tabRegion->lines[0];
+								Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+								Inkscape::XML::Node* tabParent = tabPathNode->parent();
+								Inkscape::XML::Node* tabNode = tabRegion->render(builder);
+								if (tabParent)
+									tabParent->appendChild(tabNode);
+							}
+						}
+
+
+
+						//mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
+
 					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);

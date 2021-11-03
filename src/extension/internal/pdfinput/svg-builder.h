@@ -102,8 +102,10 @@ void mergeTspanList(NodeList &tspanArray);
  */
 
 struct SvgTextPosition {
+    Inkscape::XML::Node* ptextNode;
     gchar* text;
-    Inkscape::XML::Node* pNode;
+    double x = 0;
+    double y = 0;
 };
 
 class SvgBuilder {
@@ -119,6 +121,7 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
+    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode);
     NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
     Inkscape::XML::Node* getMainNode();
 
@@ -126,7 +129,7 @@ public:
         return _preferences;
     }
 
-    std::vector<NodeList> getRegions(std::vector<std::string> &tags);
+    std::vector<NodeList>* getRegions(std::vector<std::string> &tags);
 
 
     // Handling the node stack
@@ -134,6 +137,7 @@ public:
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
     Inkscape::XML::Node *createElement(char const *name);
+    Inkscape::XML::Node *createTextNode(char const *content);
 
     char *getGlyph(SvgGlyph * svgGlyph, FT_Face face);
     FT_GlyphSlot getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom);

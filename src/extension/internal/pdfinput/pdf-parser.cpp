@@ -2893,7 +2893,7 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 		if (*u != nullptr)
 			uCopy = **u;
 		else
-			uCopy = 0x20;
+			uCopy = code;//0x20;
 		const CharCode codeCopy = code;
 		uActual = 0;
 		*u = &uActual;
