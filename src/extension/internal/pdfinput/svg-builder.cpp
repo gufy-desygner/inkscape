@@ -872,6 +872,10 @@ Inkscape::XML::Node *SvgBuilder::createElement(char const *name) {
 	return _xml_doc->createElement(name);
 }
 
+Inkscape::XML::Node *SvgBuilder::createTextNode(char const *content) {
+	return _xml_doc->createTextNode(content);
+}
+
 static gchar *svgConvertRGBToText(double r, double g, double b) {
     using Inkscape::Filters::clamp;
     static gchar tmp[1023] = {0};
@@ -2168,6 +2172,33 @@ void SvgBuilder::_flushText() {
         ++i;
     }
     _container->appendChild(text_node);
+
+    SvgTextPosition textPosition;
+
+    textPosition.text = g_strdup("");
+
+    for(SvgGlyph gl : _glyphs) {
+        textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
+    }
+
+    textPosition.ptextNode = text_node->duplicate(_xml_doc);
+
+    gchar const *t_attr = tspan_node->attribute("sodipodi:glyphs_transform");
+
+    if (t_attr) {
+        Geom::Affine transform;
+
+        if (sp_svg_transform_read(t_attr, &transform)) {
+            double tspanX = transform[4];
+            double tspanY = transform[5];
+
+            textPosition.x = tspanX;
+            textPosition.y = tspanY;
+        }
+    }
+
+    textPositionList.push_back(textPosition);
+
     Inkscape::GC::release(text_node);
 
     _glyphs.clear();
@@ -3648,6 +3679,36 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         _state_stack.back().softmask = NULL;
         popGroup();
     }
+}
+
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
+
+    // Parse this vector textPositionList
+    // And get exact text inside the area.
+
+    if ( textPositionList.empty()) {
+        textPositionList.clear();
+        return {};
+    }
+
+    std::vector<SvgTextPosition> textInAreaList;
+
+    for(SvgTextPosition textPosition : textPositionList) {
+
+        if (textPosition.x >= x1 && textPosition.x <= x2 && textPosition.y >= y1 && textPosition.y <= y2) {
+
+            SvgTextPosition tmpTextPosition;
+            tmpTextPosition.ptextNode = textPosition.ptextNode->duplicate(_xml_doc);
+            tmpTextPosition.text = g_strdup(textPosition.text);
+            tmpTextPosition.x = textPosition.x;
+            tmpTextPosition.y = textPosition.y;
+            //printf("[%f, %f]  %s\n", x, y, tmpTextPosition.text);
+
+            textInAreaList.push_back(tmpTextPosition);
+        }
+    }
+
+    return textInAreaList;
 }
 
 } } } /* namespace Inkscape, Extension, Internal */

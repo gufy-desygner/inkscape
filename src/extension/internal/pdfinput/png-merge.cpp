@@ -1635,32 +1635,40 @@ std::string doubleToCss(double num)
 }
 
 Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r)
-	{
-		static int cellId = 0;
-		cellId++;
-		std::string svg;
+{
+	static int cellId = 0;
+	cellId++;
+	std::string svg;
 
-		TableCell* cell = getCell(c, r);
+	TableCell* cell = getCell(c, r);
 
-		Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
-		std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
-		nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
+	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+	// TODO: Fix this
+	// The cell can contain many text items with different styles, for now we take only the first item.
 
-		Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
-		std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
-		nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
+	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
+	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
+	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
 
-		Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
-		nodeCellRect->setAttribute("x", doubleToCss(cell->x).c_str());
-		nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
-		nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
-		nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
-		nodeCellRect->setAttribute("fill", "none");
-		nodeCellRect->setAttribute("stroke-width", "1");
-		nodeCellRect->setAttribute("stroke", "blue");
+	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
+	std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
 
-		Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
-		nodeTextAttribs2->setAttribute("class", "text");
+	Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
+	nodeCellRect->setAttribute("x", doubleToCss(cell->x).c_str());
+	nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
+	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
+	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
+	nodeCellRect->setAttribute("fill", "none");
+	nodeCellRect->setAttribute("stroke-width", "1");
+	nodeCellRect->setAttribute("stroke", "blue");
+
+	Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
+	nodeTextAttribs2->setAttribute("class", "text");
+
+	if (textInAreaList.size() > 0) {
+		nodeTextAttribs2->setAttribute("style", textInAreaList[0].ptextNode->attribute("style"));
+	} else {
 		nodeTextAttribs2->setAttribute("fill", "#000000");
 		nodeTextAttribs2->setAttribute("font-family", "#Lato");
 		nodeTextAttribs2->setAttribute("font-size", "24");
@@ -1668,16 +1676,36 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		nodeTextAttribs2->setAttribute("stroke-width", "0");
 		nodeTextAttribs2->setAttribute("font-weight", "400");
 		nodeTextAttribs2->setAttribute("data-original-font-size", "24");
-
-		Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
-
-		nodeCellIdx->appendChild(nodeTextAttribs);
-		nodeTextAttribs->appendChild(nodeCellRect);
-		nodeTextAttribs->appendChild(nodeTextAttribs2);
-		nodeTextAttribs2->appendChild(nodeText);
-
-		return nodeCellIdx;
 	}
+
+
+	//TODO: The cell can contain many text items with different styles, will fix this later!
+	//for (SvgTextPosition textInCell: textInAreaList)
+	if (textInAreaList.size() > 0) {
+		nodeTextAttribs2->setAttribute("style", textInAreaList[0].ptextNode->attribute("style"));
+	}
+
+	Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
+
+	//for (SvgTextPosition textInCell: textInAreaList)
+	if (textInAreaList.size() > 0)
+	{
+		nodeText->setAttribute("x", std::to_string(textInAreaList[0].x));
+		nodeText->setAttribute("y", std::to_string(textInAreaList[0].y));
+		nodeText->setAttribute("class", " eol");
+		nodeText->setAttribute("xml:space", "preserve");
+
+		nodeText->setContent(textInAreaList[0].text);
+		//printf("%s\n", nodeText->content());
+	}
+
+	nodeCellIdx->appendChild(nodeTextAttribs);
+	nodeTextAttribs->appendChild(nodeCellRect);
+	nodeTextAttribs->appendChild(nodeTextAttribs2);
+	nodeTextAttribs2->appendChild(nodeText);
+
+	return nodeCellIdx;
+}
 
 Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder)
 {
