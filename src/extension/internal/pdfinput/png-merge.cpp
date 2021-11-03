@@ -1656,7 +1656,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 		nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 		nodeCellRect->setAttribute("fill", "none");
-		nodeCellRect->setAttribute("stroke-width", "0");
+		nodeCellRect->setAttribute("stroke-width", "1");
+		nodeCellRect->setAttribute("stroke", "blue");
 
 		Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
 		nodeTextAttribs2->setAttribute("class", "text");
@@ -1732,6 +1733,45 @@ void TableDefenition::setVertex(int xIdx, int yIdx, double xStart, double yStart
 	cell->height = yEnd - yStart;
 }
 
+static bool tableRowsSorter(const double &a, const double &b)
+{
+	return a > b;
+}
+
+struct CellCoord {
+	int col, row;
+	CellCoord(int c, int r) :
+		col(c),
+		row(r)
+	{
+	}
+};
+
+struct SkipCells {
+	std::vector<CellCoord> list;
+
+	void addRect(int col1, int row1, int col2, int row2, bool ignoreFirst = false)
+	{
+		for(int colIdx = col1; colIdx <= col2; colIdx++)
+		{
+			for(int rowIdx = row1; rowIdx <= row2; rowIdx++)
+			{
+				if (ignoreFirst && colIdx == col1 && rowIdx == row1) continue;
+				list.push_back(CellCoord(colIdx, rowIdx));
+			}
+		}
+	}
+
+	bool isExist(int col, int row)
+	{
+		for(auto& cell : list)
+		{
+			if ( cell.col == col && cell.row == row ) return true;
+		}
+		return false;
+	}
+};
+
 bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
@@ -1739,6 +1779,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 	SPDocument* spDoc = builder->getSpDocument();
 	SPObject* spMainNode = spDoc->getObjectByRepr( builder->getMainNode() );
+	SkipCells skipCell;
 
 	for(auto& line : this->lines)
 	{
@@ -1766,7 +1807,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	if (xList.size() == 0 || yList.size() == 0) return false;
 
 	std::sort(xList.begin(), xList.end());
-	std::sort(yList.begin(), yList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter);
 	auto lastX = std::unique(xList.begin(), xList.end());
 	auto lastY = std::unique(yList.begin(), yList.end());
 	xList.erase(lastX, xList.end());
@@ -1779,23 +1820,61 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	xStart = xList[0];
 	yStart = yList[0];
 
+	tableDef->x = xList[0];
+	tableDef->y = yList[0];
 	tableDef->width = xList[xList.size() - 1] - xStart;
-	tableDef->width = yList[yList.size() - 1] - yStart;
+	tableDef->height = yStart - yList[yList.size() - 1];
+
 	for(int yIdx = 1; yIdx < yList.size() ; yIdx++)
 	{
 		xStart = xList[0];
 		for(int xIdx = 1; xIdx < xList.size() ; xIdx++)
 		{
-			double xMediane = (xStart - xList[xIdx])/2 + xStart;
-			double yMediane = (yStart - yList[1])/2 + yStart;
+			if (skipCell.isExist(xIdx - 1, yIdx - 1))
+			{
+				xStart = xList[xIdx];
+				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
+				continue;
+			}
+			double xMediane = (xList[xIdx] - xStart)/2 + xStart;
+			double yMediane = (yStart - yList[yIdx])/2 + yList[yIdx];
 			TabLine* topLine = searchByPoint(xMediane, yStart, false);
 			TabLine* leftLine = searchByPoint(xStart, yMediane, true);
-			TabLine* bottomLine = searchByPoint(xMediane, yList[1], false);
-			TabLine* rightLine = searchByPoint(xList[xIdx], yMediane, true);
+
+			TabLine* rightLine = nullptr;
+			int xShift = 0;
+			while(rightLine == nullptr && (xIdx + xShift) < xList.size())
+			{
+				rightLine = searchByPoint(xList[xIdx + xShift], yMediane, true);
+
+				if (rightLine == nullptr && (xIdx + xShift) < xList.size())
+				{
+					xShift++;
+				}
+			}
+
+			TabLine* bottomLine = nullptr;
+			int yShift = 0;
+			while(bottomLine == nullptr && (yIdx + yShift) < yList.size())
+			{
+				bottomLine = searchByPoint(xMediane, yList[yIdx + yShift], false);
+
+				if (bottomLine == nullptr && (yIdx + yShift) < yList.size())
+				{
+					yShift++;
+				}
+			}
 
 			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
-			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yStart, xList[xIdx], yList[yIdx]);
+			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
 
+			if (xShift >0 || yShift >0)
+			{
+				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
+			}
+
+			xIdx += xShift;
 			xStart = xList[xIdx];
 		}
 		yStart = yList[yIdx];
@@ -1805,7 +1884,13 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder)
 {
-	return tableDef->render(builder);
+	Inkscape::XML::Node* result = tableDef->render(builder);
+	for(auto line : lines)
+	{
+		line->node->parent()->removeChild(line->node);
+		delete(line->node);
+	}
+	return result;
 }
 
 /**
