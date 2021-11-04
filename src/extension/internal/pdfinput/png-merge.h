@@ -216,7 +216,7 @@ public:
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
-	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0);
+	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0, bool excludeTable=true);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);

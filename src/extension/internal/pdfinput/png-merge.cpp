@@ -39,6 +39,14 @@ namespace Inkscape {
 namespace Extension {
 namespace Internal {
 
+bool isTableNode(Inkscape::XML::Node* node)
+{
+	if (node == nullptr) return false;
+	const char* className = node->attribute("class");
+	if (className == nullptr) return false;
+	return (strcmp(className,"element table") == 0);
+}
+
 MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
 {
 	_sizeListMergeTag = 0;
@@ -272,10 +280,11 @@ bool MergeBuilder::haveContent(Inkscape::XML::Node *node) {
 	return false;
 }
 
-bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int level) {
+bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int level, bool excludeTable) {
 	  Inkscape::XML::Node *tmpNode = node;
 	  int countOfnodes = 0;
 	  if (node == 0) return false;
+	  if (excludeTable && isTableNode(node)) return false;
 	  //if (haveContent(node)) return false;
 	  // Calculate count of right svg:g before image
 	  while(tmpNode) {

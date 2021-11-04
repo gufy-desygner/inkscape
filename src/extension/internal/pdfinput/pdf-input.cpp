@@ -1039,9 +1039,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 							}
 						}
 
-
-
-						//mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
+						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
 
 					logTime("Start merge text tags");
