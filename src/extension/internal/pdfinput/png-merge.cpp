@@ -1643,7 +1643,7 @@ std::string doubleToCss(double num)
 	return os.str();
 }
 
-Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r)
+Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
 	static int cellId = 0;
 	cellId++;
@@ -1668,6 +1668,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("stroke-width", "1");
 	nodeCellRect->setAttribute("stroke", "blue");
 
+	nodeTextAttribs->appendChild(nodeCellRect);
+
 
 	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 	// TODO: Fix this
@@ -1677,12 +1679,28 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	while (idxList < textInAreaList.size())
 	{
-		Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
-		nodeTextAttribs2->setAttribute("class", "text");
-		const char *style = textInAreaList[0].ptextNode->attribute("style");
-		nodeTextAttribs2->setAttribute("style", style);
+		//Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
+		//nodeTextAttribs2->setAttribute("class", "text");
+		//const char *style = textInAreaList[0].ptextNode->attribute("style");
+		//nodeTextAttribs2->setAttribute("style", style);
 
-		Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
+		//if (strcmp(chNode->name(), "svg:text") == 0) {
+		//	if (chNode->parent() != mainNode->parent()) { // already have right position
+
+
+		Geom::Affine affText;
+		sp_svg_transform_read(textInAreaList[idxList].ptextNode->attribute("transform"), &affText);
+		// disconnect from previous parent
+		textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
+		// create new representation
+		//char *transBuff =  sp_svg_transform_write(affText * aff);
+		//textInAreaList[idxList].ptextNode->setAttribute("transform", transBuff);
+		//free(transBuff);
+		nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
+		// shift position for insert next node
+
+
+		/*Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
 		nodeText->setAttribute("x", 0);
 		nodeText->setAttribute("y", 0);
 		nodeText->setAttribute("transform", textInAreaList[idxList].ptextNode->attribute("transform"));
@@ -1691,23 +1709,23 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 		Inkscape::XML::Node* nodeString = builder->createTextNode(textInAreaList[idxList].text);
 		nodeText->appendChild(nodeString);
-		nodeTextAttribs2->appendChild(nodeText);
-		nodeTextAttribs->appendChild(nodeTextAttribs2);
+		nodeTextAttribs2->appendChild(nodeText);*/
+		//nodeTextAttribs->appendChild(nodeTextAttribs2);
 
 		// Remove old text nodes!
-		if (textInAreaList[idxList].ptextNode->parent()) {
-			textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);       
-		}	
+		//if (textInAreaList[idxList].ptextNode->parent()) {
+		//	textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
+		//}
 
 		idxList++;
 	}
 
 	nodeCellIdx->appendChild(nodeTextAttribs);
-	nodeTextAttribs->appendChild(nodeCellRect);
+
 	return nodeCellIdx;
 }
 
-Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder)
+Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine aff)
 {
 	Inkscape::XML::Node* nodeTable = builder->createElement("svg:g");
 	nodeTable->setAttribute("class", "element table");
@@ -1730,7 +1748,7 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder)
 
 		for (int colIdx = 0; colIdx < countCol; colIdx++)
 		{
-			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx));
+			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx, aff));
 		}
 	}
 
@@ -1910,9 +1928,9 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	return true;
 }
 
-Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder)
+Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
 {
-	Inkscape::XML::Node* result = tableDef->render(builder);
+	Inkscape::XML::Node* result = tableDef->render(builder, aff);
 	for(auto line : lines)
 	{
 		line->node->parent()->removeChild(line->node);

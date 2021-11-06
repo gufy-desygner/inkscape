@@ -130,7 +130,7 @@ private:
 
 	int countCol, countRow;
 
-	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r);
+	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
 
 
 public:
@@ -151,7 +151,7 @@ public:
 	TableCell* getCell(int xIdx, int yIdx);
 
 
-	Inkscape::XML::Node* render(SvgBuilder *builder);
+	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
 
 class TableRegion
@@ -188,7 +188,7 @@ public:
 
 	bool isTable(){	return _isTable;	}
 	bool buildKnote(SvgBuilder *builder);
-	Inkscape::XML::Node* render(SvgBuilder *builder);
+	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
 typedef std::vector<TableRegion*> TableList;
 
