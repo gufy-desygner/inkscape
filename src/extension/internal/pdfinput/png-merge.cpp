@@ -1644,49 +1644,68 @@ std::string doubleToCss(double num)
 }
 
 Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r)
+{
+	static int cellId = 0;
+	cellId++;
+	std::string svg;
+
+	TableCell* cell = getCell(c, r);
+
+	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
+	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
+	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
+
+	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
+	std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
+
+	Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
+	nodeCellRect->setAttribute("x", doubleToCss(cell->x).c_str());
+	nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
+	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
+	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
+	nodeCellRect->setAttribute("fill", "none");
+	nodeCellRect->setAttribute("stroke-width", "1");
+	nodeCellRect->setAttribute("stroke", "blue");
+
+
+	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+	// TODO: Fix this
+	// The cell can contain many text items with different styles, for now we take only the first item.
+
+	int idxList = 0;
+
+	while (idxList < textInAreaList.size())
 	{
-		static int cellId = 0;
-		cellId++;
-		std::string svg;
-
-		TableCell* cell = getCell(c, r);
-
-		Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
-		std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
-		nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
-
-		Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
-		std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
-		nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
-
-		Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
-		nodeCellRect->setAttribute("x", doubleToCss(cell->x).c_str());
-		nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
-		nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
-		nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
-		nodeCellRect->setAttribute("fill", "none");
-		nodeCellRect->setAttribute("stroke-width", "1");
-		nodeCellRect->setAttribute("stroke", "blue");
-
 		Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
 		nodeTextAttribs2->setAttribute("class", "text");
-		nodeTextAttribs2->setAttribute("fill", "#000000");
-		nodeTextAttribs2->setAttribute("font-family", "#Lato");
-		nodeTextAttribs2->setAttribute("font-size", "24");
-		nodeTextAttribs2->setAttribute("text-anchor", "middle");
-		nodeTextAttribs2->setAttribute("stroke-width", "0");
-		nodeTextAttribs2->setAttribute("font-weight", "400");
-		nodeTextAttribs2->setAttribute("data-original-font-size", "24");
+		const char *style = textInAreaList[0].ptextNode->attribute("style");
+		nodeTextAttribs2->setAttribute("style", style);
 
 		Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
+		nodeText->setAttribute("x", 0);
+		nodeText->setAttribute("y", 0);
+		nodeText->setAttribute("transform", textInAreaList[idxList].ptextNode->attribute("transform"));
+		nodeText->setAttribute("class", " eol");
+		nodeText->setAttribute("xml:space", "preserve");
 
-		nodeCellIdx->appendChild(nodeTextAttribs);
-		nodeTextAttribs->appendChild(nodeCellRect);
-		nodeTextAttribs->appendChild(nodeTextAttribs2);
+		Inkscape::XML::Node* nodeString = builder->createTextNode(textInAreaList[idxList].text);
+		nodeText->appendChild(nodeString);
 		nodeTextAttribs2->appendChild(nodeText);
+		nodeTextAttribs->appendChild(nodeTextAttribs2);
 
-		return nodeCellIdx;
+		// Remove old text nodes!
+		if (textInAreaList[idxList].ptextNode->parent()) {
+			textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);       
+		}	
+
+		idxList++;
 	}
+
+	nodeCellIdx->appendChild(nodeTextAttribs);
+	nodeTextAttribs->appendChild(nodeCellRect);
+	return nodeCellIdx;
+}
 
 Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder)
 {
