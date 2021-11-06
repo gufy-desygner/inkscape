@@ -1009,16 +1009,15 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						newTextAffine = textAffine;
 						newTextAffine.setTranslation(tspanTranslate);
 
-                             if (mergeBuilder->haveContent(tspan->firstChild())) {
-                                  SvgTextPosition textPosition;
-                                  textPosition.text = (gchar*) malloc (strlen(tspan->firstChild()->content()));
-                                  textPosition.x = tspanX;
-                                  textPosition.y = tspanY;
-                                  g_stpcpy(textPosition.text, tspan->firstChild()->content());
-                                  textPosition.ptextNode = textNode->duplicate(doc->getReprDoc());
-                                  mergedTextPositionList.push_back(textPosition);
-                                  //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
-                             }
+                        if (mergeBuilder->haveContent(tspan->firstChild())) {
+                            SvgTextPosition textPosition;
+                            textPosition.x = tspanX;
+                            textPosition.y = tspanY;
+                            textPosition.text = g_strdup(tspan->firstChild()->content());
+                            textPosition.ptextNode = textNode;
+                            mergedTextPositionList.push_back(textPosition);
+                            //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
+                        }
 					}
 
                         builder->setTextPositionList(mergedTextPositionList);

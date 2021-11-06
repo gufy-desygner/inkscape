@@ -2181,7 +2181,7 @@ void SvgBuilder::_flushText() {
         textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
     }
 
-    textPosition.ptextNode = text_node->duplicate(_xml_doc);
+    textPosition.ptextNode = text_node;
 
     gchar const *t_attr = tspan_node->attribute("sodipodi:glyphs_transform");
 
@@ -3698,7 +3698,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         if (textPosition.x >= x1 && textPosition.x <= x2 && textPosition.y >= y1 && textPosition.y <= y2) {
 
             SvgTextPosition tmpTextPosition;
-            tmpTextPosition.ptextNode = textPosition.ptextNode->duplicate(_xml_doc);
+            tmpTextPosition.ptextNode = textPosition.ptextNode;
             tmpTextPosition.text = g_strdup(textPosition.text);
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
