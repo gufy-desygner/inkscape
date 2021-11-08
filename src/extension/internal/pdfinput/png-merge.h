@@ -120,6 +120,8 @@ struct TableCell {
 	 TabLine *bottomLine;
 	 TabLine *leftLine;
 	 TabLine *rightLine;
+	 int mergeIdx;
+	 bool isMax;
 };
 
 class TableDefenition
@@ -149,6 +151,8 @@ public:
 	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
 	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
 	TableCell* getCell(int xIdx, int yIdx);
+	void setMergeIdx(int col1, int row1, int mergeIdx);
+	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
 
 
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);

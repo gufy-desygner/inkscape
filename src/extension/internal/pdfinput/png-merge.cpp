@@ -1653,6 +1653,14 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
 	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
+	if (cell->mergeIdx > 0) {
+		classForNodeIdx.append(" m-" + std::to_string(cell->mergeIdx));
+		if (cell->isMax) {
+			classForNodeIdx.append(" table-cell-max" );
+		} else {
+			classForNodeIdx.append(" table-cell-min" );
+		}
+	}
 	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
 
 	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
@@ -1679,43 +1687,14 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	while (idxList < textInAreaList.size())
 	{
-		//Inkscape::XML::Node* nodeTextAttribs2 = builder->createElement("svg:g");
-		//nodeTextAttribs2->setAttribute("class", "text");
-		//const char *style = textInAreaList[0].ptextNode->attribute("style");
-		//nodeTextAttribs2->setAttribute("style", style);
-
-		//if (strcmp(chNode->name(), "svg:text") == 0) {
-		//	if (chNode->parent() != mainNode->parent()) { // already have right position
-
 
 		Geom::Affine affText;
 		sp_svg_transform_read(textInAreaList[idxList].ptextNode->attribute("transform"), &affText);
 		// disconnect from previous parent
 		textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
 		// create new representation
-		//char *transBuff =  sp_svg_transform_write(affText * aff);
-		//textInAreaList[idxList].ptextNode->setAttribute("transform", transBuff);
-		//free(transBuff);
 		nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
 		// shift position for insert next node
-
-
-		/*Inkscape::XML::Node* nodeText = builder->createElement("svg:text");
-		nodeText->setAttribute("x", 0);
-		nodeText->setAttribute("y", 0);
-		nodeText->setAttribute("transform", textInAreaList[idxList].ptextNode->attribute("transform"));
-		nodeText->setAttribute("class", " eol");
-		nodeText->setAttribute("xml:space", "preserve");
-
-		Inkscape::XML::Node* nodeString = builder->createTextNode(textInAreaList[idxList].text);
-		nodeText->appendChild(nodeString);
-		nodeTextAttribs2->appendChild(nodeText);*/
-		//nodeTextAttribs->appendChild(nodeTextAttribs2);
-
-		// Remove old text nodes!
-		//if (textInAreaList[idxList].ptextNode->parent()) {
-		//	textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
-		//}
 
 		idxList++;
 	}
@@ -1728,7 +1707,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine aff)
 {
 	Inkscape::XML::Node* nodeTable = builder->createElement("svg:g");
-	nodeTable->setAttribute("class", "element table");
+	nodeTable->setAttribute("class", "table");
 
 	Inkscape::XML::Node* nodeTableRect = builder->createElement("svg:rect");
 	nodeTableRect->setAttribute("x", doubleToCss(x).c_str());
@@ -1737,6 +1716,7 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 	nodeTableRect->setAttribute("height", doubleToCss(height).c_str());
 	nodeTableRect->setAttribute("fill", "none");
 	nodeTableRect->setAttribute("stroke-width", "0");
+	nodeTable->appendChild(nodeTableRect);
 
 	for (int rowIdx = 0; rowIdx < countRow; rowIdx++)
 	{
@@ -1818,6 +1798,31 @@ struct SkipCells {
 	}
 };
 
+void TableDefenition::setMergeIdx(int col1, int row1, int mergeIdx)
+{
+	TableCell* cell = getCell(col1, row1);
+	cell->mergeIdx = mergeIdx;
+}
+
+void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx)
+{
+	for(int colIdx = col1; colIdx <= col2; colIdx++)
+	{
+		for(int rowIdx = row1; rowIdx <= row2; rowIdx++)
+		{
+			TableCell* cell = getCell(colIdx, rowIdx);
+			if (colIdx == col1 && rowIdx == row1)
+			{
+				cell->isMax = true;
+			} else
+			{
+				cell->isMax = false;
+			}
+			cell->mergeIdx = mergeIdx;
+		}
+	}
+}
+
 bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
@@ -1883,6 +1888,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
 				continue;
 			}
+
 			double xMediane = (xList[xIdx] - xStart)/2 + xStart;
 			double yMediane = (yStart - yList[yIdx])/2 + yList[yIdx];
 			TabLine* topLine = searchByPoint(xMediane, yStart, false);
@@ -1914,9 +1920,14 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
 			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
+			tableDef->setMergeIdx(xIdx - 1, yIdx - 1, -1);
+
+			static int mergeIdx = 0;
+			mergeIdx++;
 
 			if (xShift >0 || yShift >0)
 			{
+				tableDef->setMergeIdx(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, mergeIdx);
 				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
 			}
 
