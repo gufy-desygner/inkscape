@@ -44,7 +44,7 @@ bool isTableNode(Inkscape::XML::Node* node)
 	if (node == nullptr) return false;
 	const char* className = node->attribute("class");
 	if (className == nullptr) return false;
-	return (strcmp(className,"element table") == 0);
+	return (strcmp(className,"table") == 0);
 }
 
 MergeBuilder::MergeBuilder(Inkscape::XML::Node *sourceTree, gchar *rebasePath)
@@ -1643,12 +1643,128 @@ std::string doubleToCss(double num)
 	return os.str();
 }
 
+Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
+{
+	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
+	 * stroke="#f40101" stroke-dasharray="0 0" stroke-linecap="round" stroke-width="1" x1="47.5" x2="47.5" y1="321" y2="371"
+	 * id="svg_109"></line>
+	 */
+
+	NodeList borders;
+	TableCell* cell = getCell(c, r);
+	if (cell->topLine == nullptr) return nullptr;
+
+	const char* style = cell->topLine->node->attribute("style");
+
+	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
+	std::string classOfBorder("table-border table-border-h index-r-" +
+			std::to_string(r) +
+			" index-c-" +
+			std::to_string(c) +
+			"  table-border-editor");
+	borderNode->setAttribute("style", style);
+	borderNode->setAttribute("class", classOfBorder.c_str());
+
+	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->y + cell->height).c_str());
+	borderNode->setAttribute("x2", doubleToCss(cell->x + cell->width).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->y + cell->height).c_str());
+
+	return borderNode;
+}
+
+Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
+{
+	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
+	 * stroke="#f40101" stroke-dasharray="0 0" stroke-linecap="round" stroke-width="1" x1="47.5" x2="47.5" y1="321" y2="371"
+	 * id="svg_109"></line>
+	 */
+
+	NodeList borders;
+	TableCell* cell = getCell(c, r);
+	if (cell->bottomLine == nullptr) return nullptr;
+
+	const char* style = cell->bottomLine->node->attribute("style");
+
+	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
+	std::string classOfBorder("table-border table-border-h index-r-" +
+			std::to_string(r + 1) +
+			" index-c-" +
+			std::to_string(c) +
+			"  table-border-editor");
+	borderNode->setAttribute("style", style);
+	borderNode->setAttribute("class", classOfBorder.c_str());
+
+	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->y).c_str());
+	borderNode->setAttribute("x2", doubleToCss(cell->x + cell->width).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->y).c_str());
+
+	return borderNode;
+}
+
+Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
+{
+	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
+	 * stroke="#f40101" stroke-dasharray="0 0" stroke-linecap="round" stroke-width="1" x1="47.5" x2="47.5" y1="321" y2="371"
+	 * id="svg_109"></line>
+	 */
+
+	NodeList borders;
+	TableCell* cell = getCell(c, r);
+	if (cell->leftLine == nullptr) return nullptr;
+
+	const char* style = cell->leftLine->node->attribute("style");
+
+	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
+	std::string classOfBorder("table-border table-border-v index-r-" +
+			std::to_string(r) +
+			" index-c-" +
+			std::to_string(c) +
+			"  table-border-editor");
+	borderNode->setAttribute("style", style);
+	borderNode->setAttribute("class", classOfBorder.c_str());
+
+	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->y).c_str());
+	borderNode->setAttribute("x2", doubleToCss(cell->x).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->height + cell->y).c_str());
+
+	return borderNode;
+}
+
+Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
+{
+	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
+	 * stroke="#f40101" stroke-dasharray="0 0" stroke-linecap="round" stroke-width="1" x1="47.5" x2="47.5" y1="321" y2="371"
+	 * id="svg_109"></line>
+	 */
+
+	NodeList borders;
+	TableCell* cell = getCell(c, r);
+	if (cell->rightLine == nullptr) return nullptr;
+
+	const char* style = cell->rightLine->node->attribute("style");
+
+	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
+	std::string classOfBorder("table-border table-border-v index-r-" +
+			std::to_string(r) +
+			" index-c-" +
+			std::to_string(c + 1) +
+			"  table-border-editor");
+	borderNode->setAttribute("style", style);
+	borderNode->setAttribute("class", classOfBorder.c_str());
+
+	borderNode->setAttribute("x1", doubleToCss(cell->x + cell->width).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->y).c_str());
+	borderNode->setAttribute("x2", doubleToCss(cell->x + cell->width).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->height + cell->y).c_str());
+
+	return borderNode;
+}
+
 Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
-	static int cellId = 0;
-	cellId++;
-	std::string svg;
-
 	TableCell* cell = getCell(c, r);
 
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
@@ -1673,8 +1789,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 	nodeCellRect->setAttribute("fill", "none");
-	nodeCellRect->setAttribute("stroke-width", "1");
-	nodeCellRect->setAttribute("stroke", "blue");
+	//nodeCellRect->setAttribute("stroke-width", "1");
+	//nodeCellRect->setAttribute("stroke", "blue");
 
 	nodeTextAttribs->appendChild(nodeCellRect);
 
@@ -1718,6 +1834,9 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 	nodeTableRect->setAttribute("stroke-width", "0");
 	nodeTable->appendChild(nodeTableRect);
 
+	Inkscape::XML::Node* nodeBorders = builder->createElement("svg:g");
+	nodeBorders->setAttribute("class", "table-borders");
+
 	for (int rowIdx = 0; rowIdx < countRow; rowIdx++)
 	{
 		Inkscape::XML::Node* nodeRow = builder->createElement("svg:g");
@@ -1729,11 +1848,33 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 		for (int colIdx = 0; colIdx < countCol; colIdx++)
 		{
 			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx, aff));
+			Inkscape::XML::Node* leftLine = getLeftBorder(builder, colIdx, rowIdx, aff);
+			if (leftLine)
+				nodeBorders->appendChild(leftLine);
+
+			Inkscape::XML::Node* topLine = getTopBorder(builder, colIdx, rowIdx, aff);
+			if (topLine)
+				nodeBorders->appendChild(topLine);
+
+			if (rowIdx == (countRow - 1))
+			{
+				Inkscape::XML::Node* bottomLine = getBottomBorder(builder, colIdx, rowIdx, aff);
+				if (bottomLine)
+					nodeBorders->appendChild(bottomLine);
+			}
+
+			if (colIdx == (countCol- 1))
+			{
+				Inkscape::XML::Node* rightLine = getRightBorder(builder, colIdx, rowIdx, aff);
+				if (rightLine)
+					nodeBorders->appendChild(rightLine);
+			}
 		}
 	}
 
-	return nodeTable;
+	nodeTable->appendChild(nodeBorders);
 
+	return nodeTable;
 }
 
 TableCell* TableDefenition::getCell(int xIdx, int yIdx)
@@ -1872,7 +2013,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	yStart = yList[0];
 
 	tableDef->x = xList[0];
-	tableDef->y = yList[0];
+	tableDef->y = yList[yList.size() - 1];
 	tableDef->width = xList[xList.size() - 1] - xStart;
 	tableDef->height = yStart - yList[yList.size() - 1];
 
@@ -1881,14 +2022,6 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		xStart = xList[0];
 		for(int xIdx = 1; xIdx < xList.size() ; xIdx++)
 		{
-			if (skipCell.isExist(xIdx - 1, yIdx - 1))
-			{
-				xStart = xList[xIdx];
-				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
-				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
-				continue;
-			}
-
 			double xMediane = (xList[xIdx] - xStart)/2 + xStart;
 			double yMediane = (yStart - yList[yIdx])/2 + yList[yIdx];
 			TabLine* topLine = searchByPoint(xMediane, yStart, false);
@@ -1920,6 +2053,15 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
 			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
+
+			if (skipCell.isExist(xIdx - 1, yIdx - 1))
+			{
+				xStart = xList[xIdx];
+				//tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+//				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
+				continue;
+			}
+
 			tableDef->setMergeIdx(xIdx - 1, yIdx - 1, -1);
 
 			static int mergeIdx = 0;
@@ -1931,7 +2073,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
 			}
 
-			xIdx += xShift;
+			//xIdx += xShift;
 			xStart = xList[xIdx];
 		}
 		yStart = yList[yIdx];

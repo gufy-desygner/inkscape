@@ -133,6 +133,10 @@ private:
 	int countCol, countRow;
 
 	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getBottomBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getRightBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
 
 
 public:
