@@ -990,8 +990,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeTspan(builder);
 					NodeList listOfTSpan;
 
-
 					builder->getNodeListByTag("svg:tspan", &listOfTSpan);
+
+                        std::vector<SvgTextPosition> mergedTextPositionList;
+
 					for(auto& tspan : listOfTSpan)
 					{
 						Geom::Affine textAffine;
@@ -1006,7 +1008,20 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						tspanTranslate = tspanTranslate * textAffine.inverse();
 						newTextAffine = textAffine;
 						newTextAffine.setTranslation(tspanTranslate);
+
+                        if (mergeBuilder->haveContent(tspan->firstChild())) {
+                            SvgTextPosition textPosition;
+                            textPosition.x = tspanX;
+                            textPosition.y = tspanY;
+                            textPosition.text = g_strdup(tspan->firstChild()->content());
+                            textPosition.ptextNode = textNode;
+                            mergedTextPositionList.push_back(textPosition);
+                            //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
+                        }
 					}
+
+                        builder->setTextPositionList(mergedTextPositionList);
+
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
 					logTime("Start merge mask");
@@ -1015,6 +1030,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
+					TableList regions;
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
 						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
@@ -1023,8 +1039,28 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
+						detectTables(builder, &regions);
+
+						for(TableRegion* tabRegion : regions)
+						{
+							if (tabRegion->buildKnote(builder))
+							{
+								TabLine* firstPathLine = tabRegion->lines[0];
+								Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+								Inkscape::XML::Node* tabParent = tabPathNode->parent();
+
+								Geom::Affine aff;
+								sp_svg_transform_read(tabParent->attribute("transform"), &aff);
+
+								Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
+								if (tabParent)
+									tabParent->appendChild(tabNode);
+							}
+						}
+
 						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
+
 					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);

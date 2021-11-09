@@ -515,23 +515,31 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 	}
 }
 
-static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList* list)
+static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> &tags, NodeList* list)
 {
 	Inkscape::XML::Node* cursorNode = node;
 	while(cursorNode)
 	{
 		const char* nodeName = cursorNode->name();
-		if (strcasecmp(nodeName, tag) == 0)
-			list->push_back(cursorNode);
+		for(int tagIdx = 0; tags.size() < tagIdx; tagIdx++)
+		{
+			if (strcasecmp(nodeName, tags[tagIdx].c_str()) == 0)
+			{
+				list->push_back(cursorNode);
+				break;
+			}
+
+		}
 		if (cursorNode->childCount() > 0)
-			_getNodesByTag(cursorNode->firstChild(), tag, list);
+			_getNodesByTags(cursorNode->firstChild(), tags, list);
 		cursorNode = cursorNode->next();
 	}
 }
 
-NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode)
 {
 
+	if (tags.size() == 0) return list;
 
 	Inkscape::XML::Node* rootNode;
 	if (startNode == nullptr)
@@ -539,9 +547,20 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	else
 		rootNode = startNode->firstChild();
 
-	_getNodesByTag(rootNode, tag, list);
+	_getNodesByTags(rootNode, tags, list);
 
 	return list;
+}
+
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+{
+
+	if (tag == nullptr) return list;
+
+	std::vector<std::string> tags;
+	tags.push_back("tag");
+
+	return getNodeListByTags(tags, list, startNode);
 }
 
 static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
@@ -677,9 +696,10 @@ bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNo
 */
 }
 
-std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
+std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 {
-	std::vector<NodeList> result;
+	std::vector<NodeList>* _result = new std::vector<NodeList>();
+	std::vector<NodeList>& result = *_result;
 
    	SPDocument *spDoc = getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
@@ -721,10 +741,10 @@ std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
 					continue;
 				}
 // we can merge objects it do not exist layout beetwine
-				if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
+				/*if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
 					startNewRegion = true;
 					break;
-				}
+				}*/
 
 				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
 				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
@@ -734,9 +754,11 @@ std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
 					const char* nId = nodeState.node->attribute("id");
 					//printf("region %s : node %s\n", rId, nId);
 
+					Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0] -1, regionNode->sqBBox[Geom::Y][0] -1,
+							regionNode->sqBBox[Geom::X][1] +1, regionNode->sqBBox[Geom::Y][1] +1);
 
-					if (regionNode->sqBBox.intersects(nodeState.sqBBox) ||
-							regionNode->sqBBox.contains(nodeState.sqBBox))
+					if (extendedBBox.intersects(nodeState.sqBBox) ||
+							extendedBBox.contains(nodeState.sqBBox))
 					{
 						nodeState.isConnected = true;
 						currentRegion.push_back(&nodeState);
@@ -762,7 +784,7 @@ std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
 		else break;
 	};
 
-	return result;
+	return _result;
 }
 
 
@@ -848,6 +870,10 @@ Inkscape::XML::Node *SvgBuilder::getContainer() {
 
 Inkscape::XML::Node *SvgBuilder::createElement(char const *name) {
 	return _xml_doc->createElement(name);
+}
+
+Inkscape::XML::Node *SvgBuilder::createTextNode(char const *content) {
+	return _xml_doc->createTextNode(content);
 }
 
 static gchar *svgConvertRGBToText(double r, double g, double b) {
@@ -2146,6 +2172,33 @@ void SvgBuilder::_flushText() {
         ++i;
     }
     _container->appendChild(text_node);
+
+    SvgTextPosition textPosition;
+
+    textPosition.text = g_strdup("");
+
+    for(SvgGlyph gl : _glyphs) {
+        textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
+    }
+
+    textPosition.ptextNode = text_node;
+
+    gchar const *t_attr = tspan_node->attribute("sodipodi:glyphs_transform");
+
+    if (t_attr) {
+        Geom::Affine transform;
+
+        if (sp_svg_transform_read(t_attr, &transform)) {
+            double tspanX = transform[4];
+            double tspanY = transform[5];
+
+            textPosition.x = tspanX;
+            textPosition.y = tspanY;
+        }
+    }
+
+    textPositionList.push_back(textPosition);
+
     Inkscape::GC::release(text_node);
 
     _glyphs.clear();
@@ -3626,6 +3679,36 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         _state_stack.back().softmask = NULL;
         popGroup();
     }
+}
+
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
+
+    // Parse this vector textPositionList
+    // And get exact text inside the area.
+
+    if ( textPositionList.empty()) {
+        textPositionList.clear();
+        return {};
+    }
+
+    std::vector<SvgTextPosition> textInAreaList;
+
+    for(SvgTextPosition textPosition : textPositionList) {
+
+        if (textPosition.x >= x1 && textPosition.x <= x2 && textPosition.y >= y1 && textPosition.y <= y2) {
+
+            SvgTextPosition tmpTextPosition;
+            tmpTextPosition.ptextNode = textPosition.ptextNode;
+            tmpTextPosition.text = g_strdup(textPosition.text);
+            tmpTextPosition.x = textPosition.x;
+            tmpTextPosition.y = textPosition.y;
+            //printf("[%f, %f]  %s\n", x, y, tmpTextPosition.text);
+
+            textInAreaList.push_back(tmpTextPosition);
+        }
+    }
+
+    return textInAreaList;
 }
 
 } } } /* namespace Inkscape, Extension, Internal */

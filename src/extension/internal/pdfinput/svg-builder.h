@@ -100,6 +100,14 @@ void mergeTspanList(NodeList &tspanArray);
 /**
  * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
+
+struct SvgTextPosition {
+    Inkscape::XML::Node* ptextNode;
+    gchar* text;
+    double x = 0;
+    double y = 0;
+};
+
 class SvgBuilder {
 public:
     SvgBuilder(SPDocument *document, gchar *docname, XRef *xref);
@@ -113,6 +121,7 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
+    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode);
     NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
     Inkscape::XML::Node* getMainNode();
 
@@ -120,7 +129,7 @@ public:
         return _preferences;
     }
 
-    std::vector<NodeList> getRegions(std::vector<std::string> &tags);
+    std::vector<NodeList>* getRegions(std::vector<std::string> &tags);
 
 
     // Handling the node stack
@@ -128,6 +137,7 @@ public:
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
     Inkscape::XML::Node *createElement(char const *name);
+    Inkscape::XML::Node *createTextNode(char const *content);
 
     char *getGlyph(SvgGlyph * svgGlyph, FT_Face face);
     FT_GlyphSlot getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom);
@@ -210,6 +220,11 @@ public:
     SPDocument *getSpDocument(void){ return _doc;};
     double glipEndX, glipEndY;
     double spaceWidth;
+
+    std::vector<SvgTextPosition> getTextPositionList() { return textPositionList; }
+    void setTextPositionList(std::vector<SvgTextPosition> _textPositionList) { textPositionList = _textPositionList; }
+    std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2);
+
 private:
     void _init();
 
@@ -282,6 +297,8 @@ private:
     int _countOfImages;
     int _countOfPath;
     bool _ttm_is_set;
+
+    std::vector<SvgTextPosition> textPositionList;
 };
 
 

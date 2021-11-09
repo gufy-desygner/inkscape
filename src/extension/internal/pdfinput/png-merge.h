@@ -13,6 +13,7 @@
 #include "util/list.h"
 #include "svg-builder.h"
 #include "sp-item.h"
+#include "sp-path.h"
 #include "Object.h"
 
 #define PROFILER_ENABLE 0
@@ -85,7 +86,123 @@ extern double profiler_timer_up[];
 #define prnTimer
 #endif
 
+
+
 double GetTickCount(void);
+
+class TabLine {
+	private:
+
+
+		bool isVert;
+		bool lookLikeTab;
+		SPPath* spPath;
+		SPCurve* curve;
+		size_t segmentCount;
+		Geom::Curve* firstSegment;
+		Geom::Point start;
+		Geom::Point end;
+
+	public:
+		Inkscape::XML::Node* node;
+		double x1, x2, y1, y2;
+	TabLine(Inkscape::XML::Node* node, SPDocument *spDoc);
+	Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+
+
+	bool isTableLine() { return  lookLikeTab; }
+	bool isVertical() { return x1 == x2; }
+};
+
+struct TableCell {
+	double x, y, width, height;
+	 TabLine *topLine;
+	 TabLine *bottomLine;
+	 TabLine *leftLine;
+	 TabLine *rightLine;
+	 int mergeIdx;
+	 bool isMax;
+};
+
+class TableDefenition
+{
+private:
+	TableCell* _cells;
+
+
+	int countCol, countRow;
+
+	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getBottomBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+	Inkscape::XML::Node* getRightBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
+
+
+public:
+	double x, y, width, height;
+	TableDefenition(unsigned int width, unsigned int height) :
+		countCol(width),
+		countRow(height),
+		x(0),
+		y(0),
+		width(0),
+		height(0)
+	{
+		_cells = new TableCell[countCol*countRow];
+
+	}
+	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
+	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
+	TableCell* getCell(int xIdx, int yIdx);
+	void setMergeIdx(int col1, int row1, int mergeIdx);
+	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
+
+
+	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
+};
+
+class TableRegion
+{
+private:
+
+	double x1, x2, y1, y2;
+	SvgBuilder *_builder;
+	SPDocument* spDoc;
+	bool _isTable;
+	TableDefenition* tableDef;
+public:
+	std::vector<TabLine*> lines;
+	~TableRegion()
+	{
+		if (tableDef)
+			delete(tableDef);
+	}
+	TableRegion(SvgBuilder *builder) :
+		_builder(builder),
+		_isTable(true),
+		tableDef(nullptr),
+		x1(0),
+		x2(0),
+		y1(0),
+		y2(0)
+	{
+		spDoc = _builder->getSpDocument();
+	}
+
+	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+
+	bool addLine(Inkscape::XML::Node* node);
+
+	bool isTable(){	return _isTable;	}
+	bool buildKnote(SvgBuilder *builder);
+	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
+};
+typedef std::vector<TableRegion*> TableList;
+
+TableList* detectTables(SvgBuilder *builder, TableList* tables);
+
+
 
 class MergeBuilder {
 public:
@@ -107,7 +224,7 @@ public:
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
-	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0);
+	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0, bool excludeTable=true);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);
