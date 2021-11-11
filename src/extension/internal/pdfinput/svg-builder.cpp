@@ -521,7 +521,7 @@ static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> 
 	while(cursorNode)
 	{
 		const char* nodeName = cursorNode->name();
-		for(int tagIdx = 0; tags.size() < tagIdx; tagIdx++)
+		for(int tagIdx = 0; tags.size() > tagIdx; tagIdx++)
 		{
 			if (strcasecmp(nodeName, tags[tagIdx].c_str()) == 0)
 			{
@@ -558,7 +558,7 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	if (tag == nullptr) return list;
 
 	std::vector<std::string> tags;
-	tags.push_back("tag");
+	tags.push_back(tag);
 
 	return getNodeListByTags(tags, list, startNode);
 }
