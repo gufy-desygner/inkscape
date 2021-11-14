@@ -1660,8 +1660,9 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 	std::string classOfBorder("table-border table-border-h index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1690,8 +1691,9 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 	std::string classOfBorder("table-border table-border-h index-r-" +
 			std::to_string(r + 1) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1720,8 +1722,9 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	std::string classOfBorder("table-border table-border-v index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1750,8 +1753,9 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	std::string classOfBorder("table-border table-border-v index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c + 1) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c + 1));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1780,7 +1784,9 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
 
 	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
-	std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	// Bug 5
+	//std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	std::string classForNodeTextAttribs("textarea subelement active");
 	nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
 
 	Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
@@ -1788,7 +1794,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
-	nodeCellRect->setAttribute("fill", "none");
+	// Bug 3 & Bug 6
+	//nodeCellRect->setAttribute("fill", "none");
 	//nodeCellRect->setAttribute("stroke-width", "1");
 	//nodeCellRect->setAttribute("stroke", "blue");
 
