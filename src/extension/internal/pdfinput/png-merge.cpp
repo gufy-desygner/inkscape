@@ -1794,8 +1794,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("y", doubleToCss(cell->y).c_str());
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
-	// Bug 3 & Bug 6
-	//nodeCellRect->setAttribute("fill", "none");
+	nodeCellRect->setAttribute("fill", "none");
+	// Bug 6
 	//nodeCellRect->setAttribute("stroke-width", "1");
 	//nodeCellRect->setAttribute("stroke", "blue");
 
@@ -1838,7 +1838,9 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 	nodeTableRect->setAttribute("width", doubleToCss(width).c_str());
 	nodeTableRect->setAttribute("height", doubleToCss(height).c_str());
 	nodeTableRect->setAttribute("fill", "none");
-	nodeTableRect->setAttribute("stroke-width", "0");
+	// g.textarea rect must set fill="none" or (for example) fill="#fff000".
+	// Currently it uses inline style which is not correct (the editor doesn't allow this rect have style)
+	//nodeTableRect->setAttribute("stroke-width", "0");
 	nodeTable->appendChild(nodeTableRect);
 
 	Inkscape::XML::Node* nodeBorders = builder->createElement("svg:g");
