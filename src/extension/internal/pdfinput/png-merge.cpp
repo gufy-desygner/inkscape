@@ -1660,8 +1660,9 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 	std::string classOfBorder("table-border table-border-h index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1690,8 +1691,9 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 	std::string classOfBorder("table-border table-border-h index-r-" +
 			std::to_string(r + 1) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1720,8 +1722,9 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	std::string classOfBorder("table-border table-border-v index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1750,8 +1753,9 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	std::string classOfBorder("table-border table-border-v index-r-" +
 			std::to_string(r) +
 			" index-c-" +
-			std::to_string(c + 1) +
-			"  table-border-editor");
+			// Bug 10
+			//"  table-border-editor");
+			std::to_string(c + 1));
 	borderNode->setAttribute("style", style);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
@@ -1780,7 +1784,9 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellIdx->setAttribute("class", classForNodeIdx.c_str());
 
 	Inkscape::XML::Node* nodeTextAttribs = builder->createElement("svg:g");
-	std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	// Bug 5
+	//std::string classForNodeTextAttribs("textarea subelement active original-font-size-24");
+	std::string classForNodeTextAttribs("textarea subelement active");
 	nodeTextAttribs->setAttribute("class", classForNodeTextAttribs.c_str());
 
 	Inkscape::XML::Node* nodeCellRect = builder->createElement("svg:rect");
@@ -1789,6 +1795,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 	nodeCellRect->setAttribute("fill", "none");
+	// Bug 6
 	//nodeCellRect->setAttribute("stroke-width", "1");
 	//nodeCellRect->setAttribute("stroke", "blue");
 
@@ -1831,7 +1838,9 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 	nodeTableRect->setAttribute("width", doubleToCss(width).c_str());
 	nodeTableRect->setAttribute("height", doubleToCss(height).c_str());
 	nodeTableRect->setAttribute("fill", "none");
-	nodeTableRect->setAttribute("stroke-width", "0");
+	// g.textarea rect must set fill="none" or (for example) fill="#fff000".
+	// Currently it uses inline style which is not correct (the editor doesn't allow this rect have style)
+	//nodeTableRect->setAttribute("stroke-width", "0");
 	nodeTable->appendChild(nodeTableRect);
 
 	Inkscape::XML::Node* nodeBorders = builder->createElement("svg:g");
