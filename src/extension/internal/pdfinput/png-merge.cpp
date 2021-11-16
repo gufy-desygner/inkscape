@@ -1803,23 +1803,30 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 
 	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
-	// TODO: Fix this
-	// The cell can contain many text items with different styles, for now we take only the first item.
+	size_t nLinesInCell = textInAreaList.size();
 
-	int idxList = 0;
+	// Even if the cell doesnt contain any text,
+	// We need to add <g class="text"><text></text></g>
+	if (nLinesInCell <= 0) {
+		Inkscape::XML::Node* stringNode = builder->createTextNode("");
+		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
+		tSpanNode->setAttribute("x", "0");
+		tSpanNode->setAttribute("y", "0");
 
-	while (idxList < textInAreaList.size())
-	{
+		Inkscape::XML::Node* tTextNode = builder->createElement("svg:text");
+		tTextNode->setAttribute("style", "fill:none");
 
-		Geom::Affine affText;
-		sp_svg_transform_read(textInAreaList[idxList].ptextNode->attribute("transform"), &affText);
-		// disconnect from previous parent
-		textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
-		// create new representation
-		nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
-		// shift position for insert next node
-
-		idxList++;
+		tSpanNode->appendChild(stringNode);
+		tTextNode->appendChild(tSpanNode);
+		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
+	} else {
+		for (int idxList = 0; idxList < nLinesInCell; idxList++)
+		{
+			// disconnect from previous parent
+			textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
+			// create new representation
+			nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
+		}
 	}
 
 	nodeCellIdx->appendChild(nodeTextAttribs);
