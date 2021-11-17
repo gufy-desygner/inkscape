@@ -1705,13 +1705,14 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 	return borderNode;
 }
 
+bool TableDefenition::isHidCell(int c, int r)
+{
+	TableCell* cell = getCell(c, r);
+	return ((! cell->isMax) && cell->mergeIdx > 0);
+}
+
 Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
-	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
-	 * stroke="#f40101" stroke-dasharray="0 0" stroke-linecap="round" stroke-width="1" x1="47.5" x2="47.5" y1="321" y2="371"
-	 * id="svg_109"></line>
-	 */
-
 	NodeList borders;
 	TableCell* cell = getCell(c, r);
 	if (cell->leftLine == nullptr) return nullptr;
@@ -1866,11 +1867,11 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 		{
 			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx, aff));
 			Inkscape::XML::Node* leftLine = getLeftBorder(builder, colIdx, rowIdx, aff);
-			if (leftLine)
+			if (leftLine && (! isHidCell(colIdx, rowIdx)))
 				nodeBorders->appendChild(leftLine);
 
 			Inkscape::XML::Node* topLine = getTopBorder(builder, colIdx, rowIdx, aff);
-			if (topLine)
+			if (topLine && (! isHidCell(colIdx, rowIdx)))
 				nodeBorders->appendChild(topLine);
 
 			if (rowIdx == (countRow - 1))
@@ -2073,7 +2074,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 			if (skipCell.isExist(xIdx - 1, yIdx - 1))
 			{
-				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+				tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
 				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx], xList[xIdx], yStart);
 				xStart = xList[xIdx];
 
