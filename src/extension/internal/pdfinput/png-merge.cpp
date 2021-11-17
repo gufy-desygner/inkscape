@@ -1807,7 +1807,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>
-	if (nLinesInCell <= 0) {
+	// TODO: reverify this, we're setting the text only in the TOP LEFT cell for now.
+	if (if (cell->mergeIdx > 0 && cell->isMax == false)) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
 		tSpanNode->setAttribute("x", "0");
@@ -2067,15 +2068,19 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				}
 			}
 
-			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
-			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
+			//tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
+			//tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
 
 			if (skipCell.isExist(xIdx - 1, yIdx - 1))
 			{
+				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx], xList[xIdx], yStart);
 				xStart = xList[xIdx];
-				//tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
-//				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
+
 				continue;
+			} else {
+				tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
 			}
 
 			tableDef->setMergeIdx(xIdx - 1, yIdx - 1, -1);
