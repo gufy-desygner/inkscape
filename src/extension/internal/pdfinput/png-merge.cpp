@@ -2067,15 +2067,19 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				}
 			}
 
-			tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
-			tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
+			//tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
+			//tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
 
 			if (skipCell.isExist(xIdx - 1, yIdx - 1))
 			{
+				tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx], xList[xIdx], yStart);
 				xStart = xList[xIdx];
-				//tableDef->setStroke(xIdx - 1, yIdx - 1, nullptr, nullptr, nullptr, nullptr);
-//				tableDef->setVertex(xIdx - 1, yIdx - 1, 0, 0, 0, 0);
+
 				continue;
+			} else {
+				tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
+				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
 			}
 
 			tableDef->setMergeIdx(xIdx - 1, yIdx - 1, -1);
