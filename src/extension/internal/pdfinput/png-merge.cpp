@@ -1809,7 +1809,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>
 	// TODO: reverify this, we're setting the text only in the TOP LEFT cell for now.
-	if (if (cell->mergeIdx > 0 && cell->isMax == false)) {
+	if (cell->mergeIdx > 0 && cell->isMax == false) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
 		tSpanNode->setAttribute("x", "0");
