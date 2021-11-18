@@ -1865,6 +1865,7 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 
 		for (int colIdx = 0; colIdx < countCol; colIdx++)
 		{
+			TableCell* cell = getCell(colIdx, rowIdx);
 			nodeRow->appendChild(cellRender(builder, colIdx, rowIdx, aff));
 			Inkscape::XML::Node* leftLine = getLeftBorder(builder, colIdx, rowIdx, aff);
 			if (leftLine && (! isHidCell(colIdx, rowIdx)))
@@ -1876,14 +1877,28 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 
 			if (rowIdx == (countRow - 1))
 			{
-				Inkscape::XML::Node* bottomLine = getBottomBorder(builder, colIdx, rowIdx, aff);
+				Inkscape::XML::Node* bottomLine = nullptr;
+				if (isHidCell(colIdx, rowIdx))
+				{
+					if (colIdx == cell->maxCol)
+						bottomLine = getBottomBorder(builder, cell->maxCol, cell->maxRow, aff);
+				} else {
+					bottomLine = getBottomBorder(builder, colIdx, rowIdx, aff);
+				}
 				if (bottomLine)
 					nodeBorders->appendChild(bottomLine);
 			}
 
 			if (colIdx == (countCol- 1))
 			{
-				Inkscape::XML::Node* rightLine = getRightBorder(builder, colIdx, rowIdx, aff);
+				Inkscape::XML::Node* rightLine = nullptr;
+				if (isHidCell(colIdx, rowIdx))
+				{
+					if (rowIdx == cell->maxRow)
+							rightLine = getRightBorder(builder, cell->maxCol, cell->maxRow, aff);
+				} else {
+					rightLine = getRightBorder(builder, colIdx, rowIdx, aff);
+				}
 				if (rightLine)
 					nodeBorders->appendChild(rightLine);
 			}
@@ -1965,6 +1980,7 @@ void TableDefenition::setMergeIdx(int col1, int row1, int mergeIdx)
 
 void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx)
 {
+	TableCell* cellMax = getCell(col1, row1);
 	for(int colIdx = col1; colIdx <= col2; colIdx++)
 	{
 		for(int rowIdx = row1; rowIdx <= row2; rowIdx++)
@@ -1975,6 +1991,9 @@ void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int me
 				cell->isMax = true;
 			} else
 			{
+				cell->maxCol = col1;
+				cell->maxRow = row1;
+				cell->cellMax = cellMax;
 				cell->isMax = false;
 			}
 			cell->mergeIdx = mergeIdx;
