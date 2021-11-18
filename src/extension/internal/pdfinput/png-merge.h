@@ -162,8 +162,6 @@ public:
 	void setMergeIdx(int col1, int row1, int mergeIdx);
 	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
 
-	bool isHidCell(int c, int r);
-
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
 
