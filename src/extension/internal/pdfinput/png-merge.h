@@ -122,6 +122,9 @@ struct TableCell {
 	 TabLine *rightLine;
 	 int mergeIdx;
 	 bool isMax;
+	 int maxCol;
+	 int maxRow;
+	 TableCell* cellMax;
 };
 
 class TableDefenition
@@ -132,6 +135,7 @@ private:
 
 	int countCol, countRow;
 
+	bool isHidCell(int c, int r);
 	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
 	Inkscape::XML::Node* getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
 	Inkscape::XML::Node* getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
@@ -157,8 +161,6 @@ public:
 	TableCell* getCell(int xIdx, int yIdx);
 	void setMergeIdx(int col1, int row1, int mergeIdx);
 	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
-
-	bool isHidCell(int c, int r);
 
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
