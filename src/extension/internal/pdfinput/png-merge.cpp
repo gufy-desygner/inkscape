@@ -33,6 +33,7 @@
 #include "extension/db.h"
 #include "extension/system.h"
 #include "sp-path.h"
+#include "2geom/curve.h"
 
 
 namespace Inkscape {
@@ -1588,18 +1589,26 @@ TabLine::TabLine(Inkscape::XML::Node* node, SPDocument *spDoc) :
 	if (strcmp(node->name(), "svg:path") != 0)
 		return;
 
-	spPath = (SPPath*)spDoc->getObjectByRepr(node);
-	curve = spPath->getCurve();
-	segmentCount = curve->get_segment_count();
-	if (segmentCount > 1 )
-		return;
+	SPPath* spPath = (SPPath*)spDoc->getObjectByRepr(node);
+	SPCurve* curve = spPath->getCurve();
+	size_t segmentCount = curve->get_segment_count();
+	//if (segmentCount > 1 )
+	//	return;
 
-	firstSegment = (Geom::Curve*)curve->first_segment();
-	if (! firstSegment->isLineSegment())
-		return;
 
-	start = firstSegment->initialPoint();
-	end = firstSegment->finalPoint();
+	const Geom::PathVector pathArray = curve->get_pathvector();
+
+	for (auto& itPath : pathArray)
+	{
+		for(auto& it : itPath)
+			if (! it.isLineSegment())
+				return;
+	}
+
+	Geom::Curve* firstSegment = (Geom::Curve*)curve->first_segment();
+
+	Geom::Point start = firstSegment->initialPoint();
+	Geom::Point end = firstSegment->finalPoint();
 
 	x1 = start[0];
 	x2 = end[0];

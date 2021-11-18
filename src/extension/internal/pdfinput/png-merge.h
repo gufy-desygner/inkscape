@@ -96,12 +96,12 @@ class TabLine {
 
 		bool isVert;
 		bool lookLikeTab;
-		SPPath* spPath;
-		SPCurve* curve;
-		size_t segmentCount;
-		Geom::Curve* firstSegment;
-		Geom::Point start;
-		Geom::Point end;
+		//SPPath* spPath;
+		//SPCurve* curve;
+		//size_t segmentCount;
+		//Geom::Curve* firstSegment;
+		//Geom::Point start;
+		//Geom::Point end;
 
 	public:
 		Inkscape::XML::Node* node;
