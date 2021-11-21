@@ -1860,7 +1860,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 	nodeCellRect->setAttribute("fill", "none");
 
-	if (cell->rect != nullptr)
+	if (cell->rect != nullptr && cell->rect->node != nullptr)
 	{
 		SPDocument* spDoc = builder->getSpDocument();
 		SPItem* spNode = (SPItem*) spDoc->getObjectByRepr(cell->rect->node);
@@ -2186,6 +2186,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
 				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx], xList[xIdx], yStart);
 				xStart = xList[xIdx];
+				tableDef->setRect(xIdx -1, yIdx -1, nullptr);
 
 				continue;
 			} else {
