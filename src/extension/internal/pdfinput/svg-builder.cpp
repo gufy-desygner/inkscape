@@ -2032,8 +2032,8 @@ void SvgBuilder::_flushText() {
                 	}
                     sp_svg_number_write_de(c, sizeof(c), lastDeltaX/glipCount, 8, -8);
                     tspan_node->setAttribute("data-dx", c);
-                    glipCount = 0;
                 }
+                glipCount = 0;
                 if ( same_coords[1] ) {
                     sp_repr_set_svg_double(tspan_node, "y", last_delta_pos[1]);
                 } else {
