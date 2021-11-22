@@ -1835,6 +1835,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 {
 	TableCell* cell = getCell(c, r);
 
+	printf("cell: r = %d c = %d x = %f y = %f h = %f w = %f\n", r, c, cell->x, cell->y, cell->height, cell->width);
+
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
 	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
 	if (cell->mergeIdx > 0) {
@@ -1877,6 +1879,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 	size_t nLinesInCell = textInAreaList.size();
+
+	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>

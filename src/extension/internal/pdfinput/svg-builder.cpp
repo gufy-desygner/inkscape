@@ -2007,10 +2007,10 @@ void SvgBuilder::_flushText() {
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
                      glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
-            		(calc_dx > 3 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
-            		/*||
-            		// negative dx attribute can't be showing in mozilla
-            		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
+                        (calc_dx > 3 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
+                       /*||
+                       // negative dx attribute can't be showing in mozilla
+                       ( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
             	new_tspan = true;
             }
         }
@@ -2173,31 +2173,75 @@ void SvgBuilder::_flushText() {
     }
     _container->appendChild(text_node);
 
-    SvgTextPosition textPosition;
+    for (Inkscape::XML::Node* ptSpanNode = text_node->firstChild() ; ptSpanNode ; ptSpanNode = ptSpanNode->next()) {
 
-    textPosition.text = g_strdup("");
+        SvgTextPosition textPosition;
 
-    for(SvgGlyph gl : _glyphs) {
-        textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
-    }
+        textPosition.text = g_strdup("");
 
-    textPosition.ptextNode = text_node;
-
-    gchar const *t_attr = tspan_node->attribute("sodipodi:glyphs_transform");
-
-    if (t_attr) {
-        Geom::Affine transform;
-
-        if (sp_svg_transform_read(t_attr, &transform)) {
-            double tspanX = transform[4];
-            double tspanY = transform[5];
-
-            textPosition.x = tspanX;
-            textPosition.y = tspanY;
+        for(SvgGlyph gl : _glyphs) {
+            textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
         }
+
+        textPosition.text = g_strdup_printf("%s", ptSpanNode->firstChild()->content());
+
+        textPosition.ptextNode = ptSpanNode;
+
+        SPDocument* spDoc = getSpDocument();
+        SPRoot* spRoot = spDoc->getRoot();
+        te_update_layout_now_recursive(spRoot);
+
+        SPObject* spMainNode = spDoc->getObjectByRepr(getMainNode());
+
+        SPItem* spNode = (SPItem*)spDoc->getObjectByRepr(textPosition.ptextNode);
+
+        if (spNode == NULL)
+            continue;
+
+        Geom::OptRect visualBound(spNode->visualBounds());
+
+        if (!visualBound.is_initialized())
+            continue;
+
+        Geom::Rect sqTextBBox = visualBound.get();
+        Geom::Affine nodeAffine = spNode->getRelativeTransform(spMainNode);
+        sqTextBBox = sqTextBBox * nodeAffine;
+
+        // ROund the coordinates to be conform with table lines.
+        textPosition.sqTextBBox = new Geom::Rect(round(sqTextBBox[Geom::X][0]),
+                                                    round(sqTextBBox[Geom::Y][0]),
+                                                        round(sqTextBBox[Geom::X][1]),
+                                                            round(sqTextBBox[Geom::Y][1]));
+
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+        //printf("(T4 %f, T5 %f) + [%f,%f]\n", transform[4], transform[5], tSpanX, tSpanY);
+        //print_node(ptSpanNode, 3);
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+
+        gchar const *tStrTransf = tspan_node->attribute("sodipodi:glyphs_transform");
+        gchar const *tStrSpanX = tspan_node->attribute("x");
+        gchar const *tStrSpanY = tspan_node->attribute("y");
+
+        float tSpanX = 0;
+        float tSpanY = 0;
+        sp_svg_number_read_f(tStrSpanX, &tSpanX);
+        sp_svg_number_read_f(tStrSpanY, &tSpanY);
+
+        if (tStrTransf) {
+            Geom::Affine transform;
+
+            if (sp_svg_transform_read(tStrTransf, &transform)) {
+                textPosition.x = /*tSpanX + */transform[4];
+                textPosition.y = /*tSpanY + */transform[5];
+            }
+        }
+
+
+        textPositionList.push_back(textPosition);
+
+        //print_node(ptSpanNode, 3);
     }
 
-    textPositionList.push_back(textPosition);
 
     Inkscape::GC::release(text_node);
 
@@ -3695,16 +3739,78 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 
     for(SvgTextPosition textPosition : textPositionList) {
 
-        if (textPosition.x >= x1 && textPosition.x <= x2 && textPosition.y >= y1 && textPosition.y <= y2) {
+        Geom::Rect sqCellBBox(x1, y1, x2, y2);
+        Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
+
+        if (sqCellBBox.interiorContains(sqTxtBBox)) {
+            printf("Text in Cell Normal! %s\n", textPosition.text);
 
             SvgTextPosition tmpTextPosition;
             tmpTextPosition.ptextNode = textPosition.ptextNode;
             tmpTextPosition.text = g_strdup(textPosition.text);
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
-            //printf("[%f, %f]  %s\n", x, y, tmpTextPosition.text);
 
-            textInAreaList.push_back(tmpTextPosition);
+            //textInAreaList.push_back(tmpTextPosition);
+
+        } else if (sqCellBBox.interiorIntersects(sqTxtBBox)) {
+
+            float textX1 = sqTxtBBox[Geom::X][0];
+            float textX2 = sqTxtBBox[Geom::X][1];
+            float textY1 = sqTxtBBox[Geom::Y][0];
+            float textY2 = sqTxtBBox[Geom::Y][1];
+
+            float cellX1 = sqCellBBox[Geom::X][0];
+            float cellX2 = sqCellBBox[Geom::X][1];
+            float cellY1 = sqCellBBox[Geom::Y][0];
+            float cellY2 = sqCellBBox[Geom::Y][1];
+
+            float cellWidth = cellX2 - cellX1;
+
+            const gchar *dataX = textPosition.ptextNode->attribute("data-x");
+            std::vector<SVGLength> data_x = sp_svg_length_list_read(dataX);
+
+            int iIdxFirstLetter = -1;
+
+            // Find the 1st letter from text that fits inside the cell.
+            for(int i = 0; i < data_x.size(); i++) {
+                if (data_x[i]._set) {
+                    if (((textX1 + data_x[i].value) > cellX1) && ((textX1 + data_x[i].value) < cellX2)) {
+                        // Now you can start extracting characters!
+                        iIdxFirstLetter = i;
+                        break;
+                    }
+                }
+            }
+
+            Glib::ustring textInsideCell;
+
+            for(int i = iIdxFirstLetter; i < data_x.size(); i++) {
+                if (data_x[i]._set) {
+                    // Check if character is not overlapping the cell!
+                    if (data_x[i].value < (data_x[iIdxFirstLetter].value + cellWidth)) {
+                        Inkscape::CSSOStringStream os_x;
+                        os_x << textPosition.text[i];
+                        textInsideCell.append(os_x.str());
+                    } else {
+                        // Text overlapped the cell borders.
+                        break;
+                    }
+                }
+            }
+            printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+            printf("%s\n", textInsideCell.c_str());
+            printf("Text [X1=%f Y1=%f X2=%f Y=%f ]\n", textX1, textX2, textY1, textY2);
+            printf("Cell [X1=%f Y1=%f X2=%f Y=%f ]\n", cellX1, cellX2, cellY1, cellY2);
+
+            SvgTextPosition tmpTextPosition;
+            tmpTextPosition.ptextNode = textPosition.ptextNode;
+            tmpTextPosition.text = g_strdup(textInsideCell.c_str());
+            tmpTextPosition.x = textPosition.x;
+            tmpTextPosition.y = textPosition.y;
+
+            //textInAreaList.push_back(tmpTextPosition);
+
         }
     }
 
