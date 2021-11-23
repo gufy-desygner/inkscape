@@ -1835,6 +1835,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 {
 	TableCell* cell = getCell(c, r);
 
+    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	printf("cell: r = %d c = %d x = %f y = %f h = %f w = %f\n", r, c, cell->x, cell->y, cell->height, cell->width);
 
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
@@ -1875,7 +1876,6 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	//nodeCellRect->setAttribute("stroke", "blue");
 
 	nodeTextAttribs->appendChild(nodeCellRect);
-
 
 	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 	size_t nLinesInCell = textInAreaList.size();
