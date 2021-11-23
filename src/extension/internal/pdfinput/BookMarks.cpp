@@ -17,6 +17,7 @@
 #include "svg/svg.h"
 #include "svg/css-ostringstream.h"
 #include <cmath>
+#include "png-merge.h"
 
 using Inkscape::Extension::Internal::mergeTspanList;
 
@@ -307,7 +308,7 @@ Geom::Rect AdobeExtraData::getFrameRect(int i, Geom::Rect svgDimension)
  *
  * @return percent
  */
-static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
+/*static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 {
 	if (! main.intersects(kind)) return 0;
 
@@ -323,7 +324,7 @@ static double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 	double squareOfintersects = std::fabs(x1 - x0) * std::fabs(y1 - y0);
 
 	return (squareOfintersects/squareOfKind) * 100;
-}
+}*/
 
 static void filterTextNodeByRect(Inkscape::Extension::Internal::SvgBuilder* builder, const Geom::Rect& main,
 		NodeList &listOfText, NodeList &filteredList)

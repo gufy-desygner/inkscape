@@ -33,6 +33,30 @@
 #include "extension/db.h"
 #include "extension/system.h"
 #include "sp-path.h"
+#include "2geom/curve.h"
+
+/**
+ * @describe how big part of kind rectangle intersected with main rectangle
+ *
+ * @return percent
+ */
+double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
+{
+	if (! main.intersects(kind)) return 0;
+
+	double squareOfKind = std::fabs(kind[Geom::X][0] - kind[Geom::X][1]) * std::fabs(kind[Geom::Y][0] - kind[Geom::Y][1]);
+	if (squareOfKind == 0) return 0;
+
+	double x0 = (kind[Geom::X][0] < main[Geom::X][0]) ? main[Geom::X][0] : kind[Geom::X][0];
+	double x1 = (kind[Geom::X][1] > main[Geom::X][1]) ? main[Geom::X][1] : kind[Geom::X][1];
+
+	double y0 = (kind[Geom::Y][0] < main[Geom::Y][0]) ? main[Geom::Y][0] : kind[Geom::Y][0];
+	double y1 = (kind[Geom::Y][1] > main[Geom::Y][1]) ? main[Geom::Y][1] : kind[Geom::Y][1];
+
+	double squareOfintersects = std::fabs(x1 - x0) * std::fabs(y1 - y0);
+
+	return (squareOfintersects/squareOfKind) * 100;
+}
 
 
 namespace Inkscape {
@@ -1579,7 +1603,7 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	moveTextNode(builder, mainNode, currNode, aff);
 }
 
-TabLine::TabLine(Inkscape::XML::Node* node, SPDocument *spDoc) :
+TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc) :
 		isVert(false),
 		node(node)
 {
@@ -1588,33 +1612,72 @@ TabLine::TabLine(Inkscape::XML::Node* node, SPDocument *spDoc) :
 	if (strcmp(node->name(), "svg:path") != 0)
 		return;
 
-	spPath = (SPPath*)spDoc->getObjectByRepr(node);
-	curve = spPath->getCurve();
-	segmentCount = curve->get_segment_count();
-	if (segmentCount > 1 )
+	SPPath* spPath = (SPPath*)spDoc->getObjectByRepr(node);
+	spCurve = spPath->getCurve();
+	//size_t segmentCount = curve->get_segment_count();
+	//if (segmentCount > 1 )
+	//	return;
+
+	if (! curve.isLineSegment())
 		return;
 
-	firstSegment = (Geom::Curve*)curve->first_segment();
-	if (! firstSegment->isLineSegment())
-		return;
+	Geom::Point start = curve.initialPoint();
+	Geom::Point end = curve.finalPoint();
 
-	start = firstSegment->initialPoint();
-	end = firstSegment->finalPoint();
-
-	x1 = start[0];
-	x2 = end[0];
-	y1 = start[1];
-	y2 = end[1];
-	if (start[0] == end[0] || start[1] == end[1])
+	x1 = round(start[0]*100)/100;
+	x2 = round(end[0]*100)/100;
+	y1 = round(start[1]*100)/100;
+	y2 = round(end[1]*100)/100;
+	//printf("   line (%f %f) (%f %f)\n", x1, y1, x2, y2);
+	if (x1 == x2 || y1 == y2)
 		lookLikeTab = true;
 
 	if (start[1] == end[1]) isVert = true;
 }
 
+TabRect::TabRect(double _x1, double _y1, double _x2, double _y2, Inkscape::XML::Node* _node) :
+	x1(_x1),
+	x2(_x2),
+	y1(_y1),
+	y2(_y2),
+	node(_node)
+{
+
+}
+
+TabRect::TabRect(Geom::Point point1, Geom::Point point2, Inkscape::XML::Node* _node) :
+	x1(point1.x()),
+	x2(point2.x()),
+	y1(point1.y()),
+	y2(point2.y()),
+	node(_node)
+{
+
+
+}
+
+
+
+TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
+{
+	Geom::Rect inRect(_x1, _y1, _x2, _y2);
+	for(auto& rect : rects)
+	{
+		Geom::Rect currentRect(rect->x1, rect->y1, rect->x2, rect->y2);
+		if (rectIntersect(inRect, currentRect) > 90)
+			return rect;
+	}
+
+	return nullptr;
+}
+
 TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVerticale)
 {
+
 	for(auto& line : lines)
 	{
+		size_t segmentCount = line->curveSegmentsCount();
+		if (segmentCount > 1) continue;
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
@@ -1772,6 +1835,9 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 {
 	TableCell* cell = getCell(c, r);
 
+    //printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	//printf("cell: r = %d c = %d x = %f y = %f h = %f w = %f\n", r, c, cell->x, cell->y, cell->height, cell->width);
+
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
 	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
 	if (cell->mergeIdx > 0) {
@@ -1796,15 +1862,25 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 	nodeCellRect->setAttribute("fill", "none");
+	SPDocument* spDoc = builder->getSpDocument();
+	if (cell->rect != nullptr && cell->rect->node != nullptr)
+	{
+
+		SPItem* spNode = (SPItem*) spDoc->getObjectByRepr(cell->rect->node);
+		const char* fillStyle = spNode->getStyleProperty("fill", "none");
+		nodeCellRect->setAttribute("fill", fillStyle);
+	}
+
 	// Bug 6
 	//nodeCellRect->setAttribute("stroke-width", "1");
 	//nodeCellRect->setAttribute("stroke", "blue");
 
 	nodeTextAttribs->appendChild(nodeCellRect);
 
-
 	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 	size_t nLinesInCell = textInAreaList.size();
+
+	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>
@@ -1825,9 +1901,19 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
 			// disconnect from previous parent
+			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
+			Inkscape::XML::Node* child = newTextNode->firstChild();
+			while(child)
+			{
+				Inkscape::XML::Node* nextChild = child->next();
+				child->parent()->removeChild(child);
+				child = nextChild;
+			}
 			textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
+
 			// create new representation
-			nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
+			newTextNode->appendChild(textInAreaList[idxList].ptextNode);
+			nodeTextAttribs->addChild(newTextNode, nodeCellRect);
 		}
 	}
 
@@ -1972,6 +2058,12 @@ struct SkipCells {
 	}
 };
 
+void TableDefenition::setRect(int col, int row, TabRect* rect)
+{
+	TableCell* cell = getCell(col, row);
+	cell->rect = rect;
+}
+
 void TableDefenition::setMergeIdx(int col1, int row1, int mergeIdx)
 {
 	TableCell* cell = getCell(col1, row1);
@@ -2010,6 +2102,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	SPObject* spMainNode = spDoc->getObjectByRepr( builder->getMainNode() );
 	SkipCells skipCell;
 
+// calculate simple grid
 	for(auto& line : this->lines)
 	{
 		SPPath* spLine = (SPPath*)spDoc->getObjectByRepr(line->node);
@@ -2033,6 +2126,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 	}
 
+
 	if (xList.size() == 0 || yList.size() == 0) return false;
 
 	std::sort(xList.begin(), xList.end());
@@ -2042,13 +2136,26 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
 
+/*
+	for(auto& xPos : xList)
+	{
+		printf("%f ", xPos);
+	}
+	printf("\n");
+
+	for(auto& yPos : yList)
+	{
+		printf("%f ", yPos);
+	}
+	printf("\n");
+*/
 	tableDef = new TableDefenition(xList.size() -1 , yList.size() -1);
-	tableDef->x = xList[0];
-	tableDef->y = yList[0];
 	double xStart, yStart, xEnd, yEnd;
 	xStart = xList[0];
 	yStart = yList[0];
 
+
+// set table size
 	tableDef->x = xList[0];
 	tableDef->y = yList[yList.size() - 1];
 	tableDef->width = xList[xList.size() - 1] - xStart;
@@ -2088,14 +2195,12 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				}
 			}
 
-			//tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
-			//tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx + yShift], xList[xIdx + xShift], yStart);
-
 			if (skipCell.isExist(xIdx - 1, yIdx - 1))
 			{
 				tableDef->setStroke(xIdx - 1, yIdx - 1, topLine, bottomLine, leftLine, rightLine);
 				tableDef->setVertex(xIdx - 1, yIdx - 1, xStart, yList[yIdx], xList[xIdx], yStart);
 				xStart = xList[xIdx];
+				tableDef->setRect(xIdx -1, yIdx -1, nullptr);
 
 				continue;
 			} else {
@@ -2114,7 +2219,9 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
 			}
 
-			//xIdx += xShift;
+			TabRect* rect = matchRect(xStart, yList[yIdx], xList[xIdx], yStart);
+			tableDef->setRect(xIdx -1, yIdx -1, rect);
+
 			xStart = xList[xIdx];
 		}
 		yStart = yList[yIdx];
@@ -2125,11 +2232,24 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
 {
 	Inkscape::XML::Node* result = tableDef->render(builder, aff);
+	NodeList deleteNode;
 	for(auto line : lines)
 	{
-		line->node->parent()->removeChild(line->node);
-		delete(line->node);
+		deleteNode.push_back(line->node);
+		//line->node->parent()->removeChild(line->node);
+		//delete(line->node);
 	}
+
+	std::sort(deleteNode.begin(), deleteNode.end());
+	auto lastNode = std::unique(deleteNode.begin(), deleteNode.end());
+	deleteNode.erase(lastNode, deleteNode.end());
+
+	for(auto& node : deleteNode)
+	{
+		node->parent()->removeChild(node);
+		delete(node);
+	}
+
 	return result;
 }
 
@@ -2171,10 +2291,45 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 
 bool TableRegion::addLine(Inkscape::XML::Node* node)
 {
+	//printf("node id =%s\n", node->attribute("id"));
 
-	TabLine* line = new TabLine(node, spDoc);
-	lines.push_back(line);
-	if (! line->isTableLine()) _isTable = false;
+	SPPath* spPath = (SPPath*)spDoc->getObjectByRepr(node);
+	SPCurve* curve = spPath->getCurve();
+	SPObject* spMainNode = spDoc->getObjectByRepr(_builder->getMainNode() );
+	Geom::Affine pathAffine = spPath->getRelativeTransform(spMainNode);
+
+
+	const Geom::PathVector pathArray = curve->get_pathvector();
+
+	for (const Geom::Path& itPath : pathArray)
+	{
+		double x1 = y1 = 1e6;
+		double x2 = y2 = 0;
+		for(const Geom::Curve& simplCurve : itPath) {
+			TabLine* line = new TabLine(node, simplCurve, spDoc);
+			lines.push_back(line);
+			if (! line->isTableLine())
+			{
+				_isTable = false;
+			}
+			x1 = x1 < line->x1 ? x1 : line->x1;
+			y1 = y1 < line->y1 ? y1 : line->y1;
+			x2 = x2 > line->x2 ? x2 : line->x2;
+			y2 = y2 > line->y2 ? y2 : line->y2;
+		}
+		if (! _isTable) continue;
+
+		if (itPath.size() == 4 && itPath.closed())
+		{
+			Geom::Point point1(x1, y1);
+			Geom::Point point2(x2, y2);
+			point1 = point1 * pathAffine;
+			point2 = point2 * pathAffine;
+			//TabRect* rect = new TabRect(x1, y1, x2, y2, node);
+			TabRect* rect = new TabRect(point1, point2, node);
+			rects.push_back(rect);
+		}
+	}
 
 	return isTable();
 }

@@ -14,6 +14,7 @@
 #include "svg-builder.h"
 #include "sp-item.h"
 #include "sp-path.h"
+#include "display/curve.h"
 #include "Object.h"
 
 #define PROFILER_ENABLE 0
@@ -29,6 +30,7 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
+double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
 
 namespace Inkscape {
 namespace Extension {
@@ -90,28 +92,37 @@ extern double profiler_timer_up[];
 
 double GetTickCount(void);
 
+class TabRect {
+public:
+	Inkscape::XML::Node* node;
+	double x1, x2, y1, y2;
+	TabRect(double x1, double y1, double x2, double y2, Inkscape::XML::Node* node);
+	TabRect(Geom::Point point1, Geom::Point point2, Inkscape::XML::Node* _node);
+};
+
 class TabLine {
 	private:
 
 
 		bool isVert;
 		bool lookLikeTab;
-		SPPath* spPath;
-		SPCurve* curve;
-		size_t segmentCount;
-		Geom::Curve* firstSegment;
-		Geom::Point start;
-		Geom::Point end;
+		//SPPath* spPath;
+		SPCurve* spCurve;
+		//size_t segmentCount;
+		//Geom::Curve* firstSegment;
+		//Geom::Point start;
+		//Geom::Point end;
 
 	public:
 		Inkscape::XML::Node* node;
 		double x1, x2, y1, y2;
-	TabLine(Inkscape::XML::Node* node, SPDocument *spDoc);
-	Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+		TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc);
+		Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+		size_t curveSegmentsCount() { return spCurve->get_segment_count(); };
 
 
-	bool isTableLine() { return  lookLikeTab; }
-	bool isVertical() { return x1 == x2; }
+		bool isTableLine() { return  lookLikeTab; }
+		bool isVertical() { return x1 == x2; }
 };
 
 struct TableCell {
@@ -120,6 +131,7 @@ struct TableCell {
 	 TabLine *bottomLine;
 	 TabLine *leftLine;
 	 TabLine *rightLine;
+	 TabRect *rect;
 	 int mergeIdx;
 	 bool isMax;
 	 int maxCol;
@@ -161,6 +173,7 @@ public:
 	TableCell* getCell(int xIdx, int yIdx);
 	void setMergeIdx(int col1, int row1, int mergeIdx);
 	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
+	void setRect(int col, int row, TabRect* rect);
 
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
@@ -176,6 +189,7 @@ private:
 	TableDefenition* tableDef;
 public:
 	std::vector<TabLine*> lines;
+	std::vector<TabRect*> rects;
 	~TableRegion()
 	{
 		if (tableDef)
@@ -194,6 +208,7 @@ public:
 	}
 
 	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
+	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
 
 	bool addLine(Inkscape::XML::Node* node);
 

@@ -106,6 +106,7 @@ struct SvgTextPosition {
     gchar* text;
     double x = 0;
     double y = 0;
+    Geom::Rect* sqTextBBox;
 };
 
 class SvgBuilder {
