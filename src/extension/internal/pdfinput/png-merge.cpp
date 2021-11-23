@@ -1835,8 +1835,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 {
 	TableCell* cell = getCell(c, r);
 
-    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-	printf("cell: r = %d c = %d x = %f y = %f h = %f w = %f\n", r, c, cell->x, cell->y, cell->height, cell->width);
+    //printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	//printf("cell: r = %d c = %d x = %f y = %f h = %f w = %f\n", r, c, cell->x, cell->y, cell->height, cell->width);
 
 	Inkscape::XML::Node* nodeCellIdx = builder->createElement("svg:g");
 	std::string classForNodeIdx("table-cell index-r-" + std::to_string(r) + " index-c-" + std::to_string(c));
@@ -1862,10 +1862,10 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	nodeCellRect->setAttribute("width", doubleToCss(cell->width).c_str());
 	nodeCellRect->setAttribute("height", doubleToCss(cell->height).c_str());
 	nodeCellRect->setAttribute("fill", "none");
-
+	SPDocument* spDoc = builder->getSpDocument();
 	if (cell->rect != nullptr && cell->rect->node != nullptr)
 	{
-		SPDocument* spDoc = builder->getSpDocument();
+
 		SPItem* spNode = (SPItem*) spDoc->getObjectByRepr(cell->rect->node);
 		const char* fillStyle = spNode->getStyleProperty("fill", "none");
 		nodeCellRect->setAttribute("fill", fillStyle);
@@ -1901,9 +1901,19 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
 			// disconnect from previous parent
+			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
+			Inkscape::XML::Node* child = newTextNode->firstChild();
+			while(child)
+			{
+				Inkscape::XML::Node* nextChild = child->next();
+				child->parent()->removeChild(child);
+				child = nextChild;
+			}
 			textInAreaList[idxList].ptextNode->parent()->removeChild(textInAreaList[idxList].ptextNode);
+
 			// create new representation
-			nodeTextAttribs->addChild(textInAreaList[idxList].ptextNode, nodeCellRect);
+			newTextNode->appendChild(textInAreaList[idxList].ptextNode);
+			nodeTextAttribs->addChild(newTextNode, nodeCellRect);
 		}
 	}
 

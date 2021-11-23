@@ -47,6 +47,8 @@
 #include "libnrtype/font-instance.h"
 #include "shared_opt.h"
 #include "sp-clippath.h"
+#include "sp-tspan.h"
+#include "sp-text.h"
 
 #include "Function.h"
 #include "GfxState.h"
@@ -2173,26 +2175,26 @@ void SvgBuilder::_flushText() {
     }
     _container->appendChild(text_node);
 
+  /*  SPDocument* spDoc = getSpDocument();
+    SPRoot* spRoot = spDoc->getRoot();
+    te_update_layout_now_recursive(spRoot);
+
+    Inkscape::XML::Node *mainNode = getMainNode();
+    SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+
     for (Inkscape::XML::Node* ptSpanNode = text_node->firstChild() ; ptSpanNode ; ptSpanNode = ptSpanNode->next()) {
 
         SvgTextPosition textPosition;
 
-        textPosition.text = g_strdup("");
+       /* textPosition.text = g_strdup("");
 
         for(SvgGlyph gl : _glyphs) {
             textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
-        }
+        }*/
 
-        textPosition.text = g_strdup_printf("%s", ptSpanNode->firstChild()->content());
+    /*    textPosition.text = g_strdup_printf("%s", ptSpanNode->firstChild()->content());
 
         textPosition.ptextNode = ptSpanNode;
-
-        SPDocument* spDoc = getSpDocument();       
-        SPRoot* spRoot = spDoc->getRoot();
-        te_update_layout_now_recursive(spRoot);
-
-        Inkscape::XML::Node *mainNode = getMainNode();
-        SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
 
         SPItem* spNode = (SPItem*)spDoc->getObjectByRepr(textPosition.ptextNode);
 
@@ -2215,19 +2217,19 @@ void SvgBuilder::_flushText() {
                                                             round(sqTextBBox[Geom::Y][1]));
 
         //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-        /*printf("Text = %s ===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n", textPosition.text, 
+        printf("Text = %s ===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n", textPosition.text,
                                                 round(sqTextBBox[Geom::X][0]),
                                                     round(sqTextBBox[Geom::Y][0]),
                                                         round(sqTextBBox[Geom::X][1]),
                                                             round(sqTextBBox[Geom::Y][1]));
-        */
-        //print_node(ptSpanNode, 3);
+
+        print_node(ptSpanNode, 3);
         //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
         textPositionList.push_back(textPosition);
 
         //print_node(ptSpanNode, 3);
-    }
+    }*/
 
 
     Inkscape::GC::release(text_node);
@@ -3711,11 +3713,87 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         popGroup();
     }
 }
+void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInAreaList)
+{
+    SPDocument* spDoc = builder->getSpDocument();
+
+    Inkscape::XML::Node *mainNode = builder->getMainNode();
+    SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+    NodeList nodeList;
+
+    builder->getNodeListByTag("svg:tspan", &nodeList, mainNode);
+    te_update_layout_now_recursive((SPItem*)spMainNode);
+
+    for(auto& pTspanNode : nodeList)
+    {
+    	SPText* spText = (SPText*)spDoc->getObjectByRepr(pTspanNode->parent());
+    	spText->rebuildLayout();
+    	double x, y;
+    	sp_svg_number_read_d( pTspanNode->attribute("y"), &y );
+
+    	SvgTextPosition textPosition;
+    	SPTSpan* spNode = (SPTSpan*)spDoc->getObjectByRepr(pTspanNode);
+
+        if (spNode == NULL)
+            continue;
+
+        Geom::Affine nodeAffine1;
+        Geom::Affine nodeAffine = spNode->getRelativeTransform(spMainNode);
+        Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
+
+
+        if (!visualBound.is_initialized())
+            continue;
+
+        Geom::Rect _sqTextBBox = visualBound.get();
+        double dx = y - _sqTextBBox[Geom::Y][1];
+        nodeAffine1[5] = dx;
+        Geom::Rect sqTextBBox = _sqTextBBox * nodeAffine1 * nodeAffine;
+
+
+
+
+
+        textPosition.text = (char*)pTspanNode->firstChild()->content();
+        textPosition.ptextNode = pTspanNode;
+
+        // ROund the coordinates to be conform with table lines.
+        textPosition.sqTextBBox = new Geom::Rect(round(sqTextBBox[Geom::X][0]),
+                                                    round(sqTextBBox[Geom::Y][0]),
+                                                        round(sqTextBBox[Geom::X][1]),
+                                                            round(sqTextBBox[Geom::Y][1]));
+
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+       /* printf("Text = %s ===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n", textPosition.text,
+                                                round(sqTextBBox[Geom::X][0]),
+                                                    round(sqTextBBox[Geom::X][1]),
+                                                        round(sqTextBBox[Geom::Y][0]),
+                                                            round(sqTextBBox[Geom::Y][1]));
+        printf("===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n",
+                                                round(_sqTextBBox[Geom::X][0]),
+                                                    round(_sqTextBBox[Geom::X][1]),
+                                                        round(_sqTextBBox[Geom::Y][0]),
+                                                            round(_sqTextBBox[Geom::Y][1]));
+
+        print_node(textPosition.ptextNode, 3);*/
+
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+
+        textInAreaList.push_back(textPosition);
+    }
+}
 
 std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
 
     // Parse this vector textPositionList
     // And get exact text inside the area.
+
+	static bool listGenerated =  false;
+	if (! listGenerated)
+	{
+		regenerateList(this, textPositionList);
+		listGenerated = true;
+	}
 
     if ( textPositionList.empty()) {
         textPositionList.clear();
@@ -3723,6 +3801,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
     }
 
     std::vector<SvgTextPosition> textInAreaList;
+
 
     for(SvgTextPosition textPosition : textPositionList) {
 
@@ -3763,15 +3842,18 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         }
 
         if (!textInsideCell.empty()){
-            printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
-            print_node(textPosition.ptextNode, 3);
-            printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+            //printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
+            //print_node(textPosition.ptextNode, 3);
+           // printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
             SvgTextPosition tmpTextPosition;
             tmpTextPosition.ptextNode = textPosition.ptextNode;
             tmpTextPosition.text = g_strdup(textInsideCell.c_str());
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
+
+            //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
+            //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);
 
             textInAreaList.push_back(tmpTextPosition);
         }

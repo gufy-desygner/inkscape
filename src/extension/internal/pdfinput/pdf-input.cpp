@@ -1040,7 +1040,10 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						mergeImagePathToOneLayer(builder);
 					} else {
 						detectTables(builder, &regions);
+						SPDocument* spDoc = builder->getSpDocument();
 
+						Inkscape::XML::Node* mainNode = builder->getMainNode();
+						SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
 						for(TableRegion* tabRegion : regions)
 						{
 							if (tabRegion->buildKnote(builder))
@@ -1049,8 +1052,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 								Inkscape::XML::Node* tabPathNode = firstPathLine->node;
 								Inkscape::XML::Node* tabParent = tabPathNode->parent();
 
-								Geom::Affine aff;
-								sp_svg_transform_read(tabParent->attribute("transform"), &aff);
+								SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
+								Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
+
+
+								//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
 
 								Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
 								if (tabParent)
