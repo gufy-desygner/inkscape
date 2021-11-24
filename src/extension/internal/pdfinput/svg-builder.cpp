@@ -3783,6 +3783,85 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
     }
 }
 
+static double trimSvgArrayLeft(int toPosition, const char* name, Inkscape::XML::Node* sourceTspan)
+{
+	const gchar *strArray = sourceTspan->attribute(name);
+	if (strArray == nullptr) return 0;
+	std::vector<SVGLength> vecArray = sp_svg_length_list_read(strArray);
+	double firstElement = 0;
+	if (vecArray.size() > 0 )
+		firstElement = vecArray[0].value;
+
+	vecArray.erase(vecArray.begin(), vecArray.begin() + toPosition);
+
+	std::string arrayValue;
+	bool isFirstDx = true;
+	for(auto& val :vecArray)
+	{
+		if (strcmp(name, "dx") == 0 && (isFirstDx))
+		{
+			arrayValue.append("0");
+			isFirstDx = false;
+		} else{
+			arrayValue.append(sp_svg_length_write_with_units(val));
+		}
+		arrayValue.append(" ");
+	}
+
+	//if (vecArray.size() == 0) return 0;
+
+	sourceTspan->setAttribute(name, arrayValue.c_str());
+
+	if (vecArray.empty()) return 0;
+	return vecArray[0].value - firstElement;
+}
+
+static void trimSvgArrayRight(int fromPosition, const char* name, Inkscape::XML::Node* sourceTspan)
+{
+	const gchar *strArray = sourceTspan->attribute(name);
+	if (strArray == nullptr) return ;
+	std::vector<SVGLength> vecArray = sp_svg_length_list_read(strArray);
+	vecArray.erase(vecArray.begin()+ fromPosition, vecArray.end());
+
+	std::string arrayValue;
+	for(auto& val :vecArray)
+	{
+		arrayValue.append(sp_svg_length_write_with_units(val));
+	}
+
+	sourceTspan->setAttribute(name, arrayValue.c_str());
+}
+
+Inkscape::XML::Node* splitTspan(int position, Inkscape::XML::Node* sourceTspan)
+{
+	if (position <= 0 ) return sourceTspan;
+	sourceTspan->document();
+	Inkscape::XML::Node* newNode = sourceTspan->duplicate(sourceTspan->document());
+
+	std::string content(sourceTspan->firstChild()->content());
+	double dx = trimSvgArrayLeft(position, "data-x", newNode);
+	double x;
+	if (! sp_svg_number_read_d(newNode->attribute("x") ,&x))
+		x = 0;
+	x += dx;
+	Inkscape::SVGOStringStream strX;  strX << x;
+	newNode->setAttribute("x", strX.str());
+	trimSvgArrayLeft(position, "dx", newNode);
+	newNode->firstChild()->setContent(content.substr(position).c_str());
+
+	trimSvgArrayRight(position, "data-x", sourceTspan);
+	trimSvgArrayRight(position, "dx", sourceTspan);
+	sourceTspan->firstChild()->setContent(content.substr(0, position).c_str());
+
+	if (sourceTspan->parent())
+	{
+		sourceTspan->parent()->addChild(newNode, sourceTspan);
+	}
+
+
+    return newNode;
+}
+
 std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
 
     // Parse this vector textPositionList
@@ -3825,6 +3904,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         bool bIsPointInsideCellFound = false;
 
         Glib::ustring textInsideCell;
+        int start = -1;
+        int end = -1;
 
         // Check every Letter position in the text if inside a Cell!
         for(int i = 0; i < data_x.size(); i++) {
@@ -3832,6 +3913,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
                     // Now you can start extracting characters!
                     Geom::Point p(textX1 + data_x[i].value, textY1);
                     if (sqCellBBox.interiorContains(p)) {
+                    	if (start == -1) start = i;
+                    	end = i;
                         //printf("Point inside Cell Found!\n");
                         bIsPointInsideCellFound = true;
                         Inkscape::CSSOStringStream os_x;
@@ -3839,6 +3922,18 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
                         textInsideCell.append(os_x.str());
                     }
             }
+        }
+
+        if (start > 0 || end != textInsideCell.length())
+        {
+        	Inkscape::XML::Node* tspanAfterStart;
+        	if (start > 0)
+        	{
+        	   	tspanAfterStart = splitTspan(start, textPosition.ptextNode);
+        	   	textPosition.ptextNode = tspanAfterStart;
+        	} else {
+        		tspanAfterStart = textPosition.ptextNode;
+        	}
         }
 
         if (!textInsideCell.empty()){
@@ -3851,6 +3946,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             tmpTextPosition.text = g_strdup(textInsideCell.c_str());
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
+            tmpTextPosition.start = start;
+            tmpTextPosition.end = end;
 
             //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
             //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);

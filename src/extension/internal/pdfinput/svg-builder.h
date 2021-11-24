@@ -107,6 +107,8 @@ struct SvgTextPosition {
     double x = 0;
     double y = 0;
     Geom::Rect* sqTextBBox;
+    int start; //text position where cell started
+    int end; // text position where text ended
 };
 
 class SvgBuilder {
