@@ -1793,9 +1793,9 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
-	borderNode->setAttribute("y1", doubleToCss(cell->y).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->y).c_str());
 	borderNode->setAttribute("x2", doubleToCss(cell->x).c_str());
-	borderNode->setAttribute("y2", doubleToCss(cell->height + cell->y).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->height + cell->y).c_str());
 
 	return borderNode;
 }
@@ -1824,9 +1824,9 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x + cell->width).c_str());
-	borderNode->setAttribute("y1", doubleToCss(cell->y).c_str());
+	borderNode->setAttribute("y2", doubleToCss(cell->y).c_str());
 	borderNode->setAttribute("x2", doubleToCss(cell->x + cell->width).c_str());
-	borderNode->setAttribute("y2", doubleToCss(cell->height + cell->y).c_str());
+	borderNode->setAttribute("y1", doubleToCss(cell->height + cell->y).c_str());
 
 	return borderNode;
 }
