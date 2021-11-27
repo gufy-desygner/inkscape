@@ -1888,11 +1888,11 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	if (cell->mergeIdx > 0 && cell->isMax == false) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
-		tSpanNode->setAttribute("x", "0");
-		tSpanNode->setAttribute("y", "0");
+		tSpanNode->setAttribute("x", doubleToCss(cell->x));
+		tSpanNode->setAttribute("y", doubleToCss(cell->y +1));
 
 		Inkscape::XML::Node* tTextNode = builder->createElement("svg:text");
-		tTextNode->setAttribute("style", "fill:none");
+		tTextNode->setAttribute("style", "fill:none;font-size:1px");
 
 		tSpanNode->appendChild(stringNode);
 		tTextNode->appendChild(tSpanNode);
