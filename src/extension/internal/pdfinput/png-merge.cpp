@@ -1992,6 +1992,7 @@ Inkscape::XML::Node* TableDefenition::render(SvgBuilder *builder, Geom::Affine a
 	}
 
 	nodeTable->appendChild(nodeBorders);
+	builder->removeNodesByTextPositionList();
 
 	return nodeTable;
 }

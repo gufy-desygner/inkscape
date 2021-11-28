@@ -109,6 +109,7 @@ struct SvgTextPosition {
     Geom::Rect* sqTextBBox;
     int start; //text position where cell started
     int end; // text position where text ended
+    bool needRemove;
 };
 
 class SvgBuilder {
@@ -227,6 +228,7 @@ public:
     std::vector<SvgTextPosition> getTextPositionList() { return textPositionList; }
     void setTextPositionList(std::vector<SvgTextPosition> _textPositionList) { textPositionList = _textPositionList; }
     std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2);
+    void removeNodesByTextPositionList();
 
 private:
     void _init();

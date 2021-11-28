@@ -3713,6 +3713,8 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         popGroup();
     }
 }
+
+
 void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInAreaList)
 {
     SPDocument* spDoc = builder->getSpDocument();
@@ -3779,6 +3781,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
 
         //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
+        textPosition.needRemove = false;
         textInAreaList.push_back(textPosition);
     }
 }
@@ -3827,6 +3830,7 @@ static void trimSvgArrayRight(int fromPosition, const char* name, Inkscape::XML:
 	for(auto& val :vecArray)
 	{
 		arrayValue.append(sp_svg_length_write_with_units(val));
+		arrayValue.append(" ");
 	}
 
 	sourceTspan->setAttribute(name, arrayValue.c_str());
@@ -3844,22 +3848,32 @@ Inkscape::XML::Node* splitTspan(int position, Inkscape::XML::Node* sourceTspan)
 	if (! sp_svg_number_read_d(newNode->attribute("x") ,&x))
 		x = 0;
 	x += dx;
+
 	Inkscape::SVGOStringStream strX;  strX << x;
 	newNode->setAttribute("x", strX.str());
 	trimSvgArrayLeft(position, "dx", newNode);
 	newNode->firstChild()->setContent(content.substr(position).c_str());
+	//trimSvgArrayRight(position, "data-x", sourceTspan);
+	//trimSvgArrayRight(position, "dx", sourceTspan);
 
-	trimSvgArrayRight(position, "data-x", sourceTspan);
-	trimSvgArrayRight(position, "dx", sourceTspan);
-	sourceTspan->firstChild()->setContent(content.substr(0, position).c_str());
+	//sourceTspan->firstChild()->setContent(content.substr(0, position).c_str());
 
-	if (sourceTspan->parent())
-	{
-		sourceTspan->parent()->addChild(newNode, sourceTspan);
-	}
+	//if (sourceTspan->parent())
+	//{
+	//	sourceTspan->parent()->addChild(newNode, sourceTspan);
+	//}
 
 
     return newNode;
+}
+
+void SvgBuilder::removeNodesByTextPositionList()
+{
+	for(SvgTextPosition& item: textPositionList)
+	{
+		if (item.needRemove && item.ptextNode->parent())
+			item.ptextNode->parent()->removeChild(item.ptextNode);
+	}
 }
 
 std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
@@ -3882,7 +3896,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
     std::vector<SvgTextPosition> textInAreaList;
 
 
-    for(SvgTextPosition textPosition : textPositionList) {
+    for(SvgTextPosition& textPosition : textPositionList) {
 
         Geom::Rect sqCellBBox(x1, y1, x2, y2);
         Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
@@ -3923,26 +3937,50 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
                     }
             }
         }
-
-        if (start > 0 || end != textInsideCell.length())
-        {
-        	Inkscape::XML::Node* tspanAfterStart;
-        	if (start > 0)
-        	{
-        	   	tspanAfterStart = splitTspan(start, textPosition.ptextNode);
-        	   	textPosition.ptextNode = tspanAfterStart;
-        	} else {
-        		tspanAfterStart = textPosition.ptextNode;
-        	}
-        }
-
         if (!textInsideCell.empty()){
+			Inkscape::XML::Node* tspanAfterStart = nullptr;
+			if (start > 0 || ((end + 1) != strlen(textPosition.text) && end > 0))
+			{
+
+				if (start > 0)
+				{
+					tspanAfterStart = splitTspan(start, textPosition.ptextNode);
+					//textPosition.ptextNode = tspanAfterStart;
+				} else {
+					tspanAfterStart = textPosition.ptextNode;
+				}
+				if ((end + 1) != strlen(textPosition.text) && end > 0)
+				{
+					if (start == 0)
+					{
+						textPosition.needRemove = true;
+						tspanAfterStart = textPosition.ptextNode->duplicate(textPosition.ptextNode->document());
+					}
+
+					//std::string content(tspanAfterStart->firstChild()->content());
+
+					trimSvgArrayRight(end, "data-x", tspanAfterStart);
+					trimSvgArrayRight(end, "dx", tspanAfterStart);
+
+					tspanAfterStart->firstChild()->setContent(textInsideCell.c_str());
+				}
+
+				if (tspanAfterStart != textPosition.ptextNode && textPosition.ptextNode->parent())
+				{
+					textPosition.ptextNode->parent()->addChild(tspanAfterStart, textPosition.ptextNode);
+				}
+			}
+
+
             //printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
             //print_node(textPosition.ptextNode, 3);
            // printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
             SvgTextPosition tmpTextPosition;
-            tmpTextPosition.ptextNode = textPosition.ptextNode;
+            if (tspanAfterStart != nullptr)
+            	tmpTextPosition.ptextNode = tspanAfterStart;
+            else
+            	tmpTextPosition.ptextNode = textPosition.ptextNode;
             tmpTextPosition.text = g_strdup(textInsideCell.c_str());
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
