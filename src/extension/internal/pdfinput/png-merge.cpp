@@ -1877,9 +1877,6 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	nodeTextAttribs->appendChild(nodeCellRect);
 
-	std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
-	size_t nLinesInCell = textInAreaList.size();
-
 	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
 	// Even if the cell doesnt contain any text,
@@ -1898,6 +1895,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		tTextNode->appendChild(tSpanNode);
 		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
 	} else {
+		std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+		size_t nLinesInCell = textInAreaList.size();
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
 			// disconnect from previous parent
