@@ -1664,7 +1664,7 @@ TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
 	for(auto& rect : rects)
 	{
 		Geom::Rect currentRect(rect->x1, rect->y1, rect->x2, rect->y2);
-		if (rectIntersect(inRect, currentRect) > 90)
+		if (rectIntersect(currentRect, inRect) > 90)
 			return rect;
 	}
 
