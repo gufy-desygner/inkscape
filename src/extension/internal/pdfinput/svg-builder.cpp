@@ -3939,7 +3939,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
-			if (start > 0 || ((end + 1) != uniTextPosition.size() && end > 0))
+			if (start > 0 || ((end + 1) != uniTextPosition.size() && (end+1) > 0))
 			{
 
 				if (start > 0)
@@ -3949,7 +3949,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 				} else {
 					tspanAfterStart = textPosition.ptextNode;
 				}
-				if ((end + 1) != uniTextPosition.size() && end > 0)
+				if ((end + 1) != uniTextPosition.size() && (end +1) > 0)
 				{
 					if (start == 0)
 					{
