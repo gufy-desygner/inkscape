@@ -3842,7 +3842,7 @@ Inkscape::XML::Node* splitTspan(int position, Inkscape::XML::Node* sourceTspan)
 	sourceTspan->document();
 	Inkscape::XML::Node* newNode = sourceTspan->duplicate(sourceTspan->document());
 
-	std::string content(sourceTspan->firstChild()->content());
+	Glib::ustring content(sourceTspan->firstChild()->content());
 	double dx = trimSvgArrayLeft(position, "data-x", newNode);
 	double x;
 	if (! sp_svg_number_read_d(newNode->attribute("x") ,&x))
@@ -3918,6 +3918,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         bool bIsPointInsideCellFound = false;
 
         Glib::ustring textInsideCell;
+        Glib::ustring uniTextPosition(textPosition.text);
         int start = -1;
         int end = -1;
 
@@ -3932,14 +3933,13 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
                         //printf("Point inside Cell Found!\n");
                         bIsPointInsideCellFound = true;
                         Inkscape::CSSOStringStream os_x;
-                        os_x << textPosition.text[i];
-                        textInsideCell.append(os_x.str());
+                        textInsideCell += uniTextPosition[i];
                     }
             }
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
-			if (start > 0 || ((end + 1) != strlen(textPosition.text) && end > 0))
+			if (start > 0 || ((end + 1) != uniTextPosition.size() && end > 0))
 			{
 
 				if (start > 0)
@@ -3949,7 +3949,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 				} else {
 					tspanAfterStart = textPosition.ptextNode;
 				}
-				if ((end + 1) != strlen(textPosition.text) && end > 0)
+				if ((end + 1) != uniTextPosition.size() && end > 0)
 				{
 					if (start == 0)
 					{
