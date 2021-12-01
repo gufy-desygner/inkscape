@@ -3967,8 +3967,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 
 						//std::string content(tspanAfterStart->firstChild()->content());
 
-						trimSvgArrayRight(end, "data-x", tspanAfterStart);
-						trimSvgArrayRight(end, "dx", tspanAfterStart);
+						trimSvgArrayRight(end + 1 - start, "data-x", tspanAfterStart);
+						trimSvgArrayRight(end + 1 - start, "dx", tspanAfterStart);
 
 						tspanAfterStart->firstChild()->setContent(textInsideCell.c_str());
 					}

@@ -2196,24 +2196,16 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 			int xShift = 0;
 			while(rightLine == nullptr && (xIdx + 1 + xShift) < xList.size())
 			{
+				xShift++;
 				rightLine = searchByPoint(xList[xIdx + xShift], yMediane, true);
-
-				if (rightLine == nullptr && (xIdx + 1 + xShift) < xList.size())
-				{
-					xShift++;
-				}
 			}
 
 			TabLine* bottomLine = searchByPoint(xMediane, yList[yIdx], false);
 			int yShift = 0;
 			while(bottomLine == nullptr && (yIdx + 1 + yShift) < yList.size())
 			{
+				yShift++;
 				bottomLine = searchByPoint(xMediane, yList[yIdx + yShift], false);
-
-				if (bottomLine == nullptr && (yIdx + 1 + yShift) < yList.size())
-				{
-					yShift++;
-				}
 			}
 
 			if (skipCell.isExist(xIdx - 1, yIdx - 1))
