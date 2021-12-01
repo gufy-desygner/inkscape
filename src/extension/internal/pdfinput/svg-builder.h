@@ -227,7 +227,7 @@ public:
 
     std::vector<SvgTextPosition> getTextPositionList() { return textPositionList; }
     void setTextPositionList(std::vector<SvgTextPosition> _textPositionList) { textPositionList = _textPositionList; }
-    std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2);
+    std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate = false);
     void removeNodesByTextPositionList();
 
 private:

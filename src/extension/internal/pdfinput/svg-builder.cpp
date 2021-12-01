@@ -3876,7 +3876,7 @@ void SvgBuilder::removeNodesByTextPositionList()
 	}
 }
 
-std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate) {
 
     // Parse this vector textPositionList
     // And get exact text inside the area.
@@ -3895,21 +3895,19 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 
     std::vector<SvgTextPosition> textInAreaList;
 
-
+    Geom::Rect sqCellBBox(x1, y1, x2, y2);
+    float cellX1 = sqCellBBox[Geom::X][0];
+    float cellX2 = sqCellBBox[Geom::X][1];
+    float cellY1 = sqCellBBox[Geom::Y][0];
+    float cellY2 = sqCellBBox[Geom::Y][1];
     for(SvgTextPosition& textPosition : textPositionList) {
 
-        Geom::Rect sqCellBBox(x1, y1, x2, y2);
         Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
 
         float textX1 = sqTxtBBox[Geom::X][0];
         float textX2 = sqTxtBBox[Geom::X][1];
         float textY1 = sqTxtBBox[Geom::Y][0];
         float textY2 = sqTxtBBox[Geom::Y][1];
-
-        float cellX1 = sqCellBBox[Geom::X][0];
-        float cellX2 = sqCellBBox[Geom::X][1];
-        float cellY1 = sqCellBBox[Geom::Y][0];
-        float cellY2 = sqCellBBox[Geom::Y][1];
 
         const gchar *dataX = textPosition.ptextNode->attribute("data-x");
         std::vector<SVGLength> data_x = sp_svg_length_list_read(dataX);
@@ -3922,54 +3920,64 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         int start = -1;
         int end = -1;
 
+        if (isSimulate)
+        {
+        	Geom::Point p(textX1, textY1);
+        	if (sqCellBBox.interiorContains(p))
+        	{
+        		textInsideCell = uniTextPosition;
+        	}
+        } else {
         // Check every Letter position in the text if inside a Cell!
-        for(int i = 0; i < data_x.size(); i++) {
-            if (data_x[i]._set) {
-                    // Now you can start extracting characters!
-                    Geom::Point p(textX1 + data_x[i].value, textY1);
-                    if (sqCellBBox.interiorContains(p)) {
-                    	if (start == -1) start = i;
-                    	end = i;
-                        //printf("Point inside Cell Found!\n");
-                        bIsPointInsideCellFound = true;
-                        Inkscape::CSSOStringStream os_x;
-                        textInsideCell += uniTextPosition[i];
-                    }
-            }
+			for(int i = 0; i < data_x.size(); i++) {
+				if (data_x[i]._set) {
+						// Now you can start extracting characters!
+						Geom::Point p(textX1 + data_x[i].value, textY1);
+						if (sqCellBBox.interiorContains(p)) {
+							if (start == -1) start = i;
+							end = i;
+							//printf("Point inside Cell Found!\n");
+							bIsPointInsideCellFound = true;
+							Inkscape::CSSOStringStream os_x;
+							textInsideCell += uniTextPosition[i];
+						}
+				}
+			}
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
-			if (start > 0 || ((end + 1) != uniTextPosition.size() && (end+1) > 0))
-			{
+			if (! isSimulate) // isSimulate - avoid generate new nodes
+				if (start > 0 || ((end + 1) != uniTextPosition.size() && (end+1) > 0))
+				{
 
-				if (start > 0)
-				{
-					tspanAfterStart = splitTspan(start, textPosition.ptextNode);
-					//textPosition.ptextNode = tspanAfterStart;
-				} else {
-					tspanAfterStart = textPosition.ptextNode;
-				}
-				if ((end + 1) != uniTextPosition.size() && (end +1) > 0)
-				{
-					if (start == 0)
+					if (start > 0)
 					{
-						textPosition.needRemove = true;
-						tspanAfterStart = textPosition.ptextNode->duplicate(textPosition.ptextNode->document());
+						tspanAfterStart = splitTspan(start, textPosition.ptextNode);
+						//textPosition.ptextNode = tspanAfterStart;
+					} else {
+						tspanAfterStart = textPosition.ptextNode;
+					}
+					if ((end + 1) != uniTextPosition.size() && (end +1) > 0)
+					{
+						if (start == 0)
+						{
+							textPosition.needRemove = true;
+							tspanAfterStart = textPosition.ptextNode->duplicate(textPosition.ptextNode->document());
+						}
+
+						//std::string content(tspanAfterStart->firstChild()->content());
+
+						trimSvgArrayRight(end, "data-x", tspanAfterStart);
+						trimSvgArrayRight(end, "dx", tspanAfterStart);
+
+						tspanAfterStart->firstChild()->setContent(textInsideCell.c_str());
 					}
 
-					//std::string content(tspanAfterStart->firstChild()->content());
-
-					trimSvgArrayRight(end, "data-x", tspanAfterStart);
-					trimSvgArrayRight(end, "dx", tspanAfterStart);
-
-					tspanAfterStart->firstChild()->setContent(textInsideCell.c_str());
+					if (tspanAfterStart != textPosition.ptextNode && textPosition.ptextNode->parent())
+					{
+						textPosition.ptextNode->parent()->addChild(tspanAfterStart, textPosition.ptextNode);
+					}
 				}
-
-				if (tspanAfterStart != textPosition.ptextNode && textPosition.ptextNode->parent())
-				{
-					textPosition.ptextNode->parent()->addChild(tspanAfterStart, textPosition.ptextNode);
-				}
-			}
 
 
             //printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
