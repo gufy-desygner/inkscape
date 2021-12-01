@@ -3876,7 +3876,7 @@ void SvgBuilder::removeNodesByTextPositionList()
 	}
 }
 
-std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2) {
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate) {
 
     // Parse this vector textPositionList
     // And get exact text inside the area.
@@ -3895,21 +3895,19 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 
     std::vector<SvgTextPosition> textInAreaList;
 
-
+    Geom::Rect sqCellBBox(x1, y1, x2, y2);
+    float cellX1 = sqCellBBox[Geom::X][0];
+    float cellX2 = sqCellBBox[Geom::X][1];
+    float cellY1 = sqCellBBox[Geom::Y][0];
+    float cellY2 = sqCellBBox[Geom::Y][1];
     for(SvgTextPosition& textPosition : textPositionList) {
 
-        Geom::Rect sqCellBBox(x1, y1, x2, y2);
         Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
 
         float textX1 = sqTxtBBox[Geom::X][0];
         float textX2 = sqTxtBBox[Geom::X][1];
         float textY1 = sqTxtBBox[Geom::Y][0];
         float textY2 = sqTxtBBox[Geom::Y][1];
-
-        float cellX1 = sqCellBBox[Geom::X][0];
-        float cellX2 = sqCellBBox[Geom::X][1];
-        float cellY1 = sqCellBBox[Geom::Y][0];
-        float cellY2 = sqCellBBox[Geom::Y][1];
 
         const gchar *dataX = textPosition.ptextNode->attribute("data-x");
         std::vector<SVGLength> data_x = sp_svg_length_list_read(dataX);
@@ -3939,6 +3937,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
+			if (! isSimulate) // isSimulate - avoid generate new nodes
 			if (start > 0 || ((end + 1) != uniTextPosition.size() && (end+1) > 0))
 			{
 

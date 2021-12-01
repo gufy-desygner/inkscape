@@ -2177,6 +2177,11 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	tableDef->width = xList[xList.size() - 1] - xStart;
 	tableDef->height = yStart - yList[yList.size() - 1];
 
+	std::vector<SvgTextPosition> textList = _builder->getTextInArea(tableDef->x, tableDef->y,
+			tableDef->x + tableDef->width, tableDef->y + tableDef->height, true);
+
+	if (textList.empty()) return false;
+
 	for(int yIdx = 1; yIdx < yList.size() ; yIdx++)
 	{
 		xStart = xList[0];
