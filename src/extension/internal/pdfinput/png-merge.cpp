@@ -2187,7 +2187,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 			TabLine* topLine = searchByPoint(xMediane, yStart, false);
 			TabLine* leftLine = searchByPoint(xStart, yMediane, true);
 
-			TabLine* rightLine = nullptr;
+			TabLine* rightLine = searchByPoint(xList[xIdx], yMediane, true);
 			int xShift = 0;
 			while(rightLine == nullptr && (xIdx + 1 + xShift) < xList.size())
 			{
@@ -2199,7 +2199,7 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				}
 			}
 
-			TabLine* bottomLine = nullptr;
+			TabLine* bottomLine = searchByPoint(xMediane, yList[yIdx], false);
 			int yShift = 0;
 			while(bottomLine == nullptr && (yIdx + 1 + yShift) < yList.size())
 			{
