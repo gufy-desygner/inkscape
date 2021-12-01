@@ -1632,7 +1632,7 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 	if (x1 == x2 || y1 == y2)
 		lookLikeTab = true;
 
-	if (start[1] == end[1]) isVert = true;
+	if (x1 == x2) isVert = true;
 }
 
 TabRect::TabRect(double _x1, double _y1, double _x2, double _y2, Inkscape::XML::Node* _node) :
@@ -1661,40 +1661,56 @@ TabRect::TabRect(Geom::Point point1, Geom::Point point2, Inkscape::XML::Node* _n
 TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
 {
 	Geom::Rect inRect(_x1, _y1, _x2, _y2);
+	TabRect* possibleRect = nullptr;
 	for(auto& rect : rects)
 	{
 		Geom::Rect currentRect(rect->x1, rect->y1, rect->x2, rect->y2);
 		if (rectIntersect(currentRect, inRect) > 90)
-			return rect;
+		{
+			SPItem* spNode = (SPItem*) _builder->getSpDocument()->getObjectByRepr(rect->node);
+			const char* fillStyle = spNode->getStyleProperty("fill", "none");
+
+			if (strncmp(fillStyle, "#ffffff", 7) == 0)
+			{
+				possibleRect = rect;
+				continue;
+			}
+
+			if (strncmp(fillStyle, "none", 4) != 0)
+				return rect;
+		}
 	}
 
-	return nullptr;
+	return possibleRect;
 }
 
 TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVerticale)
 {
 
+	TabLine* rectLine = nullptr;
 	for(auto& line : lines)
 	{
-		size_t segmentCount = line->curveSegmentsCount();
-		if (segmentCount > 1) continue;
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
 			if (line->x1 != xCoord) continue;
 			if (line->y1 > yCoord || line->y2 < yCoord) continue;
 
-			return line;
+			size_t segmentCount = line->curveSegmentsCount();
+			if (segmentCount > 1) rectLine = line; // simple lines is more contrast boorder
+			else return line;
 		} else {
 			if (line->isVertical()) continue;
 			if (line->y1 != yCoord) continue;
 			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
-			return line;
+			size_t segmentCount = line->curveSegmentsCount();
+			if (segmentCount > 1) rectLine = line; // simple lines is more contrast boorder
+			else return line;
 		}
 	}
 
-	return nullptr;
+	return rectLine;
 }
 
 
@@ -2113,10 +2129,10 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		firstPoint = firstPoint * lineAffine;
 		secondPoint = secondPoint * lineAffine;
 
-		line->x1 = round(firstPoint.x());
-		line->y1 = round(firstPoint.y());
-		line->x2 = round(secondPoint.x());
-		line->y2 = round(secondPoint.y());
+		line->x1 = round(firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x());
+		line->y1 = round(firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y());
+		line->x2 = round(firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x());
+		line->y2 = round(firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y());
 
 		if (line->x1 == line->x2)
 			xList.push_back(line->x1);
@@ -2173,11 +2189,11 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 			TabLine* rightLine = nullptr;
 			int xShift = 0;
-			while(rightLine == nullptr && (xIdx + xShift) < xList.size())
+			while(rightLine == nullptr && (xIdx + 1 + xShift) < xList.size())
 			{
 				rightLine = searchByPoint(xList[xIdx + xShift], yMediane, true);
 
-				if (rightLine == nullptr && (xIdx + xShift) < xList.size())
+				if (rightLine == nullptr && (xIdx + 1 + xShift) < xList.size())
 				{
 					xShift++;
 				}
@@ -2185,11 +2201,11 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 			TabLine* bottomLine = nullptr;
 			int yShift = 0;
-			while(bottomLine == nullptr && (yIdx + yShift) < yList.size())
+			while(bottomLine == nullptr && (yIdx + 1 + yShift) < yList.size())
 			{
 				bottomLine = searchByPoint(xMediane, yList[yIdx + yShift], false);
 
-				if (bottomLine == nullptr && (yIdx + yShift) < yList.size())
+				if (bottomLine == nullptr && (yIdx + 1 + yShift) < yList.size())
 				{
 					yShift++;
 				}
@@ -2312,6 +2328,7 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 			{
 				_isTable = false;
 			}
+
 			x1 = x1 < line->x1 ? x1 : line->x1;
 			y1 = y1 < line->y1 ? y1 : line->y1;
 			x2 = x2 > line->x2 ? x2 : line->x2;
