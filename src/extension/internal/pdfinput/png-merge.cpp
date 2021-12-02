@@ -1580,7 +1580,7 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	}
 	Inkscape::XML::Node *chNode = currNode->firstChild();
 	while(chNode) {
-		if ( ! approve(chNode))
+		if (approve != nullptr && (! approve(chNode)))
 		{
 			chNode = chNode->next();
 			continue;
