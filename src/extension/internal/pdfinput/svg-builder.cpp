@@ -3797,6 +3797,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
         //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 
         textPosition.needRemove = false;
+        textPosition.isUsed = false;
         textInAreaList.push_back(textPosition);
     }
 }
@@ -3886,8 +3887,11 @@ void SvgBuilder::removeNodesByTextPositionList()
 {
 	for(SvgTextPosition& item: textPositionList)
 	{
-		if (item.needRemove && item.ptextNode->parent())
+		if (item.isUsed != true && item.needRemove && item.ptextNode->parent())
+		{
 			item.ptextNode->parent()->removeChild(item.ptextNode);
+			item.isUsed = true;
+		}
 	}
 }
 
@@ -3916,6 +3920,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
     float cellY1 = sqCellBBox[Geom::Y][0];
     float cellY2 = sqCellBBox[Geom::Y][1];
     for(SvgTextPosition& textPosition : textPositionList) {
+    	if (textPosition.isUsed) continue;
 
         Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
 
@@ -4001,9 +4006,14 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 
             SvgTextPosition tmpTextPosition;
             if (tspanAfterStart != nullptr)
+            {
             	tmpTextPosition.ptextNode = tspanAfterStart;
+            }
             else
+            {
             	tmpTextPosition.ptextNode = textPosition.ptextNode;
+            	if (! isSimulate) textPosition.isUsed = true;
+            }
             tmpTextPosition.text = g_strdup(textInsideCell.c_str());
             tmpTextPosition.x = textPosition.x;
             tmpTextPosition.y = textPosition.y;
