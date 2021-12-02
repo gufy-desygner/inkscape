@@ -946,10 +946,38 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	//builder->getNodeListByTag("svg:tspan", &listOfTSpan);
             	if (bookMarks)
             		bookMarks->MergeWithSvgBuilder(builder);
+
+            	TableList regions;
+				detectTables(builder, &regions);
+				SPDocument* spDoc = builder->getSpDocument();
+
+				Inkscape::XML::Node* mainNode = builder->getMainNode();
+				SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
+				for(TableRegion* tabRegion : regions)
+				{
+					if (tabRegion->buildKnote(builder))
+					{
+						TabLine* firstPathLine = tabRegion->lines[0];
+						Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+						Inkscape::XML::Node* tabParent = tabPathNode->parent();
+
+						SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
+						Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
+
+
+						//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
+
+						Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
+						if (mainNode)
+							mainNode->appendChild(tabNode);
+					}
+				}
+
+
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
-            	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual());
+            	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual(), isNotTable);
             	}
             	incTimer(timCALCULATE_OBJECTS);
             	prnTimer(timCALCULATE_OBJECTS, "time take calculate count of objects");
@@ -960,13 +988,13 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             			visualChild = visualChild->next();
             		Inkscape::XML::Node *lastMergedNode = visualChild;
             		//extract text nodes
-            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual());
+            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual(), isNotTable);
             		visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		std::vector<Inkscape::XML::Node *> remNodes;
             		// collect node for merge
             		lastMergedNode = lastMergedNode->next();
             		while(visualChild != lastMergedNode) {
-            			if (strcmp(visualChild->name(), "svg:text") != 0) {
+             			if (strcmp(visualChild->name(), "svg:text") != 0 &&  isNotTable(visualChild)) {
 							mergeBuilder->addImageNode(visualChild, sp_export_svg_path_sh);
 							remNodes.push_back(visualChild);
             			}
@@ -1030,39 +1058,16 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
-					TableList regions;
+
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
-						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
+						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath(isNotTable) > sp_merge_limit_path_sh) ||
 						nodeMergeCount > 15) {
 
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
-						detectTables(builder, &regions);
-						SPDocument* spDoc = builder->getSpDocument();
 
-						Inkscape::XML::Node* mainNode = builder->getMainNode();
-						SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
-						for(TableRegion* tabRegion : regions)
-						{
-							if (tabRegion->buildKnote(builder))
-							{
-								TabLine* firstPathLine = tabRegion->lines[0];
-								Inkscape::XML::Node* tabPathNode = firstPathLine->node;
-								Inkscape::XML::Node* tabParent = tabPathNode->parent();
-
-								SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
-								Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
-
-
-								//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
-
-								Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
-								if (tabParent)
-									tabParent->appendChild(tabNode);
-							}
-						}
 
 						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}

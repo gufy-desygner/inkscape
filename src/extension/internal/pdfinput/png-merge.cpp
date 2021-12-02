@@ -58,6 +58,13 @@ double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 	return (squareOfintersects/squareOfKind) * 100;
 }
 
+bool isNotTable(Inkscape::XML::Node *node)
+{
+	const char* classes = node->attribute("class");
+	if (classes == nullptr) return true;
+	return (strcmp(classes, "table") != 0);
+}
+
 
 namespace Inkscape {
 namespace Extension {
@@ -689,12 +696,18 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	return tempNode;
 }
 
-int64_t svg_get_number_of_objects(Inkscape::XML::Node *node) {
+
+
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve) {
 	int64_t count_of_nodes = 0;
 	Inkscape::XML::Node *childNode = node->firstChild();
 	while(childNode) {
+		if (approve != nullptr && (! approve(childNode))) {
+			childNode = childNode->next();
+			continue;
+		}
 		count_of_nodes++;
-		count_of_nodes += svg_get_number_of_objects(childNode);
+		count_of_nodes += svg_get_number_of_objects(childNode, approve);
 		childNode = childNode->next();
 	}
 	return count_of_nodes;
@@ -1556,7 +1569,8 @@ void compressGtag(SvgBuilder *builder){
  * @param currNode node from which do scan for text tags
  * @param aff affine matrix for transformation objects from currNode to mainNode
  */
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff, ApproveNode* approve)
+{
 	// position for inserting new node
 	// each new text node will shift this position to self
 	Inkscape::XML::Node *pos = mainNode;
@@ -1566,6 +1580,11 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	}
 	Inkscape::XML::Node *chNode = currNode->firstChild();
 	while(chNode) {
+		if (approve != nullptr && (! approve(chNode)))
+		{
+			chNode = chNode->next();
+			continue;
+		}
 		nextNode = chNode->next();
 		// move found text node
 		if (strcmp(chNode->name(), "svg:text") == 0) {
@@ -1589,18 +1608,18 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 				Geom::Affine aff2;
 				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
 				// move children to 'pos'
-				moveTextNode(builder, pos, chNode, aff2 * aff );
+				moveTextNode(builder, pos, chNode, aff2 * aff, approve);
 			}
 		}
 		chNode = nextNode;
 	}
 }
 
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, ApproveNode* approve) {
 	Geom::Affine aff;
 	if (mainNode->parent() != currNode)
 		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
-	moveTextNode(builder, mainNode, currNode, aff);
+	moveTextNode(builder, mainNode, currNode, aff, approve);
 }
 
 TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc) :
@@ -2283,6 +2302,7 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 	std::vector<std::string> tags;
 	tags.push_back("svg:path");
 	tags.push_back("svg:rect");
+	tags.push_back("svg:line");
 
 	auto regions = builder->getRegions(tags);
 	for(NodeList& vecRegionNodes : *regions)
@@ -2293,7 +2313,8 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 		for(Inkscape::XML::Node* node: vecRegionNodes)
 		{
 			isTable = tabRegionStat->addLine(node);
-			if (! isTable) break;
+			if (! isTable)
+				break;
 		}
 
 		if (isTable) tables->push_back(tabRegionStat);
@@ -2489,7 +2510,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions, bool simu
 }
 
 // merge all object and put it how background
-void mergeImagePathToOneLayer(SvgBuilder *builder) {
+void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve) {
 	  Inkscape::XML::Node *root = builder->getRoot();
 	  Inkscape::XML::Node *remNode;
 	  Inkscape::XML::Node *toImageNode;
@@ -2508,7 +2529,8 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 		countMergedNodes = 0;
 		mergeBuilder->clearMerge();
 		while (mergeNode) {
-			if (! mergeBuilder->haveTagFormList(mergeNode)) {
+
+			if ((approve != nullptr && !approve(mergeNode)) || (! mergeBuilder->haveTagFormList(mergeNode))) {
 				mergeNode = mergeNode->next();
 				continue;
 			}
