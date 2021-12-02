@@ -58,6 +58,13 @@ double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 	return (squareOfintersects/squareOfKind) * 100;
 }
 
+bool isNotTable(Inkscape::XML::Node *node)
+{
+	const char* classes = node->attribute("class");
+	if (classes == nullptr) return true;
+	return (strcmp(classes, "table") != 0);
+}
+
 
 namespace Inkscape {
 namespace Extension {
@@ -689,12 +696,18 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	return tempNode;
 }
 
-int64_t svg_get_number_of_objects(Inkscape::XML::Node *node) {
+
+
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve) {
 	int64_t count_of_nodes = 0;
 	Inkscape::XML::Node *childNode = node->firstChild();
 	while(childNode) {
+		if (approve != nullptr && (! approve(childNode))) {
+			childNode = childNode->next();
+			continue;
+		}
 		count_of_nodes++;
-		count_of_nodes += svg_get_number_of_objects(childNode);
+		count_of_nodes += svg_get_number_of_objects(childNode, approve);
 		childNode = childNode->next();
 	}
 	return count_of_nodes;
@@ -2489,7 +2502,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions, bool simu
 }
 
 // merge all object and put it how background
-void mergeImagePathToOneLayer(SvgBuilder *builder) {
+void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve) {
 	  Inkscape::XML::Node *root = builder->getRoot();
 	  Inkscape::XML::Node *remNode;
 	  Inkscape::XML::Node *toImageNode;
@@ -2508,7 +2521,8 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 		countMergedNodes = 0;
 		mergeBuilder->clearMerge();
 		while (mergeNode) {
-			if (! mergeBuilder->haveTagFormList(mergeNode)) {
+
+			if ((approve != nullptr && !approve(mergeNode)) || (! mergeBuilder->haveTagFormList(mergeNode))) {
 				mergeNode = mergeNode->next();
 				continue;
 			}

@@ -95,6 +95,7 @@ struct SvgGlyph {
     double wordSpace;
 };
 
+typedef bool ApproveNode(Inkscape::XML::Node *node);
 void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second);
 void mergeTspanList(NodeList &tspanArray);
 /**
@@ -125,8 +126,8 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
-    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode);
-    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
+    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve = nullptr);
+    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr, ApproveNode* approve = nullptr);
     Inkscape::XML::Node* getMainNode();
 
     Inkscape::XML::Node *getPreferences() {
@@ -220,7 +221,7 @@ public:
     bool getTransform(double *transform);
     gchar *getDocName();
     gint getCountOfImages(void) { return _countOfImages;};
-    gint getCountOfPath(void) { return _countOfPath;};
+    gint getCountOfPath(ApproveNode* approve = nullptr);// { return _countOfPath;};
     SPDocument *getSpDocument(void){ return _doc;};
     double glipEndX, glipEndY;
     double spaceWidth;

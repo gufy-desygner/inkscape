@@ -517,11 +517,15 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 	}
 }
 
-static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> &tags, NodeList* list)
+static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> &tags, NodeList* list, ApproveNode* approve = nullptr)
 {
 	Inkscape::XML::Node* cursorNode = node;
 	while(cursorNode)
 	{
+		if (approve != nullptr && approve(cursorNode) == false) {
+			cursorNode = cursorNode->next();
+			continue;
+		}
 		const char* nodeName = cursorNode->name();
 		for(int tagIdx = 0; tags.size() > tagIdx; tagIdx++)
 		{
@@ -538,7 +542,7 @@ static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> 
 	}
 }
 
-NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode)
+NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve)
 {
 
 	if (tags.size() == 0) return list;
@@ -554,7 +558,7 @@ NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList
 	return list;
 }
 
-NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve)
 {
 
 	if (tag == nullptr) return list;
@@ -562,7 +566,7 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	std::vector<std::string> tags;
 	tags.push_back(tag);
 
-	return getNodeListByTags(tags, list, startNode);
+	return getNodeListByTags(tags, list, startNode, approve);
 }
 
 static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
@@ -1222,6 +1226,17 @@ bool SvgBuilder::getTransform(double *transform) {
 
 gchar *SvgBuilder::getDocName() {
 	return _docname;
+}
+
+gint SvgBuilder::getCountOfPath(ApproveNode* approve)
+{
+	if (approve == nullptr)
+		return _countOfPath;
+
+	NodeList list;
+	getNodeListByTag("svg:path", &list, getMainNode(), approve);
+
+	return list.size();
 }
 
 /**

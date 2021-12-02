@@ -19,6 +19,8 @@
 
 #define PROFILER_ENABLE 0
 
+bool isNotTable(Inkscape::XML::Node *node);
+
 void print_node(Inkscape::XML::Node *node, uint level);
 
 bool objStreamToFile(Object* obj, const char* fileName);
@@ -43,7 +45,7 @@ enum mark_line_style {
 };
 
 void createPrintingMarks(SvgBuilder *builder);
-void mergeImagePathToOneLayer(SvgBuilder *builder);
+void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve = nullptr);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
@@ -54,7 +56,7 @@ void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0);
-int64_t svg_get_number_of_objects(Inkscape::XML::Node *node);
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve);
 
 #define timPDF_PARSER 0
 #define timCALCULATE_OBJECTS 1
