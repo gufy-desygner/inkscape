@@ -968,8 +968,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
 
 						Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
-						if (tabParent)
-							tabParent->appendChild(tabNode);
+						if (mainNode)
+							mainNode->appendChild(tabNode);
 					}
 				}
 

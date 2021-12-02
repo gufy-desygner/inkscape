@@ -2296,6 +2296,7 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 	std::vector<std::string> tags;
 	tags.push_back("svg:path");
 	tags.push_back("svg:rect");
+	tags.push_back("svg:line");
 
 	auto regions = builder->getRegions(tags);
 	for(NodeList& vecRegionNodes : *regions)
@@ -2306,7 +2307,8 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 		for(Inkscape::XML::Node* node: vecRegionNodes)
 		{
 			isTable = tabRegionStat->addLine(node);
-			if (! isTable) break;
+			if (! isTable)
+				break;
 		}
 
 		if (isTable) tables->push_back(tabRegionStat);
