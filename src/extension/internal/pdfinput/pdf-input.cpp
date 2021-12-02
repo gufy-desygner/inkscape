@@ -988,13 +988,13 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             			visualChild = visualChild->next();
             		Inkscape::XML::Node *lastMergedNode = visualChild;
             		//extract text nodes
-            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual());
+            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual(), isNotTable);
             		visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		std::vector<Inkscape::XML::Node *> remNodes;
             		// collect node for merge
             		lastMergedNode = lastMergedNode->next();
             		while(visualChild != lastMergedNode) {
-            			if (strcmp(visualChild->name(), "svg:text") != 0) {
+             			if (strcmp(visualChild->name(), "svg:text") != 0 &&  isNotTable(visualChild)) {
 							mergeBuilder->addImageNode(visualChild, sp_export_svg_path_sh);
 							remNodes.push_back(visualChild);
             			}

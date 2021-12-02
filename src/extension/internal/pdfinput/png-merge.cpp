@@ -1569,7 +1569,8 @@ void compressGtag(SvgBuilder *builder){
  * @param currNode node from which do scan for text tags
  * @param aff affine matrix for transformation objects from currNode to mainNode
  */
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff, ApproveNode* approve)
+{
 	// position for inserting new node
 	// each new text node will shift this position to self
 	Inkscape::XML::Node *pos = mainNode;
@@ -1579,6 +1580,11 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	}
 	Inkscape::XML::Node *chNode = currNode->firstChild();
 	while(chNode) {
+		if ( ! approve(chNode))
+		{
+			chNode = chNode->next();
+			continue;
+		}
 		nextNode = chNode->next();
 		// move found text node
 		if (strcmp(chNode->name(), "svg:text") == 0) {
@@ -1602,18 +1608,18 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 				Geom::Affine aff2;
 				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
 				// move children to 'pos'
-				moveTextNode(builder, pos, chNode, aff2 * aff );
+				moveTextNode(builder, pos, chNode, aff2 * aff, approve);
 			}
 		}
 		chNode = nextNode;
 	}
 }
 
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, ApproveNode* approve) {
 	Geom::Affine aff;
 	if (mainNode->parent() != currNode)
 		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
-	moveTextNode(builder, mainNode, currNode, aff);
+	moveTextNode(builder, mainNode, currNode, aff, approve);
 }
 
 TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc) :
