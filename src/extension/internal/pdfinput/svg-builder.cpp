@@ -3267,7 +3267,30 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
 	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
-	if (firstChild == nullptr || bbox.contains(spGNode->geometricBounds(affine)))
+	if (! bbox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		bbox = spClipPath->geometricBounds(affine);
+	}
+	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
+	if (! nodeBBox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		nodeBBox = spGNode->geometricBounds(affine);
+	}
+	Geom::Rect clipRect = bbox.get();
+
+	/*printf("=======================\n");
+	print_node(gNode,1);
+	printf("clip rect (%f,%f)(%f,%f)\n", clipRect[Geom::X][0], clipRect[Geom::Y][0], clipRect[Geom::X][1], clipRect[Geom::Y][1]);
+	if (nodeBBox.is_initialized()) {
+		Geom::Rect nodeRect = nodeBBox.get();
+		printf("node rect (%f,%f)(%f,%f)\n", nodeRect[Geom::X][0], nodeRect[Geom::Y][0], nodeRect[Geom::X][1], nodeRect[Geom::Y][1]);
+	}
+	else
+		printf("node rect is empty\n");*/
+
+	if (firstChild == nullptr || bbox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
