@@ -69,6 +69,7 @@ extern "C" {
 #include <pthread.h>
 #include "shared_opt.h"
 #include FT_FREETYPE_H
+#include <sys/stat.h>
 
 // the MSVC math.h doesn't define this
 #ifndef M_PI
@@ -2398,6 +2399,11 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 	  } else return;
 }
 
+inline bool isExistFile (const std::string& name) {
+  struct stat buffer;
+  return (stat (name.c_str(), &buffer) == 0);
+}
+
 void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 {
 	int len;
@@ -2429,7 +2435,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 	  num++;
 
 
-	  if (len > 0) {
+	  if (isExistFile(fname) == false && len > 0) {
 		  char exeDir[1024];
 		  FILE *fl = fopen(fname, "w");
 		  fwrite(buf, 1, len, fl);
