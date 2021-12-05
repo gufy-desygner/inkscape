@@ -3747,6 +3747,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
     	spText->rebuildLayout();
     	double x, y;
     	sp_svg_number_read_d( pTspanNode->attribute("y"), &y );
+    	sp_svg_number_read_d( pTspanNode->attribute("x"), &x );
 
     	SvgTextPosition textPosition;
     	SPTSpan* spNode = (SPTSpan*)spDoc->getObjectByRepr(pTspanNode);
@@ -3755,7 +3756,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
             continue;
 
         Geom::Affine nodeAffine1;
-        Geom::Affine nodeAffine = spNode->getRelativeTransform(spMainNode);
+        textPosition.affine = spNode->getRelativeTransform(spMainNode);
         Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
 
 
@@ -3763,9 +3764,12 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
             continue;
 
         Geom::Rect _sqTextBBox = visualBound.get();
-        double dx = y - _sqTextBBox[Geom::Y][1];
-        nodeAffine1[5] = dx;
-        Geom::Rect sqTextBBox = _sqTextBBox * nodeAffine1 * nodeAffine;
+        double dx = x - _sqTextBBox[Geom::X][0];
+        double dy = y - _sqTextBBox[Geom::Y][1];
+        nodeAffine1[4] = dx;
+        nodeAffine1[5] = dy;
+
+        Geom::Rect sqTextBBox = _sqTextBBox * nodeAffine1 * textPosition.affine;
 
 
 
@@ -3940,6 +3944,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         int start = -1;
         int end = -1;
 
+        Geom::Point p_start(textX1, textY1);
+        p_start = p_start * textPosition.affine.inverse();
         if (isSimulate)
         {
         	Geom::Point p(textX1, textY1);
@@ -3952,7 +3958,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 			for(int i = 0; i < data_x.size(); i++) {
 				if (data_x[i]._set) {
 						// Now you can start extracting characters!
-						Geom::Point p(textX1 + data_x[i].value, textY1);
+						Geom::Point p(p_start[Geom::X] + data_x[i].value, p_start[Geom::Y]);
+						p = p * textPosition.affine;
 						if (sqCellBBox.interiorContains(p)) {
 							if (start == -1) start = i;
 							end = i;

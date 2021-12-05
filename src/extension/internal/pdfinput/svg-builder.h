@@ -104,6 +104,7 @@ void mergeTspanList(NodeList &tspanArray);
 
 struct SvgTextPosition {
     Inkscape::XML::Node* ptextNode;
+    Geom::Affine affine;
     bool isUsed;
     gchar* text;
     double x = 0;
