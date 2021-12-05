@@ -3958,7 +3958,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
 			for(int i = 0; i < data_x.size(); i++) {
 				if (data_x[i]._set) {
 						// Now you can start extracting characters!
-						Geom::Point p(p_start[Geom::X] + data_x[i].value, p_start[Geom::Y]);
+						Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
 						p = p * textPosition.affine;
 						if (sqCellBBox.interiorContains(p)) {
 							if (start == -1) start = i;
