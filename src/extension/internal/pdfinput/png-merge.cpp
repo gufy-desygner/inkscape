@@ -1683,7 +1683,8 @@ TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
 	TabRect* possibleRect = nullptr;
 	for(auto& rect : rects)
 	{
-		Geom::Rect currentRect(rect->x1, rect->y1, rect->x2, rect->y2);
+		// Always use round for better results, this will avoid rects not being mactched!
+		Geom::Rect currentRect(round(rect->x1), round(rect->y1), round(rect->x2), round(rect->y2));
 		if (rectIntersect(currentRect, inRect) > 90)
 		{
 			SPItem* spNode = (SPItem*) _builder->getSpDocument()->getObjectByRepr(rect->node);
@@ -1929,6 +1930,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		tSpanNode->appendChild(stringNode);
 		tTextNode->appendChild(tSpanNode);
 		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
+		nodeTextAttribs->setAttribute("font-size", "1");
 	} else {
 		std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 		size_t nLinesInCell = textInAreaList.size();
