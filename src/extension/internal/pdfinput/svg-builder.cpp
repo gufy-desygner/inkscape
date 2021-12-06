@@ -702,6 +702,20 @@ bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNo
 */
 }
 
+Geom::Rect SvgBuilder::getNodeBBox(Inkscape::XML::Node* node)
+{
+	SPDocument* spDoc = getSpDocument();
+	static SPObject* spMainNode = spDoc->getObjectByRepr(getMainNode());
+	SPObject* spNode = spDoc->getObjectByRepr(node);
+
+	Geom::Affine pathAffine = SP_ITEM(spNode)->getRelativeTransform(spMainNode);
+    Geom::OptRect visualBound(SP_ITEM(spNode)->visualBounds());
+    if (visualBound) {
+    	return visualBound.get() * pathAffine;
+    }
+    return Geom::Rect(0,0,0,0);
+}
+
 std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 {
 	std::vector<NodeList>* _result = new std::vector<NodeList>();

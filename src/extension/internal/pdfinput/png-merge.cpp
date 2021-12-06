@@ -2291,6 +2291,12 @@ Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
 	return result;
 }
 
+
+Geom::Rect TableRegion::getBBox()
+{
+	return Geom::Rect(x1, y1, x2, y2);
+}
+
 /**
  * @describe do merge tags without text between
  * @param builder representation of SVG document
@@ -2298,7 +2304,6 @@ Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
  *
  * @return count of generated images
  * */
-
 TableList* detectTables(SvgBuilder *builder, TableList* tables) {
   bool splitRegions = true;
 
@@ -2323,10 +2328,41 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 				break;
 		}
 
+		Geom::Rect tabBBox = tabRegionStat->getBBox();
+		NodeList imgList;
+		builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
+		printf("table x1 %f, x2 %f, Y1 %f, Y2 %f\n",
+				tabBBox[Geom::X][0],tabBBox[Geom::X][1],
+				tabBBox[Geom::Y][0],tabBBox[Geom::Y][1]);
+
+		for(auto& imageNode : imgList)
+		{
+			Geom::Rect imgRect = builder->getNodeBBox(imageNode);
+
+			printf("===image x1 %f, x2 %f, Y1 %f, Y2 %f\n",
+					imgRect[Geom::X][0],imgRect[Geom::X][1],
+					imgRect[Geom::Y][0],imgRect[Geom::Y][1]);
+			if (rectIntersect(imgRect, tabBBox) > 0)
+			{
+				isTable = false;
+				break;
+			}
+		}
+
 		if (isTable) tables->push_back(tabRegionStat);
 	}
 
 	return tables;
+}
+
+TableRegion::~TableRegion()
+{
+	if (tableDef)
+		delete(tableDef);
+	for(auto& line : lines)
+	{
+		delete line;
+	}
 }
 
 bool TableRegion::addLine(Inkscape::XML::Node* node)
@@ -2347,6 +2383,7 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 		double x2 = y2 = 0;
 		for(const Geom::Curve& simplCurve : itPath) {
 			TabLine* line = new TabLine(node, simplCurve, spDoc);
+			line->affineToMainNode = pathAffine;
 			lines.push_back(line);
 			if (! line->isTableLine())
 			{
@@ -2360,13 +2397,17 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 		}
 		if (! _isTable) continue;
 
+		Geom::Point point1(x1, y1);
+		Geom::Point point2(x2, y2);
+		point1 = point1 * pathAffine;
+		point2 = point2 * pathAffine;
+		this->x1 = this->x1 < point1[Geom::X] ? this->x1 : point1[Geom::X];
+		this->y1 = this->y1 < point1[Geom::Y] ? this->y1 : point1[Geom::Y];
+		this->x2 = this->x2 > point2[Geom::X] ? this->x2 : point2[Geom::X];
+		this->y2 = this->y2 > point2[Geom::Y] ? this->y2 : point2[Geom::Y];
+
 		if (itPath.size() == 4 && itPath.closed())
 		{
-			Geom::Point point1(x1, y1);
-			Geom::Point point2(x2, y2);
-			point1 = point1 * pathAffine;
-			point2 = point2 * pathAffine;
-			//TabRect* rect = new TabRect(x1, y1, x2, y2, node);
 			TabRect* rect = new TabRect(point1, point2, node);
 			rects.push_back(rect);
 		}

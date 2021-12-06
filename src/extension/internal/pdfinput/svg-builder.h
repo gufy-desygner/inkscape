@@ -137,6 +137,7 @@ public:
     }
 
     std::vector<NodeList>* getRegions(std::vector<std::string> &tags);
+    Geom::Rect getNodeBBox(Inkscape::XML::Node* node);
 
 
     // Handling the node stack
