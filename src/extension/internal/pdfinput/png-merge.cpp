@@ -2331,17 +2331,17 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 		Geom::Rect tabBBox = tabRegionStat->getBBox();
 		NodeList imgList;
 		builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
-		printf("table x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-				tabBBox[Geom::X][0],tabBBox[Geom::X][1],
-				tabBBox[Geom::Y][0],tabBBox[Geom::Y][1]);
+		//printf("table x1 %f, x2 %f, Y1 %f, Y2 %f\n",
+		//		tabBBox[Geom::X][0],tabBBox[Geom::X][1],
+		//		tabBBox[Geom::Y][0],tabBBox[Geom::Y][1]);
 
 		for(auto& imageNode : imgList)
 		{
 			Geom::Rect imgRect = builder->getNodeBBox(imageNode);
 
-			printf("===image x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-					imgRect[Geom::X][0],imgRect[Geom::X][1],
-					imgRect[Geom::Y][0],imgRect[Geom::Y][1]);
+			//printf("===image x1 %f, x2 %f, Y1 %f, Y2 %f\n",
+			//		imgRect[Geom::X][0],imgRect[Geom::X][1],
+			//		imgRect[Geom::Y][0],imgRect[Geom::Y][1]);
 			if (rectIntersect(imgRect, tabBBox) > 0)
 			{
 				isTable = false;
@@ -2379,8 +2379,10 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 
 	for (const Geom::Path& itPath : pathArray)
 	{
-		double x1 = y1 = 1e6;
-		double x2 = y2 = 0;
+		double _x1 = 1e6;
+		double _y1 = 1e6;
+		double _x2 = 0;
+		double _y2 = 0;
 		for(const Geom::Curve& simplCurve : itPath) {
 			TabLine* line = new TabLine(node, simplCurve, spDoc);
 			line->affineToMainNode = pathAffine;
@@ -2390,15 +2392,15 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 				_isTable = false;
 			}
 
-			x1 = x1 < line->x1 ? x1 : line->x1;
-			y1 = y1 < line->y1 ? y1 : line->y1;
-			x2 = x2 > line->x2 ? x2 : line->x2;
-			y2 = y2 > line->y2 ? y2 : line->y2;
+			_x1 = _x1 < line->x1 ? _x1 : line->x1;
+			_y1 = _y1 < line->y1 ? _y1 : line->y1;
+			_x2 = _x2 > line->x2 ? _x2 : line->x2;
+			_y2 = _y2 > line->y2 ? _y2 : line->y2;
 		}
 		if (! _isTable) continue;
 
-		Geom::Point point1(x1, y1);
-		Geom::Point point2(x2, y2);
+		Geom::Point point1(_x1, _y1);
+		Geom::Point point2(_x2, _y2);
 		point1 = point1 * pathAffine;
 		point2 = point2 * pathAffine;
 		this->x1 = this->x1 < point1[Geom::X] ? this->x1 : point1[Geom::X];
