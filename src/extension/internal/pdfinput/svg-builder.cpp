@@ -3957,7 +3957,14 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         float textY2 = sqTxtBBox[Geom::Y][1];
 
         const gchar *dataX = textPosition.ptextNode->attribute("data-x");
-        std::vector<SVGLength> data_x = sp_svg_length_list_read(dataX);
+        std::vector<SVGLength> data_x;
+        if (dataX == nullptr || strlen(dataX) == 0)
+        {
+        	const gchar *x = textPosition.ptextNode->attribute("x");
+        	data_x = sp_svg_length_list_read(x);
+        }
+        else
+        	data_x = sp_svg_length_list_read(dataX);
 
 
         bool bIsPointInsideCellFound = false;
@@ -3980,19 +3987,19 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         // Check every Letter position in the text if inside a Cell!
 			for(int i = 0; i < data_x.size(); i++) {
 				if (data_x[i]._set) {
-						// Now you can start extracting characters!
-						Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
-						p = p * textPosition.affine;
-						if (sqCellBBox.interiorContains(p)) {
-							if (start == -1) start = i;
-							end = i;
-							//printf("Point inside Cell Found!\n");
-							bIsPointInsideCellFound = true;
-							Inkscape::CSSOStringStream os_x;
-							textInsideCell += uniTextPosition[i];
-						}
+					// Now you can start extracting characters!
+					Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
+					p = p * textPosition.affine;
+					if (sqCellBBox.interiorContains(p)) {
+						if (start == -1) start = i;
+						end = i;
+						//printf("Point inside Cell Found!\n");
+						bIsPointInsideCellFound = true;
+						Inkscape::CSSOStringStream os_x;
+						textInsideCell += uniTextPosition[i];
+					}
 				}
-			}
+        	}
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;

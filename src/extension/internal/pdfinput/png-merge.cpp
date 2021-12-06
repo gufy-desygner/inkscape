@@ -1915,10 +1915,15 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
+	std::vector<SvgTextPosition> textInAreaList;
+	if (!(cell->mergeIdx > 0 && cell->isMax == false))
+	{
+		textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+	}
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>
 	// TODO: reverify this, we're setting the text only in the TOP LEFT cell for now.
-	if (cell->mergeIdx > 0 && cell->isMax == false) {
+	if (textInAreaList.size() == 0 || cell->mergeIdx > 0 && cell->isMax == false) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
 		tSpanNode->setAttribute("x", doubleToCss(cell->x));
@@ -1932,7 +1937,6 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
 		nodeTextAttribs->setAttribute("font-size", "1");
 	} else {
-		std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 		size_t nLinesInCell = textInAreaList.size();
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
