@@ -1930,6 +1930,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		tSpanNode->appendChild(stringNode);
 		tTextNode->appendChild(tSpanNode);
 		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
+		nodeTextAttribs->setAttribute("font-size", "1");
 	} else {
 		std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 		size_t nLinesInCell = textInAreaList.size();
