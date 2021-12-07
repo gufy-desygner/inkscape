@@ -108,15 +108,11 @@ class TabLine {
 
 		bool isVert;
 		bool lookLikeTab;
-		//SPPath* spPath;
 		SPCurve* spCurve;
-		//size_t segmentCount;
-		//Geom::Curve* firstSegment;
-		//Geom::Point start;
-		//Geom::Point end;
 
 	public:
 		Inkscape::XML::Node* node;
+		Geom::Affine affineToMainNode;
 		double x1, x2, y1, y2;
 		TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc);
 		Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
@@ -192,25 +188,22 @@ private:
 public:
 	std::vector<TabLine*> lines;
 	std::vector<TabRect*> rects;
-	~TableRegion()
-	{
-		if (tableDef)
-			delete(tableDef);
-	}
 	TableRegion(SvgBuilder *builder) :
 		_builder(builder),
 		_isTable(true),
 		tableDef(nullptr),
-		x1(0),
+		x1(1e5),
 		x2(0),
-		y1(0),
+		y1(1e5),
 		y2(0)
 	{
 		spDoc = _builder->getSpDocument();
 	}
+	~TableRegion();
 
 	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
 	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
+	Geom::Rect getBBox();
 
 	bool addLine(Inkscape::XML::Node* node);
 
