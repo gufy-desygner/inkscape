@@ -33,6 +33,7 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
 double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2);
 
 namespace Inkscape {
 namespace Extension {

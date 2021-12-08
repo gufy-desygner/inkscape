@@ -1643,12 +1643,12 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 	Geom::Point start = curve.initialPoint();
 	Geom::Point end = curve.finalPoint();
 
-	x1 = round(start[0]*100)/100;
-	x2 = round(end[0]*100)/100;
-	y1 = round(start[1]*100)/100;
-	y2 = round(end[1]*100)/100;
+	x1 = round(start[0]*10)/10;
+	x2 = round(end[0]*10)/10;
+	y1 = round(start[1]*10)/10;
+	y2 = round(end[1]*10)/10;
 	//printf("   line (%f %f) (%f %f)\n", x1, y1, x2, y2);
-	if (x1 == x2 || y1 == y2)
+	if (round(x1 * 10) == round(x2 * 10) || round(y1 * 10) == round(y2 * 10))
 		lookLikeTab = true;
 
 	if (x1 == x2) isVert = true;
@@ -2328,24 +2328,21 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 				break;
 		}
 
-		Geom::Rect tabBBox = tabRegionStat->getBBox();
-		NodeList imgList;
-		builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
-		//printf("table x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-		//		tabBBox[Geom::X][0],tabBBox[Geom::X][1],
-		//		tabBBox[Geom::Y][0],tabBBox[Geom::Y][1]);
-
-		for(auto& imageNode : imgList)
+		if (isTable)
 		{
-			Geom::Rect imgRect = builder->getNodeBBox(imageNode);
-
-			//printf("===image x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-			//		imgRect[Geom::X][0],imgRect[Geom::X][1],
-			//		imgRect[Geom::Y][0],imgRect[Geom::Y][1]);
-			if (rectIntersect(imgRect, tabBBox) > 0)
+			//if table region contain image - exclude it
+			Geom::Rect tabBBox = tabRegionStat->getBBox();
+			NodeList imgList;
+			builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
+			for(auto& imageNode : imgList)
 			{
-				isTable = false;
-				break;
+				Geom::Rect imgRect = builder->getNodeBBox(imageNode);
+
+				if (rectIntersect(imgRect, tabBBox) > 0)
+				{
+					isTable = false;
+					break;
+				}
 			}
 		}
 
@@ -2918,5 +2915,45 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
+{
+	std::vector<Geom::Rect> lines1;
+	std::vector<Geom::Rect> lines2;
+
+	//top line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top(), rect1.right()+1, rect1.top(), rect1.left()-1));
+
+	//bottom line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.bottom(), rect1.right()+1, rect1.bottom(), rect1.left()-1));
+
+	//left line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.left(), rect1.bottom()+1, rect1.left()));
+
+	//right line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.right(), rect1.bottom()+1, rect1.right()));
+
+	//top line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top(), rect2.right()+1, rect2.top(), rect2.left()-1));
+
+	//bottom line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.bottom(), rect2.right()+1, rect2.bottom(), rect2.left()-1));
+
+	//left line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.left(), rect2.bottom()+1, rect2.left()));
+
+	//right line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.right(), rect2.bottom()+1, rect2.right()));
+
+	for (auto& line1 : lines1)
+	{
+		for (auto& line2 : lines2)
+		{
+			if (line1.intersects(line2)) return true;
+
+		}
+	}
+
+	return false;
+}
 
 
