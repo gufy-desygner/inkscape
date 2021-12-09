@@ -1643,15 +1643,15 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 	Geom::Point start = curve.initialPoint();
 	Geom::Point end = curve.finalPoint();
 
-	x1 = round(start[0]*10)/10;
-	x2 = round(end[0]*10)/10;
-	y1 = round(start[1]*10)/10;
-	y2 = round(end[1]*10)/10;
+	x1 = start[0];
+	x2 = end[0];
+	y1 = start[1];
+	y2 = end[1];
 	//printf("   line (%f %f) (%f %f)\n", x1, y1, x2, y2);
-	if (round(x1 * 10) == round(x2 * 10) || round(y1 * 10) == round(y2 * 10))
+	if (approxEqual(x1, x2) || approxEqual(y1, y2))
 		lookLikeTab = true;
 
-	if (x1 == x2) isVert = true;
+	if (approxEqual(x1, x2)) isVert = true;
 }
 
 TabRect::TabRect(double _x1, double _y1, double _x2, double _y2, Inkscape::XML::Node* _node) :
@@ -1713,7 +1713,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
-			if (line->x1 != xCoord) continue;
+			if (! approxEqual(line->x1, xCoord)) continue;
 			if (line->y1 > yCoord || line->y2 < yCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -1721,7 +1721,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 			else return line;
 		} else {
 			if (line->isVertical()) continue;
-			if (line->y1 != yCoord) continue;
+			if (! approxEqual(line->y1, yCoord)) continue;
 			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -2134,6 +2134,11 @@ void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int me
 	}
 }
 
+bool predAproxUniq(const float &a, const float &b)
+{
+	return approxEqual(a, b);
+}
+
 bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
@@ -2154,26 +2159,26 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		firstPoint = firstPoint * lineAffine;
 		secondPoint = secondPoint * lineAffine;
 
-		line->x1 = round(firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y1 = round(firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y());
-		line->x2 = round(firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y2 = round(firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y());
+		line->x1 = firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y1 = firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y();
+		line->x2 = firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y2 = firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y();
 
-		if (line->x1 == line->x2)
+		if (approxEqual(line->x1, line->x2))
 			xList.push_back(line->x1);
 
-		if (line->y1 == line->y2)
+		if (approxEqual(line->y1, line->y2))
 			yList.push_back(line->y1);
 
 	}
 
 
-	if (xList.size() == 0 || yList.size() == 0) return false;
+	if (xList.empty() || yList.empty()) return false;
 
 	std::sort(xList.begin(), xList.end());
-	std::sort(yList.begin(), yList.end(), &tableRowsSorter);
-	auto lastX = std::unique(xList.begin(), xList.end());
-	auto lastY = std::unique(yList.begin(), yList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
+	auto lastX = std::unique(xList.begin(), xList.end(), predAproxUniq);
+	auto lastY = std::unique(yList.begin(), yList.end(), predAproxUniq);
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
 
@@ -2954,6 +2959,16 @@ bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
 	}
 
 	return false;
+}
+
+inline bool approxEqual(const float x, const float y, const float epsilon)
+{
+   return (std::fabs(x - y) < epsilon);
+}
+
+inline bool definitelyBigger(const float a, const float b, const float epsilon)
+{
+   return ((a - epsilon) > b);
 }
 
 
