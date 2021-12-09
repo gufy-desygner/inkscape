@@ -33,6 +33,9 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
 double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2);
+inline bool approxEqual(const float x, const float y, const float epsilon = 0.05f);
+inline bool definitelyBigger(const float a, const float b, const float epsilon = 0.05f);
 
 namespace Inkscape {
 namespace Extension {

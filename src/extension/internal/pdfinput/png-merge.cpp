@@ -1643,15 +1643,15 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 	Geom::Point start = curve.initialPoint();
 	Geom::Point end = curve.finalPoint();
 
-	x1 = round(start[0]*100)/100;
-	x2 = round(end[0]*100)/100;
-	y1 = round(start[1]*100)/100;
-	y2 = round(end[1]*100)/100;
+	x1 = start[0];
+	x2 = end[0];
+	y1 = start[1];
+	y2 = end[1];
 	//printf("   line (%f %f) (%f %f)\n", x1, y1, x2, y2);
-	if (x1 == x2 || y1 == y2)
+	if (approxEqual(x1, x2) || approxEqual(y1, y2))
 		lookLikeTab = true;
 
-	if (x1 == x2) isVert = true;
+	if (approxEqual(x1, x2)) isVert = true;
 }
 
 TabRect::TabRect(double _x1, double _y1, double _x2, double _y2, Inkscape::XML::Node* _node) :
@@ -1713,7 +1713,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
-			if (line->x1 != xCoord) continue;
+			if (! approxEqual(line->x1, xCoord)) continue;
 			if (line->y1 > yCoord || line->y2 < yCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -1721,7 +1721,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 			else return line;
 		} else {
 			if (line->isVertical()) continue;
-			if (line->y1 != yCoord) continue;
+			if (! approxEqual(line->y1, yCoord)) continue;
 			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -2134,6 +2134,11 @@ void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int me
 	}
 }
 
+bool predAproxUniq(const float &a, const float &b)
+{
+	return approxEqual(a, b);
+}
+
 bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
@@ -2154,26 +2159,26 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		firstPoint = firstPoint * lineAffine;
 		secondPoint = secondPoint * lineAffine;
 
-		line->x1 = round(firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y1 = round(firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y());
-		line->x2 = round(firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y2 = round(firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y());
+		line->x1 = firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y1 = firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y();
+		line->x2 = firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y2 = firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y();
 
-		if (line->x1 == line->x2)
+		if (approxEqual(line->x1, line->x2))
 			xList.push_back(line->x1);
 
-		if (line->y1 == line->y2)
+		if (approxEqual(line->y1, line->y2))
 			yList.push_back(line->y1);
 
 	}
 
 
-	if (xList.size() == 0 || yList.size() == 0) return false;
+	if (xList.empty() || yList.empty()) return false;
 
 	std::sort(xList.begin(), xList.end());
-	std::sort(yList.begin(), yList.end(), &tableRowsSorter);
-	auto lastX = std::unique(xList.begin(), xList.end());
-	auto lastY = std::unique(yList.begin(), yList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
+	auto lastX = std::unique(xList.begin(), xList.end(), predAproxUniq);
+	auto lastY = std::unique(yList.begin(), yList.end(), predAproxUniq);
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
 
@@ -2328,24 +2333,21 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 				break;
 		}
 
-		Geom::Rect tabBBox = tabRegionStat->getBBox();
-		NodeList imgList;
-		builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
-		//printf("table x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-		//		tabBBox[Geom::X][0],tabBBox[Geom::X][1],
-		//		tabBBox[Geom::Y][0],tabBBox[Geom::Y][1]);
-
-		for(auto& imageNode : imgList)
+		if (isTable)
 		{
-			Geom::Rect imgRect = builder->getNodeBBox(imageNode);
-
-			//printf("===image x1 %f, x2 %f, Y1 %f, Y2 %f\n",
-			//		imgRect[Geom::X][0],imgRect[Geom::X][1],
-			//		imgRect[Geom::Y][0],imgRect[Geom::Y][1]);
-			if (rectIntersect(imgRect, tabBBox) > 0)
+			//if table region contain image - exclude it
+			Geom::Rect tabBBox = tabRegionStat->getBBox();
+			NodeList imgList;
+			builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
+			for(auto& imageNode : imgList)
 			{
-				isTable = false;
-				break;
+				Geom::Rect imgRect = builder->getNodeBBox(imageNode);
+
+				if (rectIntersect(imgRect, tabBBox) > 0)
+				{
+					isTable = false;
+					break;
+				}
 			}
 		}
 
@@ -2918,5 +2920,55 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
+{
+	std::vector<Geom::Rect> lines1;
+	std::vector<Geom::Rect> lines2;
+
+	//top line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top(), rect1.right()+1, rect1.top(), rect1.left()-1));
+
+	//bottom line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.bottom(), rect1.right()+1, rect1.bottom(), rect1.left()-1));
+
+	//left line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.left(), rect1.bottom()+1, rect1.left()));
+
+	//right line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.right(), rect1.bottom()+1, rect1.right()));
+
+	//top line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top(), rect2.right()+1, rect2.top(), rect2.left()-1));
+
+	//bottom line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.bottom(), rect2.right()+1, rect2.bottom(), rect2.left()-1));
+
+	//left line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.left(), rect2.bottom()+1, rect2.left()));
+
+	//right line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.right(), rect2.bottom()+1, rect2.right()));
+
+	for (auto& line1 : lines1)
+	{
+		for (auto& line2 : lines2)
+		{
+			if (line1.intersects(line2)) return true;
+
+		}
+	}
+
+	return false;
+}
+
+inline bool approxEqual(const float x, const float y, const float epsilon)
+{
+   return (std::fabs(x - y) < epsilon);
+}
+
+inline bool definitelyBigger(const float a, const float b, const float epsilon)
+{
+   return ((a - epsilon) > b);
+}
 
 
