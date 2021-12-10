@@ -968,8 +968,18 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
 
 						Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
-						if (mainNode)
-							mainNode->appendChild(tabNode);
+						if (mainNode) {
+                            mainNode->appendChild(tabNode);
+
+                            // Append any unsupported text items after the table!
+                            // This will fix layering problem.
+                            std::vector<Inkscape::XML::Node*> unsupportedTextVector = tabRegion->getUnsupportedTextInTable();
+                            std::vector<Inkscape::XML::Node*>::const_iterator itrNode;
+                            for(itrNode = unsupportedTextVector.begin(); itrNode != unsupportedTextVector.end(); itrNode++) {
+                                Inkscape::XML::Node *node = *itrNode;
+                                mainNode->appendChild(node);
+                            }
+                        }
 					}
 				}
 

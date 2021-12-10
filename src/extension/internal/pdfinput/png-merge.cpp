@@ -1965,11 +1965,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		size_t nLinesInCell = textInAreaList.size();
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
-			// disconnect from previous parent
 			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
-			newTextNode->setAttribute("transform", sp_svg_transform_write(textInAreaList[idxList].affine));
-
-
 			Inkscape::XML::Node* child = newTextNode->firstChild();
 			while(child)
 			{
@@ -1981,7 +1977,12 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 			// create new representation
 			newTextNode->appendChild(textInAreaList[idxList].ptextNode);
-			nodeTextAttribs->addChild(newTextNode, nodeCellRect);
+			if (fabs(textInAreaList[idxList].rotationAngle) > MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE) {
+				// We will keep rotated text out of the table,, will be added after the table rendering.
+				unsupportedTextList.push_back(newTextNode);
+			} else {
+				nodeTextAttribs->addChild(newTextNode, nodeCellRect);
+			}
 		}
 	}
 

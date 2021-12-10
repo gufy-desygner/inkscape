@@ -19,6 +19,8 @@
 
 #define PROFILER_ENABLE 0
 
+#define MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE	2
+
 bool isNotTable(Inkscape::XML::Node *node);
 
 void print_node(Inkscape::XML::Node *node, uint level);
@@ -142,6 +144,7 @@ class TableDefenition
 private:
 	TableCell* _cells;
 
+	std::vector<Inkscape::XML::Node*> unsupportedTextList;
 
 	int countCol, countRow;
 
@@ -172,6 +175,8 @@ public:
 	void setMergeIdx(int col1, int row1, int mergeIdx);
 	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
 	void setRect(int col, int row, TabRect* rect);
+
+	std::vector<Inkscape::XML::Node*> getUnsupportedTextInTable() { return unsupportedTextList; }
 
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
@@ -210,6 +215,8 @@ public:
 	bool isTable(){	return _isTable;	}
 	bool buildKnote(SvgBuilder *builder);
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
+
+	std::vector<Inkscape::XML::Node*> getUnsupportedTextInTable() { return tableDef->getUnsupportedTextInTable(); }
 };
 typedef std::vector<TableRegion*> TableList;
 
