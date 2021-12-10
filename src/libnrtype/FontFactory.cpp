@@ -110,14 +110,17 @@ font_factory::font_factory(void) :
 
     pango_ft2_font_map_set_resolution(PANGO_FT2_FONT_MAP(fontServer),
                                       72, 72);
-	if (sp_export_fonts_sh && sp_fonts_dir_sh) {
-		FcConfig * fcConf = FcConfigCreate();
+	if (sp_export_fonts_sh || sp_fonts_dir_sh) {
+		FcConfig * fcConf = pango_fc_font_map_get_config((PangoFcFontMap *)fontServer);//FcConfigCreate();
 		if (strlen(sp_export_svg_path_sh) == 0) {
 			FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup("./"));
 		} else {
 			FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup(sp_export_svg_path_sh));
 		}
-		FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup(sp_fonts_dir_sh));
+		if (sp_fonts_dir_sh)
+		{
+		    FcConfigAppFontAddDir(fcConf, (const FcChar8 *)g_strdup(sp_fonts_dir_sh));
+		}
 		pango_fc_font_map_set_config((PangoFcFontMap *)fontServer, fcConf);
 		pango_fc_font_map_config_changed((PangoFcFontMap *)fontServer);
 		FcConfigSetCurrent(fcConf);

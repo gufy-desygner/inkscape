@@ -33,6 +33,9 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
 double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2);
+inline bool approxEqual(const float x, const float y, const float epsilon = 0.05f);
+inline bool definitelyBigger(const float a, const float b, const float epsilon = 0.05f);
 
 namespace Inkscape {
 namespace Extension {
@@ -104,19 +107,12 @@ public:
 
 class TabLine {
 	private:
-
-
 		bool isVert;
 		bool lookLikeTab;
-		//SPPath* spPath;
 		SPCurve* spCurve;
-		//size_t segmentCount;
-		//Geom::Curve* firstSegment;
-		//Geom::Point start;
-		//Geom::Point end;
-
 	public:
 		Inkscape::XML::Node* node;
+		Geom::Affine affineToMainNode;
 		double x1, x2, y1, y2;
 		TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc);
 		Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
@@ -124,7 +120,7 @@ class TabLine {
 
 
 		bool isTableLine() { return  lookLikeTab; }
-		bool isVertical() { return x1 == x2; }
+		bool isVertical() { return approxEqual(x1, x2); }
 };
 
 struct TableCell {
@@ -192,25 +188,22 @@ private:
 public:
 	std::vector<TabLine*> lines;
 	std::vector<TabRect*> rects;
-	~TableRegion()
-	{
-		if (tableDef)
-			delete(tableDef);
-	}
 	TableRegion(SvgBuilder *builder) :
 		_builder(builder),
 		_isTable(true),
 		tableDef(nullptr),
-		x1(0),
+		x1(1e5),
 		x2(0),
-		y1(0),
+		y1(1e5),
 		y2(0)
 	{
 		spDoc = _builder->getSpDocument();
 	}
+	~TableRegion();
 
 	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
 	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
+	Geom::Rect getBBox();
 
 	bool addLine(Inkscape::XML::Node* node);
 

@@ -1643,15 +1643,15 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 	Geom::Point start = curve.initialPoint();
 	Geom::Point end = curve.finalPoint();
 
-	x1 = round(start[0]*100)/100;
-	x2 = round(end[0]*100)/100;
-	y1 = round(start[1]*100)/100;
-	y2 = round(end[1]*100)/100;
+	x1 = start[0];
+	x2 = end[0];
+	y1 = start[1];
+	y2 = end[1];
 	//printf("   line (%f %f) (%f %f)\n", x1, y1, x2, y2);
-	if (x1 == x2 || y1 == y2)
+	if (approxEqual(x1, x2) || approxEqual(y1, y2))
 		lookLikeTab = true;
 
-	if (x1 == x2) isVert = true;
+	if (approxEqual(x1, x2)) isVert = true;
 }
 
 TabRect::TabRect(double _x1, double _y1, double _x2, double _y2, Inkscape::XML::Node* _node) :
@@ -1713,7 +1713,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
-			if (line->x1 != xCoord) continue;
+			if (! approxEqual(line->x1, xCoord)) continue;
 			if (line->y1 > yCoord || line->y2 < yCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -1721,7 +1721,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 			else return line;
 		} else {
 			if (line->isVertical()) continue;
-			if (line->y1 != yCoord) continue;
+			if (! approxEqual(line->y1, yCoord)) continue;
 			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -1742,6 +1742,20 @@ std::string doubleToCss(double num)
 	return os.str();
 }
 
+SPCSSAttr* adjustStroke(TabLine* tabLine)
+{
+	SPCSSAttr *style = sp_repr_css_attr(tabLine->node, "style");
+	const gchar *strokeWidthStr = sp_repr_css_property(style, "stroke-width", "1");
+	double strokeWidth = std::strtod(strokeWidthStr, nullptr);
+	if (tabLine->isVertical())
+		strokeWidth *= tabLine->affineToMainNode[0];
+	else
+		strokeWidth *= tabLine->affineToMainNode[3];
+
+	sp_repr_css_set_property(style, "stroke-width", doubleToCss(std::fabs(strokeWidth)).c_str());
+	return style;
+}
+
 Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
 	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
@@ -1753,7 +1767,7 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 	TableCell* cell = getCell(c, r);
 	if (cell->topLine == nullptr) return nullptr;
 
-	const char* style = cell->topLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-h index-r-" +
@@ -1762,7 +1776,10 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1784,7 +1801,7 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 	TableCell* cell = getCell(c, r);
 	if (cell->bottomLine == nullptr) return nullptr;
 
-	const char* style = cell->bottomLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-h index-r-" +
@@ -1793,7 +1810,9 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1816,7 +1835,7 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	TableCell* cell = getCell(c, r);
 	if (cell->leftLine == nullptr) return nullptr;
 
-	const char* style = cell->leftLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
@@ -1825,7 +1844,10 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1847,7 +1869,7 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	TableCell* cell = getCell(c, r);
 	if (cell->rightLine == nullptr) return nullptr;
 
-	const char* style = cell->rightLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
@@ -1856,7 +1878,10 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c + 1));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x + cell->width).c_str());
@@ -1915,10 +1940,15 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
+	std::vector<SvgTextPosition> textInAreaList;
+	if (!(cell->mergeIdx > 0 && cell->isMax == false))
+	{
+		textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
+	}
 	// Even if the cell doesnt contain any text,
 	// We need to add <g class="text"><text></text></g>
 	// TODO: reverify this, we're setting the text only in the TOP LEFT cell for now.
-	if (cell->mergeIdx > 0 && cell->isMax == false) {
+	if (textInAreaList.size() == 0 || cell->mergeIdx > 0 && cell->isMax == false) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
 		tSpanNode->setAttribute("x", doubleToCss(cell->x));
@@ -1930,8 +1960,8 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		tSpanNode->appendChild(stringNode);
 		tTextNode->appendChild(tSpanNode);
 		nodeTextAttribs->addChild(tTextNode, nodeCellRect);
+		nodeTextAttribs->setAttribute("font-size", "1");
 	} else {
-		std::vector<SvgTextPosition> textInAreaList = builder->getTextInArea(cell->x, cell->y, cell->x + cell->width, cell->y + cell->height);
 		size_t nLinesInCell = textInAreaList.size();
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
@@ -1944,6 +1974,9 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 			// disconnect from previous parent
 			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
+			newTextNode->setAttribute("transform", sp_svg_transform_write(textInAreaList[idxList].affine));
+
+
 			Inkscape::XML::Node* child = newTextNode->firstChild();
 			while(child)
 			{
@@ -2136,6 +2169,11 @@ void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int me
 	}
 }
 
+bool predAproxUniq(const float &a, const float &b)
+{
+	return approxEqual(a, b);
+}
+
 bool TableRegion::buildKnote(SvgBuilder *builder)
 {
 	std::vector<double> xList;
@@ -2156,26 +2194,26 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		firstPoint = firstPoint * lineAffine;
 		secondPoint = secondPoint * lineAffine;
 
-		line->x1 = round(firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y1 = round(firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y());
-		line->x2 = round(firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x());
-		line->y2 = round(firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y());
+		line->x1 = firstPoint.x() < secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y1 = firstPoint.y() < secondPoint.y() ? firstPoint.y() : secondPoint.y();
+		line->x2 = firstPoint.x() > secondPoint.x() ? firstPoint.x() : secondPoint.x();
+		line->y2 = firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y();
 
-		if (line->x1 == line->x2)
+		if (approxEqual(line->x1, line->x2))
 			xList.push_back(line->x1);
 
-		if (line->y1 == line->y2)
+		if (approxEqual(line->y1, line->y2))
 			yList.push_back(line->y1);
 
 	}
 
 
-	if (xList.size() == 0 || yList.size() == 0) return false;
+	if (xList.empty() || yList.empty()) return false;
 
 	std::sort(xList.begin(), xList.end());
-	std::sort(yList.begin(), yList.end(), &tableRowsSorter);
-	auto lastX = std::unique(xList.begin(), xList.end());
-	auto lastY = std::unique(yList.begin(), yList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
+	auto lastX = std::unique(xList.begin(), xList.end(), predAproxUniq);
+	auto lastY = std::unique(yList.begin(), yList.end(), predAproxUniq);
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
 
@@ -2293,6 +2331,12 @@ Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
 	return result;
 }
 
+
+Geom::Rect TableRegion::getBBox()
+{
+	return Geom::Rect(x1, y1, x2, y2);
+}
+
 /**
  * @describe do merge tags without text between
  * @param builder representation of SVG document
@@ -2300,7 +2344,6 @@ Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
  *
  * @return count of generated images
  * */
-
 TableList* detectTables(SvgBuilder *builder, TableList* tables) {
   bool splitRegions = true;
 
@@ -2325,10 +2368,38 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 				break;
 		}
 
+		if (isTable)
+		{
+			//if table region contain image - exclude it
+			Geom::Rect tabBBox = tabRegionStat->getBBox();
+			NodeList imgList;
+			builder->getNodeListByTag("svg:image", &imgList, builder->getMainNode());
+			for(auto& imageNode : imgList)
+			{
+				Geom::Rect imgRect = builder->getNodeBBox(imageNode);
+
+				if (rectIntersect(imgRect, tabBBox) > 0)
+				{
+					isTable = false;
+					break;
+				}
+			}
+		}
+
 		if (isTable) tables->push_back(tabRegionStat);
 	}
 
 	return tables;
+}
+
+TableRegion::~TableRegion()
+{
+	if (tableDef)
+		delete(tableDef);
+	for(auto& line : lines)
+	{
+		delete line;
+	}
 }
 
 bool TableRegion::addLine(Inkscape::XML::Node* node)
@@ -2345,30 +2416,37 @@ bool TableRegion::addLine(Inkscape::XML::Node* node)
 
 	for (const Geom::Path& itPath : pathArray)
 	{
-		double x1 = y1 = 1e6;
-		double x2 = y2 = 0;
+		double _x1 = 1e6;
+		double _y1 = 1e6;
+		double _x2 = 0;
+		double _y2 = 0;
 		for(const Geom::Curve& simplCurve : itPath) {
 			TabLine* line = new TabLine(node, simplCurve, spDoc);
+			line->affineToMainNode = pathAffine;
 			lines.push_back(line);
 			if (! line->isTableLine())
 			{
 				_isTable = false;
 			}
 
-			x1 = x1 < line->x1 ? x1 : line->x1;
-			y1 = y1 < line->y1 ? y1 : line->y1;
-			x2 = x2 > line->x2 ? x2 : line->x2;
-			y2 = y2 > line->y2 ? y2 : line->y2;
+			_x1 = _x1 < line->x1 ? _x1 : line->x1;
+			_y1 = _y1 < line->y1 ? _y1 : line->y1;
+			_x2 = _x2 > line->x2 ? _x2 : line->x2;
+			_y2 = _y2 > line->y2 ? _y2 : line->y2;
 		}
 		if (! _isTable) continue;
 
+		Geom::Point point1(_x1, _y1);
+		Geom::Point point2(_x2, _y2);
+		point1 = point1 * pathAffine;
+		point2 = point2 * pathAffine;
+		this->x1 = this->x1 < point1[Geom::X] ? this->x1 : point1[Geom::X];
+		this->y1 = this->y1 < point1[Geom::Y] ? this->y1 : point1[Geom::Y];
+		this->x2 = this->x2 > point2[Geom::X] ? this->x2 : point2[Geom::X];
+		this->y2 = this->y2 > point2[Geom::Y] ? this->y2 : point2[Geom::Y];
+
 		if (itPath.size() == 4 && itPath.closed())
 		{
-			Geom::Point point1(x1, y1);
-			Geom::Point point2(x2, y2);
-			point1 = point1 * pathAffine;
-			point2 = point2 * pathAffine;
-			//TabRect* rect = new TabRect(x1, y1, x2, y2, node);
 			TabRect* rect = new TabRect(point1, point2, node);
 			rects.push_back(rect);
 		}
@@ -2877,5 +2955,55 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
+bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
+{
+	std::vector<Geom::Rect> lines1;
+	std::vector<Geom::Rect> lines2;
+
+	//top line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top(), rect1.right()+1, rect1.top(), rect1.left()-1));
+
+	//bottom line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.bottom(), rect1.right()+1, rect1.bottom(), rect1.left()-1));
+
+	//left line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.left(), rect1.bottom()+1, rect1.left()));
+
+	//right line of first rectangle
+	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.right(), rect1.bottom()+1, rect1.right()));
+
+	//top line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top(), rect2.right()+1, rect2.top(), rect2.left()-1));
+
+	//bottom line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.bottom(), rect2.right()+1, rect2.bottom(), rect2.left()-1));
+
+	//left line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.left(), rect2.bottom()+1, rect2.left()));
+
+	//right line of second rectangle
+	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.right(), rect2.bottom()+1, rect2.right()));
+
+	for (auto& line1 : lines1)
+	{
+		for (auto& line2 : lines2)
+		{
+			if (line1.intersects(line2)) return true;
+
+		}
+	}
+
+	return false;
+}
+
+inline bool approxEqual(const float x, const float y, const float epsilon)
+{
+   return (std::fabs(x - y) < epsilon);
+}
+
+inline bool definitelyBigger(const float a, const float b, const float epsilon)
+{
+   return ((a - epsilon) > b);
+}
 
 

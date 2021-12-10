@@ -702,6 +702,20 @@ bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNo
 */
 }
 
+Geom::Rect SvgBuilder::getNodeBBox(Inkscape::XML::Node* node)
+{
+	SPDocument* spDoc = getSpDocument();
+	static SPObject* spMainNode = spDoc->getObjectByRepr(getMainNode());
+	SPObject* spNode = spDoc->getObjectByRepr(node);
+
+	Geom::Affine pathAffine = SP_ITEM(spNode)->getRelativeTransform(spMainNode);
+    Geom::OptRect visualBound(SP_ITEM(spNode)->visualBounds());
+    if (visualBound) {
+    	return visualBound.get() * pathAffine;
+    }
+    return Geom::Rect(0,0,0,0);
+}
+
 std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 {
 	std::vector<NodeList>* _result = new std::vector<NodeList>();
@@ -760,11 +774,11 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 					const char* nId = nodeState.node->attribute("id");
 					//printf("region %s : node %s\n", rId, nId);
 
-					Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0] -1, regionNode->sqBBox[Geom::Y][0] -1,
-							regionNode->sqBBox[Geom::X][1] +1, regionNode->sqBBox[Geom::Y][1] +1);
+					Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0], regionNode->sqBBox[Geom::Y][0],
+							regionNode->sqBBox[Geom::X][1], regionNode->sqBBox[Geom::Y][1]);
 
-					if (extendedBBox.intersects(nodeState.sqBBox) ||
-							extendedBBox.contains(nodeState.sqBBox))
+					if (rectHasCommonEdgePoint(extendedBBox, nodeState.sqBBox) /**extendedBBox.intersects(nodeState.sqBBox)/* ||
+							extendedBBox.contains(nodeState.sqBBox)*/)
 					{
 						nodeState.isConnected = true;
 						currentRegion.push_back(&nodeState);
@@ -3267,7 +3281,30 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
 	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
-	if (firstChild == nullptr || bbox.contains(spGNode->geometricBounds(affine)))
+	if (! bbox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		bbox = spClipPath->geometricBounds(affine);
+	}
+	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
+	if (! nodeBBox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		nodeBBox = spGNode->geometricBounds(affine);
+	}
+	Geom::Rect clipRect = bbox.get();
+
+	/*printf("=======================\n");
+	print_node(gNode,1);
+	printf("clip rect (%f,%f)(%f,%f)\n", clipRect[Geom::X][0], clipRect[Geom::Y][0], clipRect[Geom::X][1], clipRect[Geom::Y][1]);
+	if (nodeBBox.is_initialized()) {
+		Geom::Rect nodeRect = nodeBBox.get();
+		printf("node rect (%f,%f)(%f,%f)\n", nodeRect[Geom::X][0], nodeRect[Geom::Y][0], nodeRect[Geom::X][1], nodeRect[Geom::Y][1]);
+	}
+	else
+		printf("node rect is empty\n");*/
+
+	if (firstChild == nullptr || bbox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
@@ -3934,7 +3971,14 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         float textY2 = sqTxtBBox[Geom::Y][1];
 
         const gchar *dataX = textPosition.ptextNode->attribute("data-x");
-        std::vector<SVGLength> data_x = sp_svg_length_list_read(dataX);
+        std::vector<SVGLength> data_x;
+        if (dataX == nullptr || strlen(dataX) == 0)
+        {
+        	const gchar *x = textPosition.ptextNode->attribute("x");
+        	data_x = sp_svg_length_list_read(x);
+        }
+        else
+        	data_x = sp_svg_length_list_read(dataX);
 
 
         bool bIsPointInsideCellFound = false;
@@ -3957,19 +4001,19 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         // Check every Letter position in the text if inside a Cell!
 			for(int i = 0; i < data_x.size(); i++) {
 				if (data_x[i]._set) {
-						// Now you can start extracting characters!
-						Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
-						p = p * textPosition.affine;
-						if (sqCellBBox.interiorContains(p)) {
-							if (start == -1) start = i;
-							end = i;
-							//printf("Point inside Cell Found!\n");
-							bIsPointInsideCellFound = true;
-							Inkscape::CSSOStringStream os_x;
-							textInsideCell += uniTextPosition[i];
-						}
+					// Now you can start extracting characters!
+					Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
+					p = p * textPosition.affine;
+					if (sqCellBBox.interiorContains(p)) {
+						if (start == -1) start = i;
+						end = i;
+						//printf("Point inside Cell Found!\n");
+						bIsPointInsideCellFound = true;
+						Inkscape::CSSOStringStream os_x;
+						textInsideCell += uniTextPosition[i];
+					}
 				}
-			}
+        	}
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
@@ -4026,6 +4070,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             tmpTextPosition.y = textPosition.y;
             tmpTextPosition.start = start;
             tmpTextPosition.end = end;
+            tmpTextPosition.affine = textPosition.affine;
 
             //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
             //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);
