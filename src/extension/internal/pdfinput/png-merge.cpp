@@ -2331,12 +2331,23 @@ Geom::Rect TableRegion::getBBox()
 	return Geom::Rect(x1, y1, x2, y2);
 }
 
-/*static bool sortLinesLtoR(const Geom::Line &a, const Geom::Line &b)
+bool TabLine::intersectRect(Geom::Rect rect)
 {
-	Geom::Point first = a.initialPoint();
-	Geom::Point second = b.initialPoint();
-	return sortPointsLtoR(first, second);
-}*/
+	Geom::Rect line(Geom::Point(x1, y1) * affineToMainNode,
+			Geom::Point(x2, y2) * affineToMainNode);
+	return line.intersects(rect);
+
+}
+
+bool TableRegion::recIntersectLine(Geom::Rect rect)
+{
+	for(auto& line : lines)
+	{
+		if (line->intersectRect(rect))
+			return true;
+	}
+	return false;
+}
 
 bool TableRegion::checkTableLimits()
 {
@@ -2346,52 +2357,6 @@ bool TableRegion::checkTableLimits()
 
 	return true;
 }
-/*bool TableRegion::hasHorizontalLine()
-{
-	std::sort(lines.begin(), lines.end(), sortLinesLtoR);
-	std::vector<Geom::Line> linesListHMerged; // list of horizontal lines
-	bool startPoint = true;
-	double startX, startY;
-	double endX, endY;
-	for(auto& tabLine : lines)
-	{
-		Geom::Line(Geom::Point(tabLine->x1, tabLine->y1) * tabLine->affineToMainNode,
-				Geom::Point(tabLine->x2, tabLine->y2) * tabLine->affineToMainNode);
-		printf("X=%f Y=%f X=%f Y=%f\n", line.initialPoint().x(), line.initialPoint().y(),
-								line.finalPoint().x(), line.finalPoint().y());
-		if (startPoint)
-		{
-			startX = line.initialPoint().x();
-			startY = line.initialPoint().y();
-			endX = line.finalPoint().x();
-			endY = line.finalPoint().y();
-			startPoint = false;
-			continue;
-		}
-
-		if (&line != &linesListH.back() && line.initialPoint().x() <= (endX + 1) &&
-				approxEqual(startY, line.initialPoint().y()))
-			endX = line.finalPoint().x();
-		else
-		{
-			if (&line == &linesListH.back())
-			{
-				endX = line.finalPoint().x();
-				endY = line.finalPoint().y();
-			}
-			Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
-			printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
-					mergedLine.finalPoint().x(), mergedLine.finalPoint().y());
-
-			startX = line.initialPoint().x();
-			startY = line.initialPoint().y();
-			endX = line.finalPoint().x();
-			endY = line.finalPoint().y();
-			linesListHMerged.push_back(mergedLine);
-		}
-	}
-	return false;
-}*/
 
 /**
  * @describe do merge tags without text between
@@ -2440,8 +2405,11 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 
 				if (rectIntersect(imgRect, tabBBox) > 0)
 				{
-					isTable = false;
-					break;
+					if (tabRegionStat->recIntersectLine(imgRect))
+					{
+						isTable = false;
+						break;
+					}
 				}
 			}
 		}
