@@ -3821,22 +3821,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
                                                         round(sqTextBBox[Geom::X][1]),
                                                             round(sqTextBBox[Geom::Y][1]));
 
-        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-       /* printf("Text = %s ===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n", textPosition.text,
-                                                round(sqTextBBox[Geom::X][0]),
-                                                    round(sqTextBBox[Geom::X][1]),
-                                                        round(sqTextBBox[Geom::Y][0]),
-                                                            round(sqTextBBox[Geom::Y][1]));
-        printf("===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n",
-                                                round(_sqTextBBox[Geom::X][0]),
-                                                    round(_sqTextBBox[Geom::X][1]),
-                                                        round(_sqTextBBox[Geom::Y][0]),
-                                                            round(_sqTextBBox[Geom::Y][1]));
-
-        print_node(textPosition.ptextNode, 3);*/
-
-        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-
+        textPosition.rotationAngle = 0;
         textPosition.needRemove = false;
         textPosition.isUsed = false;
         textInAreaList.push_back(textPosition);
@@ -4071,6 +4056,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             tmpTextPosition.start = start;
             tmpTextPosition.end = end;
             tmpTextPosition.affine = textPosition.affine;
+            tmpTextPosition.rotationAngle = std::atan2(textPosition.affine[1], textPosition.affine[0]) * (180 / M_PI);
 
             //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
             //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);

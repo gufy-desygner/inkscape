@@ -113,6 +113,7 @@ struct SvgTextPosition {
     int start; //text position where cell started
     int end; // text position where text ended
     bool needRemove;
+    double rotationAngle; // rotation angle of the text
 };
 
 class SvgBuilder {
