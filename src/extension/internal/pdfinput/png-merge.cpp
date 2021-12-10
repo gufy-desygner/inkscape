@@ -2302,6 +2302,68 @@ Geom::Rect TableRegion::getBBox()
 	return Geom::Rect(x1, y1, x2, y2);
 }
 
+/*static bool sortLinesLtoR(const Geom::Line &a, const Geom::Line &b)
+{
+	Geom::Point first = a.initialPoint();
+	Geom::Point second = b.initialPoint();
+	return sortPointsLtoR(first, second);
+}*/
+
+bool TableRegion::checkTableLimits()
+{
+	int freeLines = lines.size() - rects.size() * 4;
+	if (freeLines < 2 && rects.size() < 4)
+		return false;
+
+	return true;
+}
+/*bool TableRegion::hasHorizontalLine()
+{
+	std::sort(lines.begin(), lines.end(), sortLinesLtoR);
+	std::vector<Geom::Line> linesListHMerged; // list of horizontal lines
+	bool startPoint = true;
+	double startX, startY;
+	double endX, endY;
+	for(auto& tabLine : lines)
+	{
+		Geom::Line(Geom::Point(tabLine->x1, tabLine->y1) * tabLine->affineToMainNode,
+				Geom::Point(tabLine->x2, tabLine->y2) * tabLine->affineToMainNode);
+		printf("X=%f Y=%f X=%f Y=%f\n", line.initialPoint().x(), line.initialPoint().y(),
+								line.finalPoint().x(), line.finalPoint().y());
+		if (startPoint)
+		{
+			startX = line.initialPoint().x();
+			startY = line.initialPoint().y();
+			endX = line.finalPoint().x();
+			endY = line.finalPoint().y();
+			startPoint = false;
+			continue;
+		}
+
+		if (&line != &linesListH.back() && line.initialPoint().x() <= (endX + 1) &&
+				approxEqual(startY, line.initialPoint().y()))
+			endX = line.finalPoint().x();
+		else
+		{
+			if (&line == &linesListH.back())
+			{
+				endX = line.finalPoint().x();
+				endY = line.finalPoint().y();
+			}
+			Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
+			printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
+					mergedLine.finalPoint().x(), mergedLine.finalPoint().y());
+
+			startX = line.initialPoint().x();
+			startY = line.initialPoint().y();
+			endX = line.finalPoint().x();
+			endY = line.finalPoint().y();
+			linesListHMerged.push_back(mergedLine);
+		}
+	}
+	return false;
+}*/
+
 /**
  * @describe do merge tags without text between
  * @param builder representation of SVG document
@@ -2325,13 +2387,17 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 	{
 		TableRegion* tabRegionStat= new TableRegion(builder);
 		bool isTable = true;
-		if (vecRegionNodes.size() < 5) continue;
+		if (vecRegionNodes.size() < 2) continue;
 		for(Inkscape::XML::Node* node: vecRegionNodes)
 		{
 			isTable = tabRegionStat->addLine(node);
 			if (! isTable)
 				break;
 		}
+
+		if (isTable)
+			isTable = tabRegionStat->checkTableLimits();
+			//isTable = tabRegionStat->hasHorizontalLine();
 
 		if (isTable)
 		{

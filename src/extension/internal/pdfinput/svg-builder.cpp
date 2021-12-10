@@ -745,6 +745,7 @@ void NodeState::initGeometry(SPDocument *spDoc)
 		}
 
 		// no lees than 4 horizontal lines
+		//printf("node id %s\n", node->attribute("id"));
 		if (linesListH.size() < 4) isGarbage = true;
 
 		//printf("node id %s\n", node->attribute("id"));
@@ -791,10 +792,16 @@ void NodeState::initGeometry(SPDocument *spDoc)
 					continue;
 				}
 
-				if (line.initialPoint().x() <= (endX + 1) && approxEqual(startY, line.initialPoint().y()))
+				if (&line != &linesListH.back() && line.initialPoint().x() <= (endX + 1) &&
+						approxEqual(startY, line.initialPoint().y()))
 					endX = line.finalPoint().x();
 				else
 				{
+					if (&line == &linesListH.back())
+					{
+						endX = line.finalPoint().x();
+						endY = line.finalPoint().y();
+					}
 					Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
 					//printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
 					//		mergedLine.finalPoint().x(), mergedLine.finalPoint().y());

@@ -107,8 +107,6 @@ public:
 
 class TabLine {
 	private:
-
-
 		bool isVert;
 		bool lookLikeTab;
 		SPCurve* spCurve;
@@ -212,6 +210,7 @@ public:
 
 	bool isTable(){	return _isTable;	}
 	bool buildKnote(SvgBuilder *builder);
+	bool checkTableLimits();
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 };
 typedef std::vector<TableRegion*> TableList;
