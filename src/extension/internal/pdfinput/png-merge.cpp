@@ -1742,6 +1742,20 @@ std::string doubleToCss(double num)
 	return os.str();
 }
 
+SPCSSAttr* adjustStroke(TabLine* tabLine)
+{
+	SPCSSAttr *style = sp_repr_css_attr(tabLine->node, "style");
+	const gchar *strokeWidthStr = sp_repr_css_property(style, "stroke-width", "1");
+	double strokeWidth = std::strtod(strokeWidthStr, nullptr);
+	if (tabLine->isVertical())
+		strokeWidth *= tabLine->affineToMainNode[0];
+	else
+		strokeWidth *= tabLine->affineToMainNode[3];
+
+	sp_repr_css_set_property(style, "stroke-width", doubleToCss(std::fabs(strokeWidth)).c_str());
+	return style;
+}
+
 Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
 	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
@@ -1753,7 +1767,7 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 	TableCell* cell = getCell(c, r);
 	if (cell->topLine == nullptr) return nullptr;
 
-	const char* style = cell->topLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-h index-r-" +
@@ -1762,7 +1776,10 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1784,7 +1801,7 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 	TableCell* cell = getCell(c, r);
 	if (cell->bottomLine == nullptr) return nullptr;
 
-	const char* style = cell->bottomLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-h index-r-" +
@@ -1793,7 +1810,9 @@ Inkscape::XML::Node* TableDefenition::getBottomBorder(SvgBuilder *builder, int c
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1816,7 +1835,7 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	TableCell* cell = getCell(c, r);
 	if (cell->leftLine == nullptr) return nullptr;
 
-	const char* style = cell->leftLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
@@ -1825,7 +1844,10 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x).c_str());
@@ -1847,7 +1869,7 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	TableCell* cell = getCell(c, r);
 	if (cell->rightLine == nullptr) return nullptr;
 
-	const char* style = cell->rightLine->node->attribute("style");
+	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
@@ -1856,7 +1878,10 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 			// Bug 10
 			//"  table-border-editor");
 			std::to_string(c + 1));
-	borderNode->setAttribute("style", style);
+	//borderNode->setAttribute("style", style);
+	sp_repr_css_set(borderNode, cssStyle, "style");
+	delete(cssStyle);
+
 	borderNode->setAttribute("class", classOfBorder.c_str());
 
 	borderNode->setAttribute("x1", doubleToCss(cell->x + cell->width).c_str());
@@ -1942,6 +1967,9 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		{
 			// disconnect from previous parent
 			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
+			newTextNode->setAttribute("transform", sp_svg_transform_write(textInAreaList[idxList].affine));
+
+
 			Inkscape::XML::Node* child = newTextNode->firstChild();
 			while(child)
 			{
