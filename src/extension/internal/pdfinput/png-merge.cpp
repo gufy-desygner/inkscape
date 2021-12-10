@@ -2302,6 +2302,24 @@ Geom::Rect TableRegion::getBBox()
 	return Geom::Rect(x1, y1, x2, y2);
 }
 
+bool TabLine::intersectRect(Geom::Rect rect)
+{
+	Geom::Rect line(Geom::Point(x1, y1) * affineToMainNode,
+			Geom::Point(x2, y2) * affineToMainNode);
+	return line.intersects(rect);
+
+}
+
+bool TableRegion::recIntersectLine(Geom::Rect rect)
+{
+	for(auto& line : lines)
+	{
+		if (line->intersectRect(rect))
+			return true;
+	}
+	return false;
+}
+
 /**
  * @describe do merge tags without text between
  * @param builder representation of SVG document
@@ -2345,8 +2363,11 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 
 				if (rectIntersect(imgRect, tabBBox) > 0)
 				{
-					isTable = false;
-					break;
+					if (tabRegionStat->recIntersectLine(imgRect))
+					{
+						isTable = false;
+						break;
+					}
 				}
 			}
 		}

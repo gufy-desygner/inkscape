@@ -118,6 +118,7 @@ class TabLine {
 		Geom::Affine affineToMainNode;
 		double x1, x2, y1, y2;
 		TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc);
+		bool intersectRect(Geom::Rect rect);
 		Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
 		size_t curveSegmentsCount() { return spCurve->get_segment_count(); };
 
@@ -206,6 +207,7 @@ public:
 
 	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
 	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
+	bool recIntersectLine(Geom::Rect rect);
 	Geom::Rect getBBox();
 
 	bool addLine(Inkscape::XML::Node* node);
