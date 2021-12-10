@@ -214,6 +214,7 @@ public:
 
 	bool isTable(){	return _isTable;	}
 	bool buildKnote(SvgBuilder *builder);
+	bool checkTableLimits();
 	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
 
 	std::vector<Inkscape::XML::Node*> getUnsupportedTextInTable() { return tableDef->getUnsupportedTextInTable(); }
