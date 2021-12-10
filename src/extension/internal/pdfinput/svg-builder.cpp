@@ -62,6 +62,7 @@
 #include "sp-path.h"
 #include "display/curve.h"
 #include "2geom/path.h"
+#include "2geom/line.h"
 #include "2geom/path-intersection.h"
 #include "text-editing.h"
 //#include "helper/png-write.h"
@@ -620,16 +621,203 @@ struct NodeState {
 	};
 };
 
+static bool sortPointsLtoR(const Geom::Point &a, const Geom::Point &b)
+{
+	if (!approxEqual(a.y(), b.y())  && a.y() > b.y()) return false;
+	if (approxEqual(a.y(), b.y()) && a.x() > b.x()) return false;
+	return true;
+}
+
+static bool sortLinesLtoR(const Geom::Line &a, const Geom::Line &b)
+{
+	Geom::Point first = a.initialPoint();
+	Geom::Point second = b.initialPoint();
+	return sortPointsLtoR(first, second);
+}
+
+static bool buildVertDashed(const Geom::Line &a, const Geom::Line &b)
+{
+	Geom::Point startA = a.initialPoint();
+	Geom::Point startB = b.initialPoint();
+
+	Geom::Point endA = a.finalPoint();
+	Geom::Point endB = b.finalPoint();
+
+	return approxEqual(startA.y(), startB.y()) && approxEqual(endA.y(), endB.y());
+}
+
+
+// return false if line list is not part of table
+static bool hIsOkcheckPeriodByY(std::vector<Geom::Line> hLines, double& gap)
+{
+	gap = 0;
+	if (hLines.size() < 2) return false;
+
+	// all lines should have one width
+	const double x1 = hLines[0].initialPoint().x();
+	const double x2 = hLines[0].finalPoint().x();
+	double minGap = std::fabs(hLines[1].initialPoint().y() - hLines[0].initialPoint().y());
+	double maxGap = minGap;
+	double size = 0;
+	for(int idx = 1; idx < hLines.size(); idx++)
+	{
+		if (!(approxEqual(hLines[idx].initialPoint().x(), x1) &&
+				approxEqual(hLines[idx].finalPoint().x(), x2)))
+		{
+			return false;
+		}
+
+		double currentGap = std::fabs(hLines[idx].initialPoint().y() - hLines[idx - 1].initialPoint().y());
+		minGap = minGap < currentGap ? minGap : currentGap;
+		maxGap = maxGap < currentGap ? maxGap : currentGap;
+		size += currentGap;
+	}
+
+	if (approxEqual(minGap, maxGap))
+	{
+		gap = maxGap;
+		return true;
+	}
+	return false;
+}
+
 void NodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
 
 	Geom::OptRect visualBound(spNode->visualBounds());
+	Geom::Affine nodeAffine;
 	if (visualBound.is_initialized())
 	{
 		sqBBox = visualBound.get();
-		Geom::Affine nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
+		nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
 		sqBBox = sqBBox * nodeAffine;
+	}
+
+	if (spNode == nullptr) return;
+	Geom::PathVector pathArray;
+
+// =================detect/extend part of table without vertical lines==============
+	if(strcmp(node->name(), "svg:path") == 0)
+	{
+		bool isGarbage = false;
+		std::vector<Geom::Line> linesListH;
+		std::vector<Geom::Line> linesListV;
+		SPCurve* curve = ((SPPath*)spNode)->getCurve();
+		pathArray = curve->get_pathvector();
+		// collect all lines from the path
+		for (const Geom::Path& itPath : pathArray)
+		{
+			if (isGarbage) break;
+			for(const Geom::Curve& simplCurve : itPath)
+			{
+				// only simpl lines
+				if (! simplCurve.isLineSegment())
+				{
+					isGarbage = true;
+					break;
+				}
+				Geom::Point start = simplCurve.initialPoint() * nodeAffine;
+				Geom::Point end = simplCurve.finalPoint() * nodeAffine;
+
+				//split arrays of vertical and horizontal
+				if (approxEqual(start.x(), end.x()))
+				{
+
+					if (sortPointsLtoR(start, end))
+						linesListV.push_back(Geom::Line(start, end));
+					else
+						linesListV.push_back(Geom::Line(end, start));
+				} else
+					if(approxEqual(start.y(), end.y()))
+				{
+					if (sortPointsLtoR(start, end))
+						linesListH.push_back(Geom::Line(start, end));
+					else
+						linesListH.push_back(Geom::Line(end, start));
+				} else
+				{
+					isGarbage = true;
+					break;
+				}
+
+			}
+		}
+
+		// no lees than 4 horizontal lines
+		if (linesListH.size() < 4) isGarbage = true;
+
+		//printf("node id %s\n", node->attribute("id"));
+		// all vertical line/splitters should be equivalent
+		if (! isGarbage)
+		{
+			// try merge all vertical splitters to left one.
+			auto it = std::unique(linesListV.begin(), linesListV.end(), buildVertDashed);
+			linesListV.erase(it, linesListV.end());
+
+			double etalon_x;
+			if (!linesListV.empty()) etalon_x = linesListV[0].initialPoint().x();
+			else isGarbage = true;
+			for(auto vLine : linesListV)
+			{
+				if (! approxEqual(vLine.initialPoint().x(), etalon_x))
+				{
+					isGarbage = true;
+					break;
+				}
+			}
+		}
+
+		if (! isGarbage)
+		{
+
+		//merge horizontal lines -  should receive normal table's horizontal borders
+			std::sort(linesListH.begin(), linesListH.end(), sortLinesLtoR);
+			std::vector<Geom::Line> linesListHMerged; // list of horizontal lines
+			bool startPoint = true;
+			double startX, startY;
+			double endX, endY;
+			for(auto& line : linesListH)
+			{
+				//printf("X=%f Y=%f X=%f Y=%f\n", line.initialPoint().x(), line.initialPoint().y(),
+				//						line.finalPoint().x(), line.finalPoint().y());
+				if (startPoint)
+				{
+					startX = line.initialPoint().x();
+					startY = line.initialPoint().y();
+					endX = line.finalPoint().x();
+					endY = line.finalPoint().y();
+					startPoint = false;
+					continue;
+				}
+
+				if (line.initialPoint().x() <= (endX + 1) && approxEqual(startY, line.initialPoint().y()))
+					endX = line.finalPoint().x();
+				else
+				{
+					Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
+					//printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
+					//		mergedLine.finalPoint().x(), mergedLine.finalPoint().y());
+
+					startX = line.initialPoint().x();
+					startY = line.initialPoint().y();
+					endX = line.finalPoint().x();
+					endY = line.finalPoint().y();
+					linesListHMerged.push_back(mergedLine);
+				}
+			}
+
+			// check left/right borders for horizontal lines - should one for all lines
+			double period;
+			bool isPeriod = hIsOkcheckPeriodByY(linesListHMerged, period);
+			if (isPeriod)
+			{
+				double extendTop = sqBBox.top() - period;
+				double extendBottom = sqBBox.bottom() + period;
+				sqBBox.setBottom(extendBottom);
+				sqBBox.setTop(extendTop);
+			}
+		}
 	}
 }
 
@@ -750,6 +938,7 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 			regionNodesCount = currentRegion.size();
 			if (regionChecked < 0) regionChecked = 0;
 
+			//Run by all free nodes
 			for(NodeState& nodeState : nodesStatesList)
 			{
 				if (nodeState.isConnected) continue;
@@ -760,13 +949,9 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 					nodeState.isConnected = true;
 					continue;
 				}
-// we can merge objects it do not exist layout beetwine
-				/*if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
-					startNewRegion = true;
-					break;
-				}*/
 
 				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
+				// check node for all regions
 				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
 				{
 					NodeState* regionNode = currentRegion[regionIdx];
