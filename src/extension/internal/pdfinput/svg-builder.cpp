@@ -4070,6 +4070,7 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             tmpTextPosition.y = textPosition.y;
             tmpTextPosition.start = start;
             tmpTextPosition.end = end;
+            tmpTextPosition.affine = textPosition.affine;
 
             //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
             //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);

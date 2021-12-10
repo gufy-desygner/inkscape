@@ -107,12 +107,9 @@ public:
 
 class TabLine {
 	private:
-
-
 		bool isVert;
 		bool lookLikeTab;
 		SPCurve* spCurve;
-
 	public:
 		Inkscape::XML::Node* node;
 		Geom::Affine affineToMainNode;
@@ -123,7 +120,7 @@ class TabLine {
 
 
 		bool isTableLine() { return  lookLikeTab; }
-		bool isVertical() { return x1 == x2; }
+		bool isVertical() { return approxEqual(x1, x2); }
 };
 
 struct TableCell {
