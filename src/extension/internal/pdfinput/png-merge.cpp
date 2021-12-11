@@ -1767,7 +1767,7 @@ Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, i
 	TableCell* cell = getCell(c, r);
 	if (cell->topLine == nullptr) return nullptr;
 
-	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
+	SPCSSAttr* cssStyle = adjustStroke(cell->topLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-h index-r-" +
@@ -1835,7 +1835,7 @@ Inkscape::XML::Node* TableDefenition::getLeftBorder(SvgBuilder *builder, int c, 
 	TableCell* cell = getCell(c, r);
 	if (cell->leftLine == nullptr) return nullptr;
 
-	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
+	SPCSSAttr* cssStyle = adjustStroke(cell->leftLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
@@ -1869,7 +1869,7 @@ Inkscape::XML::Node* TableDefenition::getRightBorder(SvgBuilder *builder, int c,
 	TableCell* cell = getCell(c, r);
 	if (cell->rightLine == nullptr) return nullptr;
 
-	SPCSSAttr* cssStyle = adjustStroke(cell->bottomLine);
+	SPCSSAttr* cssStyle = adjustStroke(cell->rightLine);
 
 	Inkscape::XML::Node* borderNode = builder->createElement("svg:line");
 	std::string classOfBorder("table-border table-border-v index-r-" +
