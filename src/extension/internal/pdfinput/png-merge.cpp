@@ -3024,7 +3024,7 @@ bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
 	return false;
 }
 
-inline bool approxEqual(const float x, const float y, const float epsilon)
+bool approxEqual(const float x, const float y, const float epsilon)
 {
    return (std::fabs(x - y) < epsilon);
 }
