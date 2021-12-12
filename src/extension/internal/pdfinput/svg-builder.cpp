@@ -2179,6 +2179,7 @@ void SvgBuilder::_flushText() {
     int glipCount = 0;
     std::vector<SvgGlyph>::iterator i = _glyphs.begin();
     const SvgGlyph& first_glyph = (*i);
+    const SvgGlyph* tspan_first_glyph = &first_glyph;
     int render_mode = first_glyph.render_mode;
     // Ignore invisible characters
     if ( render_mode == 3 ) {
@@ -2240,6 +2241,7 @@ void SvgBuilder::_flushText() {
 
         // Create tspan node if needed
         if ( new_tspan || i == _glyphs.end() ) {
+        	tspan_first_glyph = &glyph;
             if (tspan_node) {
                 // Set the x and y coordinate arrays
                 if ( same_coords[0] ) {
@@ -2338,7 +2340,7 @@ void SvgBuilder::_flushText() {
         Inkscape::CSSOStringStream os_dx;
         const SvgGlyph& prev_glyph = (*prev_iterator);
         os_x << delta_pos[0];
-        if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
+        if (glyph.text_position[0] != tspan_first_glyph->text_position[0] && dx_coords.length() > 0) {
         	float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
 
             if (fabs(calc_dx) >0.001) dxIsDefault = false; // if we always have dx~0 we do not create attribute
