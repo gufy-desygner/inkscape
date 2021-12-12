@@ -4233,7 +4233,12 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             //printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
             //print_node(textPosition.ptextNode, 3);
            // printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-
+			double angle = std::atan2(textPosition.affine[1], textPosition.affine[0]) * (180 / M_PI);
+			// if put it to renderCell - we can receive cell without cell - we should have empty text anyway.
+			if (angle > MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE)
+			{
+				continue;
+			}
             SvgTextPosition tmpTextPosition;
             if (tspanAfterStart != nullptr)
             {
@@ -4249,8 +4254,8 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
             tmpTextPosition.y = textPosition.y;
             tmpTextPosition.start = start;
             tmpTextPosition.end = end;
+            tmpTextPosition.rotationAngle = angle;
             tmpTextPosition.affine = textPosition.affine;
-            tmpTextPosition.rotationAngle = std::atan2(textPosition.affine[1], textPosition.affine[0]) * (180 / M_PI);
 
             //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
             //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);
