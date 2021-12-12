@@ -1713,7 +1713,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 		if (isVerticale)
 		{
 			if (! line->isVertical()) continue;
-			if (! approxEqual(line->x1, xCoord)) continue;
+			if (! approxEqual(line->x1, xCoord, 0.51)) continue;
 			if (line->y1 > yCoord || line->y2 < yCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -1721,7 +1721,7 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 			else return line;
 		} else {
 			if (line->isVertical()) continue;
-			if (! approxEqual(line->y1, yCoord)) continue;
+			if (! approxEqual(line->y1, yCoord, 0.51)) continue;
 			if (line->x1 > xCoord || line->x2 < xCoord) continue;
 
 			size_t segmentCount = line->curveSegmentsCount();
@@ -2163,7 +2163,7 @@ void TableDefenition::setMergeIdx(int col1, int row1, int col2, int row2, int me
 
 bool predAproxUniq(const float &a, const float &b)
 {
-	return approxEqual(a, b);
+	return approxEqual(a, b, 0.5); //minimal cell size/resolution.
 }
 
 bool TableRegion::buildKnote(SvgBuilder *builder)
