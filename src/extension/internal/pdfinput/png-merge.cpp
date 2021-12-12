@@ -1736,7 +1736,6 @@ TabLine* TableRegion::searchByPoint(double xCoord, double yCoord, bool isVertica
 
 std::string doubleToCss(double num)
 {
-	//printf("ldkfldsfld\n");
 	Inkscape::CSSOStringStream os;
 	os << num;
 	return os.str();
@@ -1744,9 +1743,12 @@ std::string doubleToCss(double num)
 
 SPCSSAttr* adjustStroke(TabLine* tabLine)
 {
+	double strokeWidth;
 	SPCSSAttr *style = sp_repr_css_attr(tabLine->node, "style");
 	const gchar *strokeWidthStr = sp_repr_css_property(style, "stroke-width", "1");
-	double strokeWidth = std::strtod(strokeWidthStr, nullptr);
+	if (! sp_svg_number_read_d(strokeWidthStr, &strokeWidth))
+		strokeWidth = 0;
+
 	if (tabLine->isVertical())
 		strokeWidth *= tabLine->affineToMainNode[0];
 	else
@@ -1966,6 +1968,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 		for (int idxList = 0; idxList < nLinesInCell; idxList++)
 		{
 			Inkscape::XML::Node* newTextNode = textInAreaList[idxList].ptextNode->parent()->duplicate(spDoc->getReprDoc());
+			newTextNode->setAttribute("transform", sp_svg_transform_write(textInAreaList[idxList].affine));
 			Inkscape::XML::Node* child = newTextNode->firstChild();
 			while(child)
 			{
@@ -1977,12 +1980,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 
 			// create new representation
 			newTextNode->appendChild(textInAreaList[idxList].ptextNode);
-			if (fabs(textInAreaList[idxList].rotationAngle) > MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE) {
-				// We will keep rotated text out of the table,, will be added after the table rendering.
-				unsupportedTextList.push_back(newTextNode);
-			} else {
-				nodeTextAttribs->addChild(newTextNode, nodeCellRect);
-			}
+			nodeTextAttribs->addChild(newTextNode, nodeCellRect);
 		}
 	}
 
