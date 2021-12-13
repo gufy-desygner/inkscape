@@ -65,6 +65,7 @@
 #include "2geom/line.h"
 #include "2geom/path-intersection.h"
 #include "text-editing.h"
+#include <queue>
 //#include "helper/png-write.h"
 //#include "display/cairo-utils.h"
 
@@ -606,16 +607,19 @@ struct NodeState {
 	SPItem* spNode;
 	bool isConnected;
 	bool isRejected;
+	bool isHidden;
 	Geom::Rect sqBBox;
 	unsigned int z;
 
 	void initGeometry(SPDocument *spDoc);
+	bool checkClipPath(SPDocument *spDoc);
 
 	NodeState(Inkscape::XML::Node* _node) :
 		spNode(nullptr),
 		isConnected(false),
 		isRejected(true),
-		z(0)
+		z(0),
+		isHidden(false)
 	{
 		node = _node;
 	};
@@ -681,6 +685,63 @@ static bool hIsOkcheckPeriodByY(std::vector<Geom::Line> hLines, double& gap)
 	return false;
 }
 
+struct ClipsCashe {
+	SPObject* node;
+	Geom::OptRect clipRect;
+	bool isCashe;
+	ClipsCashe():
+		node(nullptr),
+		isCashe(false)
+	{}
+};
+
+bool NodeState::checkClipPath(SPDocument *spDoc)
+{
+	static std::deque<ClipsCashe> clipPathsCash;
+	SPObject *parentNode = spNode->parent;
+	while(parentNode)
+	{
+		ClipsCashe clipData;
+		const char* clipPathId = parentNode->getAttribute("clip-path");
+		if (clipPathId)
+		{
+			clipData.node = parentNode;
+			for(int idx = 0 ; idx < clipPathsCash.size(); idx++)
+			{
+				ClipsCashe& casheClip = clipPathsCash[idx];
+				if (casheClip.node == parentNode)
+				{
+					clipData = casheClip;
+					break;
+				}
+			}
+
+			if (! clipData.isCashe)
+			{
+				char *clipId = strdup(&clipPathId[5]);
+				clipId[strlen(clipId) -1] = 0;
+
+				SPObject *clipObject = spDoc->getObjectById(clipId);
+				if (clipObject)
+				{
+					clipData.clipRect = SP_ITEM(parentNode)->visualBounds(SP_ITEM(parentNode)->getRelativeTransform(spDoc->getRoot()));
+					clipData.isCashe = true;
+					clipPathsCash.push_back(clipData);
+					if (clipPathsCash.size() > 10 ) clipPathsCash.pop_front();
+				}
+				free(clipId);
+			}
+
+
+			if( ! clipData.clipRect.intersects(sqBBox))
+				return true;
+		}
+
+		parentNode = parentNode->parent;
+	}
+	return false;
+}
+
 void NodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
@@ -695,6 +756,13 @@ void NodeState::initGeometry(SPDocument *spDoc)
 	}
 
 	if (spNode == nullptr) return;
+
+	if (! isHidden)
+	{
+		isHidden = checkClipPath(spDoc);
+
+	}
+
 	Geom::PathVector pathArray;
 
 // =================detect/extend part of table without vertical lines==============
@@ -948,7 +1016,7 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 			//Run by all free nodes
 			for(NodeState& nodeState : nodesStatesList)
 			{
-				if (nodeState.isConnected) continue;
+				if (nodeState.isConnected || nodeState.isHidden) continue;
 
 				if (currentRegion.size() == 0) // it will first path in the symbol
 				{
