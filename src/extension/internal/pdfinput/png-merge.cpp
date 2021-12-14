@@ -1501,6 +1501,13 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 			}
 
 			SvgBuilder::todoRemoveClip canRemoveClip = builder->checkClipAroundText(tmpNode);
+			if (canRemoveClip == SvgBuilder::todoRemoveClip::OUT_OF_CLIP)
+			{
+				Inkscape::XML::Node* delNode = tmpNode;
+				tmpNode = tmpNode->next();
+				delNode->parent()->removeChild(delNode);
+				continue;
+			}
 			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 			// We can remove only empty <g> or if it contains only info-attributes
 			while( attrList && fl) {
