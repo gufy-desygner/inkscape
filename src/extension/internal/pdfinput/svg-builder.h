@@ -155,6 +155,7 @@ public:
     enum todoRemoveClip {
     	CLIP_NOTFOUND,
     	REMOVE_CLIP,
+		OUT_OF_CLIP,
     	KEEP_CLIP,
     };
     todoRemoveClip checkClipAroundText(Inkscape::XML::Node *gNode);

@@ -65,6 +65,7 @@
 #include "2geom/line.h"
 #include "2geom/path-intersection.h"
 #include "text-editing.h"
+#include "png-merge.h"
 #include <queue>
 //#include "helper/png-write.h"
 //#include "display/cairo-utils.h"
@@ -3572,6 +3573,11 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
 		return REMOVE_CLIP;
+	}
+
+	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 )
+	{
+		return OUT_OF_CLIP;
 	}
 
 	return CLIP_NOTFOUND;
