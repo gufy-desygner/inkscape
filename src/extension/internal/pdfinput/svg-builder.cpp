@@ -3575,7 +3575,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		return REMOVE_CLIP;
 	}
 
-	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 )
+	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), bbox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
 	}
@@ -4062,6 +4062,7 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
 
         Geom::Affine nodeAffine1;
         textPosition.affine = spNode->getRelativeTransform(spMainNode);
+        // reliteb to default transform - we will use real transform later
         Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
 
 
@@ -4083,16 +4084,18 @@ void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInArea
         textPosition.text = (char*)pTspanNode->firstChild()->content();
         textPosition.ptextNode = pTspanNode;
 
-        // ROund the coordinates to be conform with table lines.
-        textPosition.sqTextBBox = new Geom::Rect(round(sqTextBBox[Geom::X][0]),
-                                                    round(sqTextBBox[Geom::Y][0]),
-                                                        round(sqTextBBox[Geom::X][1]),
-                                                            round(sqTextBBox[Geom::Y][1]));
+        //round is not always is good solution so remove it from here
+        textPosition.sqTextBBox = new Geom::Rect(sqTextBBox[Geom::X][0],
+                                                    sqTextBBox[Geom::Y][0],
+                                                        sqTextBBox[Geom::X][1],
+                                                            sqTextBBox[Geom::Y][1]);
 
         textPosition.rotationAngle = 0;
         textPosition.needRemove = false;
         textPosition.isUsed = false;
         textInAreaList.push_back(textPosition);
+        //printf("X1=%f X2=%f Y1=%f Y2=%f %s\n", sqTextBBox[Geom::X][0], sqTextBBox[Geom::X][1],
+        //		sqTextBBox[Geom::Y][0], sqTextBBox[Geom::Y][1], textPosition.text);
     }
 }
 
@@ -4241,32 +4244,39 @@ std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, dou
         int start = -1;
         int end = -1;
 
-        Geom::Point p_start(textX1, textY1);
-        p_start = p_start * textPosition.affine.inverse();
-        if (isSimulate)
+        if (sqTxtBBox.intersects(sqCellBBox)) //speed optimization
         {
-        	Geom::Point p(textX1, textY1);
-        	if (sqCellBBox.interiorContains(p))
-        	{
-        		textInsideCell = uniTextPosition;
-        	}
-        } else {
-        // Check every Letter position in the text if inside a Cell!
-			for(int i = 0; i < data_x.size(); i++) {
-				if (data_x[i]._set) {
-					// Now you can start extracting characters!
-					Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
-					p = p * textPosition.affine;
-					if (sqCellBBox.interiorContains(p)) {
-						if (start == -1) start = i;
-						end = i;
-						//printf("Point inside Cell Found!\n");
-						bIsPointInsideCellFound = true;
-						Inkscape::CSSOStringStream os_x;
-						textInsideCell += uniTextPosition[i];
+			Geom::Point p_start(textX1, textY1);
+			p_start = p_start * textPosition.affine.inverse();
+			if (isSimulate)
+			{
+				Geom::Point p(textX1, textY1);
+				if (sqCellBBox.interiorContains(p))
+				{
+					textInsideCell = uniTextPosition;
+				}
+			} else {
+			// Check every Letter position in the text if inside a Cell!
+				for(int i = 0; i < data_x.size(); i++) {
+					if (data_x[i]._set) {
+						// Now you can start extracting characters!
+						Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
+						p = p * textPosition.affine;
+						// if x of character and left side of table approx equivalent. sqCellBBox.interiorContains can return false
+						// usually for table without visibly left line
+						if (i == 0 && p.x() <= sqCellBBox.left() && p.x() > (sqCellBBox.left() - 0.1))
+							p += Geom::Point(0.11, 0);
+						if (sqCellBBox.interiorContains(p)) {
+							if (start == -1) start = i;
+							end = i;
+							//printf("Point inside Cell Found!\n");
+							bIsPointInsideCellFound = true;
+							Inkscape::CSSOStringStream os_x;
+							textInsideCell += uniTextPosition[i];
+						}
 					}
 				}
-        	}
+			}
         }
         if (!textInsideCell.empty()){
 			Inkscape::XML::Node* tspanAfterStart = nullptr;
