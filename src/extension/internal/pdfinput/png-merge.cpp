@@ -2199,12 +2199,18 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 		line->y2 = firstPoint.y() > secondPoint.y() ? firstPoint.y() : secondPoint.y();
 
 		if (approxEqual(line->x1, line->x2))
-			xList.push_back(line->x1);
+		    xList.push_back(line->x1);
 
-		if (approxEqual(line->y1, line->y2))
-			yList.push_back(line->y1);
+        if (approxEqual(line->y1, line->y2))
+	    	yList.push_back(line->y1);
 
 	}
+
+	xList.push_back(this->x1);
+	xList.push_back(this->x2);
+
+	yList.push_back(this->y1);
+	yList.push_back(this->y2);
 
 
 	if (xList.empty() || yList.empty()) return false;
@@ -2215,6 +2221,9 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	auto lastY = std::unique(yList.begin(), yList.end(), predAproxUniq);
 	xList.erase(lastX, xList.end());
 	yList.erase(lastY, yList.end());
+
+	if (((yList.size() -1) * (xList.size() - 1)) < 4 )
+		return false;
 
 /*
 	for(auto& xPos : xList)
@@ -2334,6 +2343,11 @@ Inkscape::XML::Node* TableRegion::render(SvgBuilder *builder, Geom::Affine aff)
 Geom::Rect TableRegion::getBBox()
 {
 	return Geom::Rect(x1, y1, x2, y2);
+}
+
+double TableRegion::getAreaSize()
+{
+	return std::fabs((x1 - x2) * (y1 - y2));
 }
 
 bool TabLine::intersectRect(Geom::Rect rect)

@@ -211,6 +211,7 @@ public:
 	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
 	bool recIntersectLine(Geom::Rect rect);
 	Geom::Rect getBBox();
+	double getAreaSize();
 
 	bool addLine(Inkscape::XML::Node* node);
 

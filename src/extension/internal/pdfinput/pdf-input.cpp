@@ -669,6 +669,12 @@ static cairo_status_t
 }
 #endif
 
+static bool sortTablesSmalToBig(TableRegion* first,  TableRegion* second)
+{
+
+	return first->getAreaSize() < second->getAreaSize();
+}
+
 /**
  * Parses the selected page of the given PDF document using PdfParser.
  */
@@ -949,6 +955,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
             	TableList regions;
 				detectTables(builder, &regions);
+				// if we have table in table - should render smal tables first.
+				//std::sort(regions.begin(), regions.end(), sortTablesSmalToBig);
 				SPDocument* spDoc = builder->getSpDocument();
 
 				Inkscape::XML::Node* mainNode = builder->getMainNode();
