@@ -1220,22 +1220,29 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 	for(int i = 0; i < tspanArray->len - 1; i++) {
 	    double firstY;
 	    double secondY;
-	    double firstEndX;
-	    double secondX;
-	    double spaceSize;
+		double firstX;
+		double firstEndX;
+		double secondX;
+		double secondEndX;
+		double spaceSize;
 		Inkscape::XML::Node *tspan1 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i);
 		Inkscape::XML::Node *tspan2 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i + 1);
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
+		sp_repr_get_double(tspan1, "x", &firstX);
 
 		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
+		if (! sp_repr_get_double(tspan2, "data-endX", &secondEndX)) secondEndX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
 		const char* align1 = tspan1->attribute("data-align");
 		const char* align2 = tspan2->attribute("data-align");
 		if ( spaceSize <= 0 ) {
 			spaceSize = textSize / 3;
 		}
+
+		// get the width of the smallest between the 2 tspans:
+		double minTspanWidth = std::min(firstEndX - firstX, secondEndX - secondX);
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
@@ -1244,6 +1251,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
 				(secondX - firstEndX < spaceSize * 6) &&
+				(fabs(firstEndX - secondX) < minTspanWidth/5) && // Is the gap inferior then 1/4 of the smallest tspan?
 				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
 				/* &&
 				spaceSize > 0*/) {
