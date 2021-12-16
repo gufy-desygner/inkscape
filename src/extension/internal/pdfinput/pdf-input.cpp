@@ -953,43 +953,45 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	if (bookMarks)
             		bookMarks->MergeWithSvgBuilder(builder);
 
-            	TableList regions;
-				detectTables(builder, &regions);
-				// if we have table in table - should render smal tables first.
-				//std::sort(regions.begin(), regions.end(), sortTablesSmalToBig);
-				SPDocument* spDoc = builder->getSpDocument();
+                if (sp_detect_tables_sh) {
+                    TableList regions;
+                    detectTables(builder, &regions);
+                    // if we have table in table - should render smal tables first.
+                    //std::sort(regions.begin(), regions.end(), sortTablesSmalToBig);
+                    SPDocument* spDoc = builder->getSpDocument();
 
-				Inkscape::XML::Node* mainNode = builder->getMainNode();
-				SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
-				for(TableRegion* tabRegion : regions)
-				{
-					if (tabRegion->buildKnote(builder))
-					{
-						TabLine* firstPathLine = tabRegion->lines[0];
-						Inkscape::XML::Node* tabPathNode = firstPathLine->node;
-						Inkscape::XML::Node* tabParent = tabPathNode->parent();
+                    Inkscape::XML::Node* mainNode = builder->getMainNode();
+                    SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
+                    for(TableRegion* tabRegion : regions)
+                    {
+                        if (tabRegion->buildKnote(builder))
+                        {
+                            TabLine* firstPathLine = tabRegion->lines[0];
+                            Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+                            Inkscape::XML::Node* tabParent = tabPathNode->parent();
 
-						SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
-						Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
+                            SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
+                            Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
 
 
-						//sp_svg_transform_read(tabParent->attribute("transform"), &aff);
+                            //sp_svg_transform_read(tabParent->attribute("transform"), &aff);
 
-						Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
-						if (mainNode) {
-                            mainNode->appendChild(tabNode);
+                            Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
+                            if (mainNode) {
+                                mainNode->appendChild(tabNode);
 
-                            // Append any unsupported text items after the table!
-                            // This will fix layering problem.
-                            std::vector<Inkscape::XML::Node*> unsupportedTextVector = tabRegion->getUnsupportedTextInTable();
-                            std::vector<Inkscape::XML::Node*>::const_iterator itrNode;
-                            for(itrNode = unsupportedTextVector.begin(); itrNode != unsupportedTextVector.end(); itrNode++) {
-                                Inkscape::XML::Node *node = *itrNode;
-                                mainNode->appendChild(node);
+                                // Append any unsupported text items after the table!
+                                // This will fix layering problem.
+                                std::vector<Inkscape::XML::Node*> unsupportedTextVector = tabRegion->getUnsupportedTextInTable();
+                                std::vector<Inkscape::XML::Node*>::const_iterator itrNode;
+                                for(itrNode = unsupportedTextVector.begin(); itrNode != unsupportedTextVector.end(); itrNode++) {
+                                    Inkscape::XML::Node *node = *itrNode;
+                                    mainNode->appendChild(node);
+                                }
                             }
                         }
-					}
-				}
+                    }
+                    }
 
 
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;

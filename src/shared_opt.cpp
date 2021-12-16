@@ -46,4 +46,5 @@ int sp_scale_endx_sp = 6;
 gboolean warning1IsNotText = FALSE;
 gboolean warning2wasRasterized = FALSE;
 gboolean warning3tooManyImages = FALSE;
+gboolean sp_detect_tables_sh = FALSE;
 
