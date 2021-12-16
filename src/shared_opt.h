@@ -49,5 +49,6 @@ extern int sp_scale_endx_sp;
 extern gboolean warning1IsNotText;
 extern gboolean warning2wasRasterized;
 extern gboolean warning3tooManyImages;
+extern gboolean sp_detect_tables_sh;
 #endif
 
