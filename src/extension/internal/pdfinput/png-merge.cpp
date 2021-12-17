@@ -2214,17 +2214,23 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 
 	}
 
-	xList.push_back(this->x1);
-	xList.push_back(this->x2);
-
-	yList.push_back(this->y1);
-	yList.push_back(this->y2);
-
-
 	if (xList.empty() || yList.empty()) return false;
 
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
+
+	if (! approxEqual(this->x1, xList.front(), 5))
+		xList.push_back(this->x1);
+	if (! approxEqual(this->x2, xList.back(), 5))
+		xList.push_back(this->x2);
+
+	if (! approxEqual(this->y1, yList.back(), 5))
+		yList.push_back(this->y1);
+	if (! approxEqual(this->y2, yList.front(), 5))
+		yList.push_back(this->y2);
+	std::sort(xList.begin(), xList.end());
+	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
+
 	auto lastX = std::unique(xList.begin(), xList.end(), predAproxUniq);
 	auto lastY = std::unique(yList.begin(), yList.end(), predAproxUniq);
 	xList.erase(lastX, xList.end());
@@ -2409,9 +2415,11 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 		TableRegion* tabRegionStat= new TableRegion(builder);
 		bool isTable = true;
 		if (vecRegionNodes.size() < 2) continue;
+		//printf("==============region===========\n");
 		for(Inkscape::XML::Node* node: vecRegionNodes)
 		{
 			isTable = tabRegionStat->addLine(node);
+			//printf("node id = %s\n", node->attribute("id"));
 			if (! isTable)
 				break;
 		}
