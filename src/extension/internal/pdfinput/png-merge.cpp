@@ -1231,6 +1231,9 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 		sp_repr_get_double(tspan2, "y", &secondY);
 		sp_repr_get_double(tspan1, "x", &firstX);
 
+		double lenTspan1 = strlen(tspan1->firstChild()->content());
+		double lenTspan2 = strlen(tspan2->firstChild()->content());
+
 		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
 		if (! sp_repr_get_double(tspan2, "data-endX", &secondEndX)) secondEndX = 0;
@@ -1241,17 +1244,25 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			spaceSize = textSize / 3;
 		}
 
+		/**
+		 * Following this forum: http://www.magazinedesigning.com/columns-pt-2-line-lengths-and-column-width/
+		 * We will check if this is a multi-column text, for example if textSize = 10pt, textWidth < 240pt and gap > 18pt ==> Do not group
+		 * In other words, if textWidth / 24 < textSize && gap/1.8 > textSize, we will not merge the 2 tspans.
+		 */
+
 		// get the width of the smallest between the 2 tspans:
 		double minTspanWidth = std::min(firstEndX - firstX, secondEndX - secondX);
+		double gapX = secondX - firstEndX;
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
 		// if gap more then 3.5 of text size - mind other column
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
+			// Is this a multi-column text?
+			(minTspanWidth/24 >= textSize || gapX/1.8 < textSize) &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
 				(secondX - firstEndX < spaceSize * 6) &&
-				(fabs(firstEndX - secondX) < minTspanWidth/5) && // Is the gap inferior then 1/4 of the smallest tspan?
 				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
 				/* &&
 				spaceSize > 0*/) {
@@ -1259,6 +1270,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			tspan2->parent()->removeChild(tspan2);
 			g_ptr_array_remove_index(tspanArray, i+1);
 			i--;
+
 		}
 	}
 }
