@@ -635,55 +635,169 @@ static bool sortPointsLtoR(const Geom::Point &a, const Geom::Point &b)
 
 static bool sortLinesLtoR(const Geom::Line &a, const Geom::Line &b)
 {
-	Geom::Point first = a.initialPoint();
-	Geom::Point second = b.initialPoint();
+	Geom::Point first = a.initialPoint().x() < a.finalPoint().x() ?
+			a.initialPoint() : a.finalPoint();
+
+	Geom::Point second = b.initialPoint().x() < b.finalPoint().x() ?
+			b.initialPoint() : b.finalPoint();
 	return sortPointsLtoR(first, second);
 }
 
 static bool buildVertDashed(const Geom::Line &a, const Geom::Line &b)
 {
-	Geom::Point startA = a.initialPoint();
-	Geom::Point startB = b.initialPoint();
+	Geom::Point startA =  a.initialPoint().y() < a.finalPoint().y() ?
+			a.initialPoint() : a.finalPoint();
+	Geom::Point startB = b.initialPoint().y() < b.finalPoint().y() ?
+			b.initialPoint() : b.finalPoint();
 
-	Geom::Point endA = a.finalPoint();
-	Geom::Point endB = b.finalPoint();
+	Geom::Point endA = a.initialPoint().y() > a.finalPoint().y() ?
+			a.initialPoint() : a.finalPoint();
+	Geom::Point endB = b.initialPoint().y() > b.finalPoint().y() ?
+			b.initialPoint() : b.finalPoint();
 
 	return approxEqual(startA.y(), startB.y()) && approxEqual(endA.y(), endB.y());
 }
 
+class TableRectangle {
+private:
+
+	std::vector<Geom::Line> lines;
+public:
+	double x1, y1, x2, y2;
+	void addLine(Geom::Line line)
+	{
+		double minX = MIN(line.initialPoint().x(), line.finalPoint().x());
+		double maxX = MAX(line.initialPoint().x(), line.finalPoint().x());
+
+		double minY = MIN(line.initialPoint().y(), line.finalPoint().y());
+		double maxY = MAX(line.initialPoint().y(), line.finalPoint().y());
+		if (lines.empty())
+		{
+			x1 = minX; x2 = maxX;
+			y1 = minY; y2 = maxY;
+		} else
+		{
+			x1 = MIN(x1, minX);
+			x2 = MAX(x2, maxX);
+
+			y1 = MIN(y1, minY);
+			y2 = MAX(y2, maxY);
+		}
+		lines.push_back(line);
+	}
+
+	int countOfLines()
+	{
+		return lines.size();
+	}
+
+	double calcGap()
+	{
+		if (lines.size() < 2) return 0;
+		std::vector<double> gaps;
+		for(int idx = 1; idx < lines.size(); idx++)
+		{
+			gaps.push_back(std::fabs(lines[idx -1].initialPoint().y() - lines[idx].initialPoint().y()));
+		}
+
+		std::sort(gaps.begin(), gaps.end());
+		for(int idx = 1; idx < gaps.size(); idx++)
+		{
+
+			if (!(gaps[idx]/gaps[0] < 4))
+			{
+				return 0;
+			}
+		}
+
+		return gaps[0];
+	}
+};
+
 
 // return false if line list is not part of table
-static bool hIsOkcheckPeriodByY(std::vector<Geom::Line> hLines, double& gap)
+static bool hIsOkcheckPeriodByY(std::vector<Geom::Line>& hLines, double& gap)
 {
 	gap = 0;
 	if (hLines.size() < 2) return false;
 
-	// all lines should have one width
-	const double x1 = hLines[0].initialPoint().x();
-	const double x2 = hLines[0].finalPoint().x();
-	double minGap = std::fabs(hLines[1].initialPoint().y() - hLines[0].initialPoint().y());
-	double maxGap = minGap;
-	double size = 0;
-	for(int idx = 1; idx < hLines.size(); idx++)
+	std::vector< Geom::Interval > hDashe; // build horizontal plane.projection of potential table
+	std::vector< double > yList;
+	for(auto& line : hLines)
 	{
-		if (!(approxEqual(hLines[idx].initialPoint().x(), x1) &&
-				approxEqual(hLines[idx].finalPoint().x(), x2)))
+		double initX = line.initialPoint().x();
+		double finalX = line.finalPoint().x();
+		hDashe.push_back(Geom::Interval(initX < finalX ? initX: finalX,
+				initX > finalX ? initX: finalX));
+
+		yList.push_back(line.initialPoint().y());
+	}
+
+	std::sort(yList.begin(), yList.end());
+	auto yIt = std::unique(yList.begin(), yList.end());
+	yList.erase(yIt, yList.end());
+
+	std::sort(hDashe.begin(), hDashe.end(),
+			[](Geom::Interval &a, Geom::Interval &b)
+				{
+					return a.min() < b.min();
+				}
+			);
+	auto it = std::unique(hDashe.begin(), hDashe.end(),
+			[](Geom::Interval &a, Geom::Interval &b)
+				{
+					return approxEqual(a.min(), b.min()) && approxEqual(a.max(), b.max());
+				}
+			);
+	hDashe.erase(it, hDashe.end());
+	if (hDashe.size() > 2) return false; // we do not meet case with more than 2 tables yet
+
+	// So if in the horizontal Projection we have more than one line
+	// possible we have two tables in one path
+	std::vector< TableRectangle* > vecTables;
+	int lineCount = 0;
+	for(auto& interval : hDashe)
+	{
+		TableRectangle* tableStat = new TableRectangle();
+		// all lines should have one width
+		for(auto& hLine : hLines)
 		{
-			return false;
+			const double minX = MIN(hLine.initialPoint().x(), hLine.finalPoint().x());
+			const double maxX = MAX(hLine.initialPoint().x(), hLine.finalPoint().x());
+			if ((! approxEqual(interval.min(), minX)) || (! approxEqual(interval.max(), maxX))) continue;
+
+			tableStat->addLine(hLine);
 		}
 
-		double currentGap = std::fabs(hLines[idx].initialPoint().y() - hLines[idx - 1].initialPoint().y());
-		minGap = minGap < currentGap ? minGap : currentGap;
-		maxGap = maxGap < currentGap ? maxGap : currentGap;
-		size += currentGap;
+		if (tableStat->countOfLines() == 0)
+		{
+			for(auto& it : vecTables) delete(it);
+			return 0;
+		}
+		vecTables.push_back(tableStat);
+		lineCount += tableStat->countOfLines();
 	}
 
-	if (approxEqual(minGap, maxGap))
+	// was not all lines use
+	if (lineCount != hLines.size() || vecTables.empty())
 	{
-		gap = maxGap;
-		return true;
+		for(auto& it : vecTables) delete(it);
+		return false;
 	}
-	return false;
+
+	gap = vecTables[0]->calcGap();
+
+	for(int idx = 1 ; idx < vecTables.size(); idx++)
+	{
+		if (! approxEqual(gap, vecTables[idx]->calcGap()))
+		{
+			for(auto& it : vecTables) delete(it);
+			return 0;
+		}
+	}
+
+	for(auto& it : vecTables) delete(it);
+	return gap > 0;
 }
 
 struct ClipsCashe {
@@ -746,6 +860,7 @@ bool NodeState::checkClipPath(SPDocument *spDoc)
 void NodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
+	//printf("node id = %s \n", node->attribute("id"));
 
 	Geom::OptRect visualBound(spNode->visualBounds());
 	Geom::Affine nodeAffine;
@@ -853,10 +968,14 @@ void NodeState::initGeometry(SPDocument *spDoc)
 				//						line.finalPoint().x(), line.finalPoint().y());
 				if (startPoint)
 				{
-					startX = line.initialPoint().x();
-					startY = line.initialPoint().y();
-					endX = line.finalPoint().x();
-					endY = line.finalPoint().y();
+					startX = line.initialPoint().x() < line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					startY = line.initialPoint().y() < line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					endX = line.initialPoint().x() > line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					endY = line.initialPoint().y() > line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
 					startPoint = false;
 					continue;
 				}
@@ -868,17 +987,24 @@ void NodeState::initGeometry(SPDocument *spDoc)
 				{
 					if (&line == &linesListH.back())
 					{
-						endX = line.finalPoint().x();
-						endY = line.finalPoint().y();
+						endX = line.initialPoint().x() > line.finalPoint().x() ?
+								line.initialPoint().x() : line.finalPoint().x();
+						endY = line.initialPoint().y() > line.finalPoint().y() ?
+								line.initialPoint().y() : line.finalPoint().y();
 					}
 					Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
 					//printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
 					//		mergedLine.finalPoint().x(), mergedLine.finalPoint().y());
 
-					startX = line.initialPoint().x();
-					startY = line.initialPoint().y();
-					endX = line.finalPoint().x();
-					endY = line.finalPoint().y();
+					startX = line.initialPoint().x() < line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					startY = line.initialPoint().y() < line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					endX = line.initialPoint().x() > line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					endY = line.initialPoint().y() > line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					startPoint = false;
 					linesListHMerged.push_back(mergedLine);
 				}
 			}
@@ -4035,7 +4161,7 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
 }
 
 
-void regenerateList(SvgBuilder* builder,std::vector<SvgTextPosition>& textInAreaList)
+void regenerateList(SvgBuilder* builder, std::vector<SvgTextPosition>& textInAreaList)
 {
     SPDocument* spDoc = builder->getSpDocument();
 
