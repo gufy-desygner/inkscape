@@ -3030,8 +3030,68 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
-bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
+bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
 {
+
+	const double firstX1 = rect1.left();
+	const double firstY1 = rect1.top();
+	const double firstX2 = rect1.right();
+	const double firstY2 = rect1.bottom();
+
+	const double secondX1 = rect2.left();
+	const double secondY1 = rect2.top();
+	const double secondX2 = rect2.right();
+	const double secondY2 = rect2.bottom();
+
+	const double firstXLen = firstX2 - firstX1;
+	const double firstYLen = firstY2 - firstY1;
+
+	const double secondXLen = secondX2 - secondX1;
+	const double secondYLen = secondY2 - secondY1;
+
+	const double leftDistance = secondX1 - firstX1;
+	const double rightDistance = firstX2 - secondX2;
+	const double topDistance = secondY1 - firstY1;
+	const double bottomDistance = firstY2 - secondY2;
+
+    const double APPROX = 2;
+
+	const bool xApproxEqual = 	approxEqual(firstX1, secondX1, APPROX/2) ||
+								approxEqual(firstX1, secondX2, APPROX/2) ||
+								approxEqual(firstX2, secondX1, APPROX/2) ||
+								approxEqual(firstX2, secondX2, APPROX/2);
+
+	const bool yApproxEqual = 	approxEqual(firstY1, secondY1, APPROX/2) ||
+								approxEqual(firstY1, secondY2, APPROX/2) ||
+								approxEqual(firstY2, secondY1, APPROX/2) ||
+								approxEqual(firstY2, secondY2, APPROX/2);
+
+	const bool xIntersectInterval =
+			(firstX1 > (secondX1 -APPROX) && (firstX2 > secondX2 -APPROX) && firstX1 < (secondX2 +APPROX)) ||
+			(firstX1 < (secondX1 +APPROX) && (firstX2 < secondX2 +APPROX) && firstX2 > (secondX1 -APPROX));
+
+	const bool yIntersectInterval =
+			(firstY1 > (secondY1 -APPROX) && (firstY2 > secondY2 -APPROX) && firstY1 < (secondY2 +APPROX)) ||
+			(firstY1 < (secondY1 +APPROX) && (firstY2 < secondY2 +APPROX) && firstY2 > (secondY1 -APPROX));
+
+	const bool xContainInterval =
+			(firstX1 < (secondX1 +APPROX) && (firstX2 > secondX2 -APPROX)) ||
+			(firstX1 > (secondX1 -APPROX) && (firstX2 < secondX2 +APPROX));
+
+	const bool yContainInterval =
+			(firstY1 < (secondY1 +APPROX) && (firstY2 > secondY2 -APPROX)) ||
+			(firstY1 > (secondY1 -APPROX) && (firstY2 < secondY2 +APPROX));
+
+
+	const bool touch =
+			(xContainInterval && yApproxEqual) ||
+			(yContainInterval && xApproxEqual) ||
+			(xIntersectInterval && yIntersectInterval) ||
+			(xContainInterval && yIntersectInterval) ||
+			(yContainInterval && xIntersectInterval);
+
+	return touch;
+/*
 	std::vector<Geom::Rect> lines1;
 	std::vector<Geom::Rect> lines2;
 
@@ -3063,12 +3123,20 @@ bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
 	{
 		for (auto& line2 : lines2)
 		{
-			if (line1.intersects(line2)) return true;
+			if (line1.intersects(line2))
+			{
+				if (! touch)
+					printf("alarm \n");
+				return true;
+			}
 
 		}
 	}
 
-	return false;
+	if (touch)
+		printf("alarm \n");
+
+	return false;*/
 }
 
 bool approxEqual(const float x, const float y, const float epsilon)
