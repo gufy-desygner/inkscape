@@ -1157,14 +1157,17 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
 				{
 					NodeState* regionNode = currentRegion[regionIdx];
-					const char* rId = regionNode->node->attribute("id");
-					const char* nId = nodeState.node->attribute("id");
+					//const char* rId = regionNode->node->attribute("id");
+					//const char* nId = nodeState.node->attribute("id");
 					//printf("region %s : node %s\n", rId, nId);
 
-					Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0], regionNode->sqBBox[Geom::Y][0],
-							regionNode->sqBBox[Geom::X][1], regionNode->sqBBox[Geom::Y][1]);
-
-					if (rectHasCommonEdgePoint(extendedBBox, nodeState.sqBBox) /**extendedBBox.intersects(nodeState.sqBBox)/* ||
+					//Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0], regionNode->sqBBox[Geom::Y][0],
+					//		regionNode->sqBBox[Geom::X][1], regionNode->sqBBox[Geom::Y][1]);
+					static long int counter = 0;
+					counter++;
+					if ((counter/100000)* 100000 == counter)
+						printf("counter = %i \n", counter);
+					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState.sqBBox) /**extendedBBox.intersects(nodeState.sqBBox)/* ||
 							extendedBBox.contains(nodeState.sqBBox)*/)
 					{
 						nodeState.isConnected = true;
