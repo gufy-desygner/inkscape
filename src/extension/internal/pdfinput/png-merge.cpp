@@ -3030,7 +3030,7 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
-bool rectHasCommonEdgePoint(Geom::Rect rect1, Geom::Rect rect2)
+bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
 {
 
 	const double firstX1 = rect1.left();

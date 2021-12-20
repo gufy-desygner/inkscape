@@ -1130,53 +1130,37 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 
 	while(true) // it will ended when we make empty region
 	{
-		long int regionNodesCount = -1;
+		long int regionNodesStart = 0;
 		std::vector<NodeState*> currentRegion;
 		bool startNewRegion = false;
 
-		while(regionNodesCount != currentRegion.size() && (!startNewRegion)) // if count of paths for region changed - try found other paths
-		{
-			long int regionChecked = regionNodesCount;
-			regionNodesCount = currentRegion.size();
-			if (regionChecked < 0) regionChecked = 0;
-
 			//Run by all free nodes
-			for(NodeState& nodeState : nodesStatesList)
+			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegion.size() == 0; regionIdx++)
 			{
-				if (nodeState.isConnected || nodeState.isHidden) continue;
 
-				if (currentRegion.size() == 0) // it will first path in the symbol
+				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesList.size(); nodeStatIdx++)
 				{
-					currentRegion.push_back(&nodeState);
-					nodeState.isConnected = true;
-					continue;
-				}
+					NodeState& nodeState = nodesStatesList[nodeStatIdx];
+					if (nodeState.isConnected || nodeState.isHidden) continue;
 
-				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
-				// check node for all regions
-				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
-				{
+					if (currentRegion.size() == 0) // it will first path in the symbol
+					{
+						currentRegion.push_back(&nodeState);
+						nodeState.isConnected = true;
+						regionNodesStart = nodeStatIdx+1;
+						continue;
+					}
 					NodeState* regionNode = currentRegion[regionIdx];
-					//const char* rId = regionNode->node->attribute("id");
-					//const char* nId = nodeState.node->attribute("id");
-					//printf("region %s : node %s\n", rId, nId);
 
-					//Geom::Rect extendedBBox(regionNode->sqBBox[Geom::X][0], regionNode->sqBBox[Geom::Y][0],
-					//		regionNode->sqBBox[Geom::X][1], regionNode->sqBBox[Geom::Y][1]);
-					static long int counter = 0;
-					counter++;
-					if ((counter/100000)* 100000 == counter)
-						printf("counter = %i \n", counter);
-					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState.sqBBox) /**extendedBBox.intersects(nodeState.sqBBox)/* ||
-							extendedBBox.contains(nodeState.sqBBox)*/)
+					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState.sqBBox))
 					{
 						nodeState.isConnected = true;
 						currentRegion.push_back(&nodeState);
-						break;
+						//break;
 					}
 				} // end for
+				if (currentRegion.size() == 0) break;
 			} // for by node states
-		} //end while (region was changed)
 		//start new region
 
 		std::sort(currentRegion.begin(), currentRegion.end(),
