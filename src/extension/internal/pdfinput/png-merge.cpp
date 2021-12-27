@@ -2403,13 +2403,22 @@ bool TableRegion::checkTableLimits()
 	return true;
 }
 
-/**
- * @describe do merge tags without text between
- * @param builder representation of SVG document
- * @param simulate if true - do not change source document (default false)
- *
- * @return count of generated images
- * */
+
+static int getPos(Inkscape::XML::Node *node)
+{
+	if (node->parent() == nullptr) return 0;
+	Inkscape::XML::Node *currChild = node->parent()->firstChild();
+
+	int pos = 1;
+	while(currChild != node)
+	{
+		pos++;
+		currChild = currChild->next();
+	}
+	return pos;
+}
+
+
 TableList* detectTables(SvgBuilder *builder, TableList* tables) {
   bool splitRegions = true;
 
@@ -2428,6 +2437,14 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 		bool isTable = true;
 		if (vecRegionNodes.size() < 2) continue;
 		//printf("==============region===========\n");
+		int regionPos = 0;
+		Inkscape::XML::Node* regionParent = nullptr;
+		if (! vecRegionNodes.empty())
+		{
+			regionPos = getPos(vecRegionNodes[0]);
+			regionParent = vecRegionNodes[0]->parent();
+		}
+
 		for(Inkscape::XML::Node* node: vecRegionNodes)
 		{
 			isTable = tabRegionStat->addLine(node);
@@ -2454,8 +2471,15 @@ TableList* detectTables(SvgBuilder *builder, TableList* tables) {
 				{
 					if (tabRegionStat->recIntersectLine(imgRect))
 					{
-						isTable = false;
-						break;
+						Inkscape::XML::Node* imgGroup = imageNode;
+						while(imgGroup->parent() != nullptr && imgGroup->parent() != regionParent)
+							imgGroup = imgGroup->parent();
+						bool underTheTbale = (imgGroup->parent() != nullptr && regionPos > getPos(imgGroup));
+						if (! underTheTbale)
+						{
+							isTable = false;
+							break;
+						}
 					}
 				}
 			}
