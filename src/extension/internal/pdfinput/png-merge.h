@@ -16,6 +16,8 @@
 #include "sp-path.h"
 #include "display/curve.h"
 #include "Object.h"
+#include "TableRegion.h"
+#include "TableRecognizeCommon.h"
 
 #define PROFILER_ENABLE 0
 
@@ -34,9 +36,7 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
-double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
 bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2);
-bool approxEqual(const float x, const float y, const float epsilon = 0.05f);
 inline bool definitelyBigger(const float a, const float b, const float epsilon = 0.05f);
 
 namespace Inkscape {
@@ -99,134 +99,7 @@ extern double profiler_timer_up[];
 
 double GetTickCount(void);
 
-class TabRect {
-public:
-	Inkscape::XML::Node* node;
-	double x1, x2, y1, y2;
-	TabRect(double x1, double y1, double x2, double y2, Inkscape::XML::Node* node);
-	TabRect(Geom::Point point1, Geom::Point point2, Inkscape::XML::Node* _node);
-};
-
-class TabLine {
-	private:
-		bool isVert;
-		bool lookLikeTab;
-		SPCurve* spCurve;
-	public:
-		Inkscape::XML::Node* node;
-		Geom::Affine affineToMainNode;
-		double x1, x2, y1, y2;
-		TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument* spDoc);
-		bool intersectRect(Geom::Rect rect);
-		Inkscape::XML::Node* searchByPoint(double xMediane, double yMediane, bool isVerticale);
-		size_t curveSegmentsCount() { return spCurve->get_segment_count(); };
-
-
-		bool isTableLine() { return  lookLikeTab; }
-		bool isVertical() { return approxEqual(x1, x2); }
-};
-
-struct TableCell {
-	double x, y, width, height;
-	 TabLine *topLine;
-	 TabLine *bottomLine;
-	 TabLine *leftLine;
-	 TabLine *rightLine;
-	 TabRect *rect;
-	 int mergeIdx;
-	 bool isMax;
-	 int maxCol;
-	 int maxRow;
-	 TableCell* cellMax;
-};
-
-class TableDefenition
-{
-private:
-	TableCell* _cells;
-
-	std::vector<Inkscape::XML::Node*> unsupportedTextList;
-
-	int countCol, countRow;
-
-	bool isHidCell(int c, int r);
-	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
-	Inkscape::XML::Node* getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
-	Inkscape::XML::Node* getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
-	Inkscape::XML::Node* getBottomBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
-	Inkscape::XML::Node* getRightBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
-
-
-public:
-	double x, y, width, height;
-	TableDefenition(unsigned int width, unsigned int height) :
-		countCol(width),
-		countRow(height),
-		x(0),
-		y(0),
-		width(0),
-		height(0)
-	{
-		_cells = new TableCell[countCol*countRow];
-
-	}
-	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
-	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
-	TableCell* getCell(int xIdx, int yIdx);
-	void setMergeIdx(int col1, int row1, int mergeIdx);
-	void setMergeIdx(int col1, int row1, int col2, int row2, int mergeIdx);
-	void setRect(int col, int row, TabRect* rect);
-
-	std::vector<Inkscape::XML::Node*> getUnsupportedTextInTable() { return unsupportedTextList; }
-
-	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
-};
-
-class TableRegion
-{
-private:
-
-	double x1, x2, y1, y2;
-	SvgBuilder *_builder;
-	SPDocument* spDoc;
-	bool _isTable;
-	TableDefenition* tableDef;
-public:
-	std::vector<TabLine*> lines;
-	std::vector<TabRect*> rects;
-	TableRegion(SvgBuilder *builder) :
-		_builder(builder),
-		_isTable(true),
-		tableDef(nullptr),
-		x1(1e5),
-		x2(0),
-		y1(1e5),
-		y2(0)
-	{
-		spDoc = _builder->getSpDocument();
-	}
-	~TableRegion();
-
-	TabLine* searchByPoint(double xMediane, double yMediane, bool isVerticale);
-	TabRect* matchRect(double xStart, double yStart, double xEnd, double yEnd);
-	bool recIntersectLine(Geom::Rect rect);
-	Geom::Rect getBBox();
-	double getAreaSize();
-
-	bool addLine(Inkscape::XML::Node* node);
-
-	bool isTable(){	return _isTable;	}
-	bool buildKnote(SvgBuilder *builder);
-	bool checkTableLimits();
-	Inkscape::XML::Node* render(SvgBuilder *builder, Geom::Affine aff);
-
-	std::vector<Inkscape::XML::Node*> getUnsupportedTextInTable() { return tableDef->getUnsupportedTextInTable(); }
-};
-typedef std::vector<TableRegion*> TableList;
-
 TableList* detectTables(SvgBuilder *builder, TableList* tables);
-
-
 
 class MergeBuilder {
 public:
