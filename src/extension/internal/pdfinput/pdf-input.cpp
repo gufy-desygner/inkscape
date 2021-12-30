@@ -69,6 +69,7 @@
 #include "BookMarks.h"
 #include "shared_opt.h"
 #include "svg/svg.h"
+#include "TextTableDetector.h"
 
 namespace Inkscape {
 namespace Extension {

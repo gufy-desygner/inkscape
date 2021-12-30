@@ -71,6 +71,7 @@ set(extension_SRC
 	internal/pdfinput/TabLine.cpp
 	internal/pdfinput/TabRect.cpp
 	internal/pdfinput/TableRecognizeCommon.cpp
+	internal/pdfinput/TextTableDetector.cpp
 
 	# ------
 	# Header
@@ -147,6 +148,7 @@ set(extension_SRC
 	internal/pdfinput/TableDefenition.h
 	internal/pdfinput/TabLine.h
 	internal/pdfinput/TableRecognizeCommon.h
+	internal/pdfinput/TextTableDetector.h
 	internal/pdfinput/TabRect.h
 	internal/pov-out.h
 	internal/svg.h

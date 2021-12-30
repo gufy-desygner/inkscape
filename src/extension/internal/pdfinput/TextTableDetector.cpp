@@ -29,7 +29,7 @@ void TextTableDetector::addTspan(Inkscape::XML::Node* tspanNode)
 
 	std::vector<SVGLength> charactersX = sp_svg_length_list_read(tspanNode->attribute("data-x"));
 	SPTSpan* spTspanNode = SP_TSPAN(spDoc->getObjectByRepr(tspanNode));
-	Geom::Affine relativeTransform = spTspanNode->getRelativeTransform(spDoc->getRoot());
+	Geom::Affine relativeTransform = spTspanNode->getRelativeTransform(SP_ITEM(spDoc->getRoot()));
 
 }
 
