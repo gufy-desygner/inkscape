@@ -207,11 +207,16 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	if (textInAreaList.size() == 0 || cell->mergeIdx > 0 && cell->isMax == false) {
 		Inkscape::XML::Node* stringNode = builder->createTextNode("");
 		Inkscape::XML::Node* tSpanNode = builder->createElement("svg:tspan");
-		tSpanNode->setAttribute("x", doubleToCss(cell->x));
-		tSpanNode->setAttribute("y", doubleToCss(cell->y +1));
+		tSpanNode->setAttribute("x", "0");
+		tSpanNode->setAttribute("y", "0");
 
 		Inkscape::XML::Node* tTextNode = builder->createElement("svg:text");
+
 		tTextNode->setAttribute("style", "fill:none;font-size:1px");
+		Geom::Affine textTransformation(1, 0, 0, -1, cell->x, cell->y+1);
+		gchar* trensformMatrix = sp_svg_transform_write(textTransformation);
+		tTextNode->setAttribute("transform", trensformMatrix);
+		free(trensformMatrix);
 
 		tSpanNode->appendChild(stringNode);
 		tTextNode->appendChild(tSpanNode);
