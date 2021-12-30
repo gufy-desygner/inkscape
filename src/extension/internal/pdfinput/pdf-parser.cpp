@@ -2927,6 +2927,10 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 
 void specialReplacesOfPDFChars(GooString *s, Unicode *u, int n) {
     // change 0x1F as bullet point. if string consist of only one char - (s->getLength() == n)
+	if (u && (*u == 0x2002))
+	{
+		*u = (Unicode)0x0020;
+	}
     if (sp_bullet_point1f_sh && u && (*u == 0x1F) && (s->getLength() == n)) {
   	  *u = (Unicode)0x2022;
     } else {
