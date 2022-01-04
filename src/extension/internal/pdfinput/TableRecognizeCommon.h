@@ -10,9 +10,12 @@
 
 #include "2geom/2geom.h"
 #include "svg/svg.h"
+#include "xml/node.h"
 
 bool approxEqual(const float x, const float y, const float epsilon = 0.05f);
 double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
 std::string doubleToCss(double num);
+bool isNotTable(Inkscape::XML::Node *node);
+bool isTableNode(Inkscape::XML::Node* node);
 
 #endif /* SRC_EXTENSION_INTERNAL_PDFINPUT_TABLERECOGNIZECOMMON_H_ */

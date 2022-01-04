@@ -44,3 +44,19 @@ double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind)
 
 	return (squareOfintersects/squareOfKind) * 100;
 }
+
+bool isNotTable(Inkscape::XML::Node *node)
+{
+	const char* classes = node->attribute("class");
+	if (classes == nullptr) return true;
+	return (strcmp(classes, "table") != 0);
+}
+
+bool isTableNode(Inkscape::XML::Node* node)
+{
+	if (node == nullptr) return false;
+	const char* className = node->attribute("class");
+	if (className == nullptr) return false;
+	return (strcmp(className,"table") == 0);
+}
+

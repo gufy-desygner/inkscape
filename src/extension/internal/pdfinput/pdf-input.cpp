@@ -70,6 +70,7 @@
 #include "shared_opt.h"
 #include "svg/svg.h"
 #include "TextTableDetector.h"
+#include "table-detector.h"
 
 namespace Inkscape {
 namespace Extension {
