@@ -994,11 +994,11 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
                         }
                     }
 
-                    NodeList listOfTspan;
+                   /* NodeList listOfTspan;
                     builder->getNodeListByTag("svg:tspan", &listOfTspan, builder->getMainNode(), isNotTable);
                     TextTableDetector textTableDetector(builder);
                     for(auto& node : listOfTspan)
-                    	textTableDetector.addTspan(node);
+                    	textTableDetector.addTspan(node);*/
 
                 }// endif (sp_detect_tables_sh)
 
