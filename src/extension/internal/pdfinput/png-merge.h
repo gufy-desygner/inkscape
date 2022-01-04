@@ -23,8 +23,6 @@
 
 #define MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE	2
 
-bool isNotTable(Inkscape::XML::Node *node);
-
 void print_node(Inkscape::XML::Node *node, uint level);
 
 bool objStreamToFile(Object* obj, const char* fileName);
@@ -98,8 +96,6 @@ extern double profiler_timer_up[];
 
 
 double GetTickCount(void);
-
-TableList* detectTables(SvgBuilder *builder, TableList* tables);
 
 class MergeBuilder {
 public:

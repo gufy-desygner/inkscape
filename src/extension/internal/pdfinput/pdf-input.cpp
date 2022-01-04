@@ -69,6 +69,8 @@
 #include "BookMarks.h"
 #include "shared_opt.h"
 #include "svg/svg.h"
+#include "TextTableDetector.h"
+#include "table-detector.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -991,7 +993,14 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
                             }
                         }
                     }
-                    }
+
+                   /* NodeList listOfTspan;
+                    builder->getNodeListByTag("svg:tspan", &listOfTspan, builder->getMainNode(), isNotTable);
+                    TextTableDetector textTableDetector(builder);
+                    for(auto& node : listOfTspan)
+                    	textTableDetector.addTspan(node);*/
+
+                }// endif (sp_detect_tables_sh)
 
 
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;

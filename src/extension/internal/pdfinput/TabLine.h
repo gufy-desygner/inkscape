@@ -31,7 +31,7 @@ class TabLine {
 
 
 		bool isTableLine() { return  lookLikeTab; }
-		bool isVertical() { return approxEqual(x1, x2); }
+		bool isVertical();
 };
 
 //should be classs function

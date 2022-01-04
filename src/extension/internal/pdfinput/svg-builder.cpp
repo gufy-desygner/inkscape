@@ -67,8 +67,7 @@
 #include "text-editing.h"
 #include "png-merge.h"
 #include <queue>
-//#include "helper/png-write.h"
-//#include "display/cairo-utils.h"
+#include "TableRectangle.h"
 
 
 namespace Inkscape {
@@ -603,29 +602,6 @@ Inkscape::XML::Node* SvgBuilder::getMainNode()
 	return _getMainNode(rootNode, 2);
 }
 
-struct NodeState {
-	Inkscape::XML::Node* node;
-	SPItem* spNode;
-	bool isConnected;
-	bool isRejected;
-	bool isHidden;
-	Geom::Rect sqBBox;
-	unsigned int z;
-
-	void initGeometry(SPDocument *spDoc);
-	bool checkClipPath(SPDocument *spDoc);
-
-	NodeState(Inkscape::XML::Node* _node) :
-		spNode(nullptr),
-		isConnected(false),
-		isRejected(true),
-		z(0),
-		isHidden(false)
-	{
-		node = _node;
-	};
-};
-
 static bool sortPointsLtoR(const Geom::Point &a, const Geom::Point &b)
 {
 	if (!approxEqual(a.y(), b.y())  && a.y() > b.y()) return false;
@@ -657,63 +633,6 @@ static bool buildVertDashed(const Geom::Line &a, const Geom::Line &b)
 
 	return approxEqual(startA.y(), startB.y()) && approxEqual(endA.y(), endB.y());
 }
-
-class TableRectangle {
-private:
-
-	std::vector<Geom::Line> lines;
-public:
-	double x1, y1, x2, y2;
-	void addLine(Geom::Line line)
-	{
-		double minX = MIN(line.initialPoint().x(), line.finalPoint().x());
-		double maxX = MAX(line.initialPoint().x(), line.finalPoint().x());
-
-		double minY = MIN(line.initialPoint().y(), line.finalPoint().y());
-		double maxY = MAX(line.initialPoint().y(), line.finalPoint().y());
-		if (lines.empty())
-		{
-			x1 = minX; x2 = maxX;
-			y1 = minY; y2 = maxY;
-		} else
-		{
-			x1 = MIN(x1, minX);
-			x2 = MAX(x2, maxX);
-
-			y1 = MIN(y1, minY);
-			y2 = MAX(y2, maxY);
-		}
-		lines.push_back(line);
-	}
-
-	int countOfLines()
-	{
-		return lines.size();
-	}
-
-	double calcGap()
-	{
-		if (lines.size() < 2) return 0;
-		std::vector<double> gaps;
-		for(int idx = 1; idx < lines.size(); idx++)
-		{
-			gaps.push_back(std::fabs(lines[idx -1].initialPoint().y() - lines[idx].initialPoint().y()));
-		}
-
-		std::sort(gaps.begin(), gaps.end());
-		for(int idx = 1; idx < gaps.size(); idx++)
-		{
-
-			if (!(gaps[idx]/gaps[0] < 4))
-			{
-				return 0;
-			}
-		}
-
-		return gaps[0];
-	}
-};
-
 
 // return false if line list is not part of table
 static bool hIsOkcheckPeriodByY(std::vector<Geom::Line>& hLines, double& gap)
@@ -810,7 +729,7 @@ struct ClipsCashe {
 	{}
 };
 
-bool NodeState::checkClipPath(SPDocument *spDoc)
+bool TableNodeState::checkClipPath(SPDocument *spDoc)
 {
 	static std::deque<ClipsCashe> clipPathsCash;
 	SPObject *parentNode = spNode->parent;
@@ -857,7 +776,7 @@ bool NodeState::checkClipPath(SPDocument *spDoc)
 	return false;
 }
 
-void NodeState::initGeometry(SPDocument *spDoc)
+void TableNodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
 	//printf("node id = %s \n", node->attribute("id"));
@@ -1023,14 +942,14 @@ void NodeState::initGeometry(SPDocument *spDoc)
 	}
 }
 
-static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeState> &nodesStatesList, std::vector<std::string> &tags)
+static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeStatePtr> &nodesStatesList, std::vector<std::string> &tags)
 {
 	static unsigned int zCounter = 0;
 	if (inList(tags, startNode->name()))
 	{
 		zCounter++;
-		NodeState nodeState(startNode);
-		nodeState.z = zCounter;
+		NodeStatePtr nodeState = std::make_shared<TableNodeState>(startNode);
+		nodeState->z = zCounter;
 		nodesStatesList.push_back(nodeState);
 		//return;
 	}
@@ -1106,10 +1025,10 @@ Geom::Rect SvgBuilder::getNodeBBox(Inkscape::XML::Node* node)
     return Geom::Rect(0,0,0,0);
 }
 
-std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
+std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 {
-	std::vector<NodeList>* _result = new std::vector<NodeList>();
-	std::vector<NodeList>& result = *_result;
+	std::vector<NodeStateList>* _result = new std::vector<NodeStateList>();
+	std::vector<NodeStateList>& result = *_result;
 
    	SPDocument *spDoc = getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
@@ -1119,19 +1038,19 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 	Inkscape::XML::Document *currentDocument = mainNode->document();
 	SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
 
-	std::vector<NodeState> nodesStatesList;
+	std::vector<NodeStatePtr> nodesStatesList;
 	appendGraphNodes(mainNode, nodesStatesList, tags);
 
 	// cashe list parameters
-	for(NodeState& nodeState : nodesStatesList)
+	for(NodeStatePtr& nodeState : nodesStatesList)
 	{
-		nodeState.initGeometry(spDoc);
+		nodeState->initGeometry(spDoc);
 	}
 
 	while(true) // it will ended when we make empty region
 	{
 		long int regionNodesStart = 0;
-		std::vector<NodeState*> currentRegion;
+		std::vector<NodeStatePtr> currentRegion;
 		bool startNewRegion = false;
 
 			//Run by all free nodes
@@ -1140,22 +1059,22 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 
 				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesList.size(); nodeStatIdx++)
 				{
-					NodeState& nodeState = nodesStatesList[nodeStatIdx];
-					if (nodeState.isConnected || nodeState.isHidden) continue;
+					NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+					if (nodeState->isConnected || nodeState->isHidden) continue;
 
 					if (currentRegion.size() == 0) // it will first path in the symbol
 					{
-						currentRegion.push_back(&nodeState);
-						nodeState.isConnected = true;
+						currentRegion.push_back(nodeState);
+						nodeState->isConnected = true;
 						regionNodesStart = nodeStatIdx+1;
 						continue;
 					}
-					NodeState* regionNode = currentRegion[regionIdx];
+					NodeStatePtr regionNode = currentRegion[regionIdx];
 
-					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState.sqBBox))
+					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
 					{
-						nodeState.isConnected = true;
-						currentRegion.push_back(&nodeState);
+						nodeState->isConnected = true;
+						currentRegion.push_back(nodeState);
 						//break;
 					}
 				} // end for
@@ -1164,16 +1083,16 @@ std::vector<NodeList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
 		//start new region
 
 		std::sort(currentRegion.begin(), currentRegion.end(),
-		          [] (NodeState* const a, NodeState* const b) { return a->z < b->z; });
+		          [] (NodeStatePtr const a, NodeStatePtr const b) { return a->z < b->z; });
 
 		if (currentRegion.size() > 0)
 		{
-			NodeList region;
-			for(NodeState* regionNode : currentRegion)
+			//TableNodesList region;
+			/*for(NodeStatePtr regionNode : currentRegion)
 			{
 				region.push_back(regionNode->node);
-			}
-			result.push_back(region);
+			}*/
+			result.push_back(currentRegion);
 		}
 		else break;
 	};

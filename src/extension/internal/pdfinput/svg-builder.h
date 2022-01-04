@@ -28,6 +28,7 @@ namespace Inkscape {
 #include <2geom/affine.h>
 #include <glibmm/ustring.h>
 #include <ft2build.h>
+#include "TableRecognizeCommon.h"
 #include FT_FREETYPE_H
 
 #include "CharTypes.h"
@@ -50,12 +51,39 @@ class SPCSSAttr;
 
 #include <vector>
 #include <glib.h>
+#include <sp-item.h>
 
 typedef std::vector<Inkscape::XML::Node*> NodeList;
 
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
+
+struct TableNodeState {
+	Inkscape::XML::Node* node;
+	SPItem* spNode;
+	bool isConnected;
+	bool isRejected;
+	bool isHidden;
+	Geom::Rect sqBBox;
+	unsigned int z;
+
+	void initGeometry(SPDocument *spDoc);
+	bool checkClipPath(SPDocument *spDoc);
+
+	TableNodeState(Inkscape::XML::Node* _node) :
+		spNode(nullptr),
+		isConnected(false),
+		isRejected(true),
+		z(0),
+		isHidden(false),
+		node(_node)
+	{
+	};
+};
+
+typedef std::shared_ptr<TableNodeState> NodeStatePtr;
+typedef std::vector<NodeStatePtr> NodeStateList;
 
 struct SvgTransparencyGroup;
 
@@ -137,7 +165,7 @@ public:
         return _preferences;
     }
 
-    std::vector<NodeList>* getRegions(std::vector<std::string> &tags);
+    std::vector<NodeStateList>* getRegions(std::vector<std::string> &tags);
     Geom::Rect getNodeBBox(Inkscape::XML::Node* node);
 
 

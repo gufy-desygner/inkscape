@@ -60,3 +60,8 @@ TabLine::TabLine(Inkscape::XML::Node* node, const Geom::Curve& curve, SPDocument
 
 	if (approxEqual(x1, x2)) isVert = true;
 }
+
+bool TabLine::isVertical()
+{
+	return approxEqual(x1, x2);
+}
