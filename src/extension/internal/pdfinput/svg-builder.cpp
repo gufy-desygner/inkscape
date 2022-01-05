@@ -2004,7 +2004,7 @@ void SvgBuilder::_flushText() {
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
                 	}
-                    sp_svg_number_write_de(c, sizeof(c), lastDeltaX/glipCount, 8, -8);
+                    sp_svg_number_write_de(c, sizeof(c), (lastDeltaX- first_glyphX)/glipCount, 8, -8);
                     tspan_node->setAttribute("data-dx", c);
                     glipCount = 0;
                 }
