@@ -65,6 +65,7 @@ struct TableNodeState {
 	bool isConnected;
 	bool isRejected;
 	bool isHidden;
+	int fastleft, fastright, fasttop, fastbottom;
 	Geom::Rect sqBBox;
 	unsigned int z;
 
@@ -77,7 +78,11 @@ struct TableNodeState {
 		isRejected(true),
 		z(0),
 		isHidden(false),
-		node(_node)
+		node(_node),
+		fastleft(0),
+		fastright(0),
+		fasttop(0),
+		fastbottom(0)
 	{
 	};
 };
@@ -259,8 +264,6 @@ public:
     double glipEndX, glipEndY;
     double spaceWidth;
 
-    std::vector<SvgTextPosition> getTextPositionList() { return textPositionList; }
-    void setTextPositionList(std::vector<SvgTextPosition> _textPositionList) { textPositionList = _textPositionList; }
     std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate = false);
     void removeNodesByTextPositionList();
 

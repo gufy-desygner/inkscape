@@ -1045,39 +1045,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					remNodes.clear();
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
-					NodeList listOfTSpan;
-
-					builder->getNodeListByTag("svg:tspan", &listOfTSpan);
-
-                        std::vector<SvgTextPosition> mergedTextPositionList;
-
-					for(auto& tspan : listOfTSpan)
-					{
-						Geom::Affine textAffine;
-						Geom::Affine newTextAffine;
-						auto textNode = tspan->parent();
-						auto newParent = textNode->parent();
-						sp_svg_transform_read(textNode->attribute("transform"), &textAffine);
-						char* tmpChar;
-						float tspanX = std::strtof(tspan->attribute("x"), &tmpChar);
-						float tspanY = std::strtof(tspan->attribute("y"), &tmpChar);
-						Geom::Point tspanTranslate(tspanX,  tspanY);
-						tspanTranslate = tspanTranslate * textAffine.inverse();
-						newTextAffine = textAffine;
-						newTextAffine.setTranslation(tspanTranslate);
-
-                        if (mergeBuilder->haveContent(tspan->firstChild())) {
-                            SvgTextPosition textPosition;
-                            textPosition.x = tspanX;
-                            textPosition.y = tspanY;
-                            textPosition.text = g_strdup(tspan->firstChild()->content());
-                            textPosition.ptextNode = textNode;
-                            mergedTextPositionList.push_back(textPosition);
-                            //printf("Text: %s - ID: %s - Text Pos [%f, %f]\n", textPosition.text, tspan->attribute("id"), tspanX, tspanY);
-                        }
-					}
-
-                        builder->setTextPositionList(mergedTextPositionList);
 
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>

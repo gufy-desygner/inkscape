@@ -940,6 +940,11 @@ void TableNodeState::initGeometry(SPDocument *spDoc)
 			}
 		}
 	}
+
+	fastleft = sqBBox.left() * 100;
+	fastright = sqBBox.right() * 100;
+	fasttop = sqBBox.top() * 100;
+	fastbottom = sqBBox.bottom() * 100;
 }
 
 static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeStatePtr> &nodesStatesList, std::vector<std::string> &tags)
@@ -1046,35 +1051,59 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 	{
 		nodeState->initGeometry(spDoc);
 	}
+	const long int nodesStatesListSize = nodesStatesList.size();
+
+	//long int compareCount = 0;
+	long int regionNodesStart = 0;
 
 	while(true) // it will ended when we make empty region
 	{
-		long int regionNodesStart = 0;
 		std::vector<NodeStatePtr> currentRegion;
-		bool startNewRegion = false;
-
+		bool currentRegionIsEmpty = true;
+		//bool startNewRegion = false;
+		//printf("region %i, need compare %i\n", result.size(),
+		//		nodesStatesList.size() - regionNodesStart
+		//		);
 			//Run by all free nodes
-			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegion.size() == 0; regionIdx++)
+			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
 			{
-
-				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesList.size(); nodeStatIdx++)
+				NodeStatePtr regionNode;
+				if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
+				else
 				{
-					NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+					for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
+					{
+						const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+						if (nodeState->isConnected || nodeState->isHidden) continue;
+
+						if (currentRegionIsEmpty) // it will first path in the symbol
+						{
+							currentRegion.push_back(nodeState);
+							currentRegionIsEmpty = false;
+							nodeState->isConnected = true;
+							regionNodesStart = nodeStatIdx+1;
+							regionNode = currentRegion[0];
+							break;
+						}
+					}
+				}
+
+#pragma omp parallel for shared(currentRegion, regionNode)
+				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
+				{
+					const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
 					if (nodeState->isConnected || nodeState->isHidden) continue;
 
-					if (currentRegion.size() == 0) // it will first path in the symbol
-					{
-						currentRegion.push_back(nodeState);
-						nodeState->isConnected = true;
-						regionNodesStart = nodeStatIdx+1;
-						continue;
-					}
-					NodeStatePtr regionNode = currentRegion[regionIdx];
-
-					if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
+					//compareCount++;
+					//if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
+					if (rectHasCommonEdgePoint(regionNode->fastleft, regionNode->fasttop, regionNode->fastright, regionNode->fastbottom,
+							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200))
 					{
 						nodeState->isConnected = true;
+#pragma omp critical
+						{
 						currentRegion.push_back(nodeState);
+						}
 						//break;
 					}
 				} // end for
@@ -1082,16 +1111,12 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 			} // for by node states
 		//start new region
 
+		//printf("compare count %li\n", compareCount);
 		std::sort(currentRegion.begin(), currentRegion.end(),
 		          [] (NodeStatePtr const a, NodeStatePtr const b) { return a->z < b->z; });
 
 		if (currentRegion.size() > 0)
 		{
-			//TableNodesList region;
-			/*for(NodeStatePtr regionNode : currentRegion)
-			{
-				region.push_back(regionNode->node);
-			}*/
 			result.push_back(currentRegion);
 		}
 		else break;

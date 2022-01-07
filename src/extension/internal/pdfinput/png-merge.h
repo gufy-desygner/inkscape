@@ -35,6 +35,10 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
 bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2);
+bool rectHasCommonEdgePoint( const double firstX1, const double firstY1, const double firstX2, const double firstY2,
+		const double secondX1, const double secondY1, const double secondX2, const double secondY2 );
+bool rectHasCommonEdgePoint( const int firstX1, const int firstY1, const int firstX2, const int firstY2,
+		const int secondX1, const int secondY1, const int secondX2, const int secondY2, const int APPROX);
 inline bool definitelyBigger(const float a, const float b, const float epsilon = 0.05f);
 
 namespace Inkscape {

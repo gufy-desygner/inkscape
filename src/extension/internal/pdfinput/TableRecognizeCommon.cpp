@@ -10,11 +10,6 @@
 #include <string>
 #include "svg/css-ostringstream.h"
 
-bool approxEqual(const float x, const float y, const float epsilon)
-{
-   return (std::fabs(x - y) < epsilon);
-}
-
 std::string doubleToCss(double num)
 {
 	Inkscape::CSSOStringStream os;

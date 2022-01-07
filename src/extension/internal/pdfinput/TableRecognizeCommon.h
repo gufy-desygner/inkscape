@@ -12,7 +12,10 @@
 #include "svg/svg.h"
 #include "xml/node.h"
 
-bool approxEqual(const float x, const float y, const float epsilon = 0.05f);
+inline bool approxEqual(const float x, const float y, const float epsilon = 0.05f)
+{
+   return (std::fabs(x - y) < epsilon);
+}
 double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
 std::string doubleToCss(double num);
 bool isNotTable(Inkscape::XML::Node *node);
