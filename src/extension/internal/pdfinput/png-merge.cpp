@@ -2125,7 +2125,6 @@ bool objStreamToFile(Object* obj, const char* fileName)
 
 bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
 {
-
 	const double firstX1 = rect1.left();
 	const double firstY1 = rect1.top();
 	const double firstX2 = rect1.right();
@@ -2136,17 +2135,13 @@ bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
 	const double secondX2 = rect2.right();
 	const double secondY2 = rect2.bottom();
 
-	const double firstXLen = firstX2 - firstX1;
-	const double firstYLen = firstY2 - firstY1;
+	return rectHasCommonEdgePoint(firstX1, firstY1, firstX2, firstY2,
+			secondX1, secondY1, secondX2, secondY2);
+}
 
-	const double secondXLen = secondX2 - secondX1;
-	const double secondYLen = secondY2 - secondY1;
-
-	const double leftDistance = secondX1 - firstX1;
-	const double rightDistance = firstX2 - secondX2;
-	const double topDistance = secondY1 - firstY1;
-	const double bottomDistance = firstY2 - secondY2;
-
+bool rectHasCommonEdgePoint( const double firstX1, const double firstY1, const double firstX2, const double firstY2,
+		const double secondX1, const double secondY1, const double secondX2, const double secondY2 )
+{
     const double APPROX = 2;
 
 	const bool xApproxEqual = 	approxEqual(firstX1, secondX1, APPROX/2) ||
@@ -2184,52 +2179,52 @@ bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
 			(yContainInterval && xIntersectInterval);
 
 	return touch;
-/*
-	std::vector<Geom::Rect> lines1;
-	std::vector<Geom::Rect> lines2;
+}
 
-	//top line of first rectangle
-	lines1.push_back(Geom::Rect(rect1.top(), rect1.right()+1, rect1.top(), rect1.left()-1));
+bool intApproxEqual(const int first, const int second, int epsilon)
+{
 
-	//bottom line of first rectangle
-	lines1.push_back(Geom::Rect(rect1.bottom(), rect1.right()+1, rect1.bottom(), rect1.left()-1));
+	return std::abs(first - second) < epsilon;
+}
 
-	//left line of first rectangle
-	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.left(), rect1.bottom()+1, rect1.left()));
+bool rectHasCommonEdgePoint( const int firstX1, const int firstY1, const int firstX2, const int firstY2,
+		const int secondX1, const int secondY1, const int secondX2, const int secondY2, const int APPROX)
+{
+	const bool xApproxEqual = 	intApproxEqual(firstX1, secondX1, APPROX/2) ||
+			intApproxEqual(firstX1, secondX2, APPROX/2) ||
+			intApproxEqual(firstX2, secondX1, APPROX/2) ||
+			intApproxEqual(firstX2, secondX2, APPROX/2);
 
-	//right line of first rectangle
-	lines1.push_back(Geom::Rect(rect1.top()-1, rect1.right(), rect1.bottom()+1, rect1.right()));
+	const bool yApproxEqual = 	intApproxEqual(firstY1, secondY1, APPROX/2) ||
+			intApproxEqual(firstY1, secondY2, APPROX/2) ||
+			intApproxEqual(firstY2, secondY1, APPROX/2) ||
+			intApproxEqual(firstY2, secondY2, APPROX/2);
 
-	//top line of second rectangle
-	lines2.push_back(Geom::Rect(rect2.top(), rect2.right()+1, rect2.top(), rect2.left()-1));
+	const bool xIntersectInterval =
+			(firstX1 > (secondX1 -APPROX) && (firstX2 > secondX2 -APPROX) && firstX1 < (secondX2 +APPROX)) ||
+			(firstX1 < (secondX1 +APPROX) && (firstX2 < secondX2 +APPROX) && firstX2 > (secondX1 -APPROX));
 
-	//bottom line of second rectangle
-	lines2.push_back(Geom::Rect(rect2.bottom(), rect2.right()+1, rect2.bottom(), rect2.left()-1));
+	const bool yIntersectInterval =
+			(firstY1 > (secondY1 -APPROX) && (firstY2 > secondY2 -APPROX) && firstY1 < (secondY2 +APPROX)) ||
+			(firstY1 < (secondY1 +APPROX) && (firstY2 < secondY2 +APPROX) && firstY2 > (secondY1 -APPROX));
 
-	//left line of second rectangle
-	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.left(), rect2.bottom()+1, rect2.left()));
+	const bool xContainInterval =
+			(firstX1 < (secondX1 +APPROX) && (firstX2 > secondX2 -APPROX)) ||
+			(firstX1 > (secondX1 -APPROX) && (firstX2 < secondX2 +APPROX));
 
-	//right line of second rectangle
-	lines2.push_back(Geom::Rect(rect2.top()-1, rect2.right(), rect2.bottom()+1, rect2.right()));
+	const bool yContainInterval =
+			(firstY1 < (secondY1 +APPROX) && (firstY2 > secondY2 -APPROX)) ||
+			(firstY1 > (secondY1 -APPROX) && (firstY2 < secondY2 +APPROX));
 
-	for (auto& line1 : lines1)
-	{
-		for (auto& line2 : lines2)
-		{
-			if (line1.intersects(line2))
-			{
-				if (! touch)
-					printf("alarm \n");
-				return true;
-			}
 
-		}
-	}
+	const bool touch =
+			(xContainInterval && yApproxEqual) ||
+			(yContainInterval && xApproxEqual) ||
+			(xIntersectInterval && yIntersectInterval) ||
+			(xContainInterval && yIntersectInterval) ||
+			(yContainInterval && xIntersectInterval);
 
-	if (touch)
-		printf("alarm \n");
-
-	return false;*/
+	return touch;
 }
 
 inline bool definitelyBigger(const float a, const float b, const float epsilon)
