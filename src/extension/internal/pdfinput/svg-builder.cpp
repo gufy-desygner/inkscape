@@ -729,9 +729,11 @@ struct ClipsCashe {
 	{}
 };
 
-bool TableNodeState::checkClipPath(SPDocument *spDoc)
+
+// cash in this function is not thread safe.
+bool TableNodeState::checkClipPath(SPDocument *spDoc, Geom::OptRect& intersectSquare)
 {
-	static std::deque<ClipsCashe> clipPathsCash;
+	static std::deque<ClipsCashe> clipPathsCash; // cash in this function is not thread safe.
 	SPObject *parentNode = spNode->parent;
 	while(parentNode)
 	{
@@ -768,7 +770,13 @@ bool TableNodeState::checkClipPath(SPDocument *spDoc)
 
 
 			if( ! clipData.clipRect.intersects(sqBBox))
+			{
 				return true;
+			} else {
+
+				intersectSquare = clipData.clipRect;
+			}
+
 		}
 
 		parentNode = parentNode->parent;
@@ -794,7 +802,16 @@ void TableNodeState::initGeometry(SPDocument *spDoc)
 
 	if (! isHidden)
 	{
-		isHidden = checkClipPath(spDoc);
+		Geom::OptRect clipRect;
+		isHidden = checkClipPath(spDoc, clipRect);
+		if ((!isHidden) && clipRect.is_initialized())
+		{
+			Geom::OptRect sqOptRect(sqBBox);
+			Geom::OptRect trimRect = Geom::intersect(*clipRect, sqBBox);
+			sqBBox = trimRect.get();
+
+		}
+
 
 	}
 

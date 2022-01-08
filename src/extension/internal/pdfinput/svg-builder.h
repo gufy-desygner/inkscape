@@ -70,7 +70,7 @@ struct TableNodeState {
 	unsigned int z;
 
 	void initGeometry(SPDocument *spDoc);
-	bool checkClipPath(SPDocument *spDoc);
+	bool checkClipPath(SPDocument *spDoc, Geom::OptRect& intersectSquare);
 
 	TableNodeState(Inkscape::XML::Node* _node) :
 		spNode(nullptr),
