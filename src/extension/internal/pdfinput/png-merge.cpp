@@ -1317,7 +1317,7 @@ void scanTextNodes(Inkscape::XML::Node *mainNode, Inkscape::Extension::Internal:
 // compare all component except "translate"
 bool isCompatibleAffine(Geom::Affine firstAffine, Geom::Affine secondAffine) {
 	for(int i = 0; i < 4; i++) {
-		if (firstAffine[i] != secondAffine[i])
+		if (! approxEqual(firstAffine[i], secondAffine[i], std::fabs(firstAffine[i]/10)))
 			return false;
 	}
 	return true;
@@ -1329,6 +1329,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 	// load first text node
 	Inkscape::XML::Node *mainTextNode = (Inkscape::XML::Node *)g_ptr_array_index(listNodes, 0);
 	SPItem *mainSpText = (SPItem*)builder->getSpDocument()->getObjectByRepr(mainTextNode);
+	mainSpText->updateRepr(2);  // without it we can't compare style direct
 	Geom::Affine mainAffine = mainSpText->transform;
 
 	// process for each text node
@@ -1336,6 +1337,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 		// load current text node
 		Inkscape::XML::Node *currentTextNode = (Inkscape::XML::Node *)g_ptr_array_index(listNodes, i);
 		SPItem *currentSpText = (SPItem*)builder->getSpDocument()->getObjectByRepr(currentTextNode);
+		currentSpText->updateRepr(2); // without it we can't compare style direct
 		Geom::Affine currentAffine = currentSpText->transform;
 
 		bool styleIsEqualent = (0 == strcmp(mainTextNode->attribute("style"),
@@ -1417,6 +1419,14 @@ Inkscape::XML::Node *textLayerMergeProc(Inkscape::XML::Node *startNode, SvgBuild
 	}
 	if (listNodes->len > 1) {
 		mergeTextNodesToFirst(listNodes, builder);
+	}
+
+	//remove empty text nodes
+	tmpNode = startNode;
+	while(tmpNode && (strcmp(tmpNode->name(), "svg:text") == 0)) {
+		Inkscape::XML::Node *current = tmpNode;
+		tmpNode = tmpNode->next();
+		if (current->childCount() == 0) current->parent()->removeChild(current);
 	}
 
 	g_ptr_array_free(listNodes, false);

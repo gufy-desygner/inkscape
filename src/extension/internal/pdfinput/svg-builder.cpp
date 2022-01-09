@@ -788,6 +788,7 @@ void TableNodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
 	//printf("node id = %s \n", node->attribute("id"));
+	spNode->updateRepr(2);
 
 	Geom::OptRect visualBound(spNode->visualBounds());
 	Geom::Affine nodeAffine;
@@ -1054,7 +1055,7 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 
    	SPDocument *spDoc = getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
-	te_update_layout_now_recursive(spRoot);
+	//te_update_layout_now_recursive(spRoot);
 
 	Inkscape::XML::Node *mainNode = getMainNode();
 	Inkscape::XML::Document *currentDocument = mainNode->document();
