@@ -2293,9 +2293,9 @@ void SvgBuilder::_flushText() {
         // Check if we need to make a new tspan
         if (glyph.style_changed) {
             new_tspan = true;
-        } else if ( i != _glyphs.begin() ) {
+        } else if ( i != _glyphs.begin() && i != _glyphs.end()) {
             const SvgGlyph& prev_glyph = (*prev_iterator);
-            float calc_dx = glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx;
+            float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
