@@ -2286,6 +2286,8 @@ void SvgBuilder::_flushText() {
     Glib::ustring text_buffer;
     Glib::ustring glyphs_buffer;
 
+    int nbrConsecutiveSpaces = 0;
+
     // Output all buffered glyphs
     while (1) {
         const SvgGlyph& glyph = (*i);
@@ -2296,6 +2298,14 @@ void SvgBuilder::_flushText() {
         } else if ( i != _glyphs.begin() && i != _glyphs.end()) {
             const SvgGlyph& prev_glyph = (*prev_iterator);
             float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
+
+            if (prev_glyph.is_space)
+                nbrConsecutiveSpaces++;
+            else
+                nbrConsecutiveSpaces = 0;
+
+            calc_dx += nbrConsecutiveSpaces * _font_scaling;
+
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
