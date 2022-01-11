@@ -1265,7 +1265,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 		double minTspanWidth = std::min(firstEndX - firstX, secondEndX - secondX);
 		double gapX = secondX - firstEndX;
 		double gapXWithoutSpaces = gapX + (nbrSpacesEndTspan1 * spaceSize);
-		double maxSpaceGap = spaceSize * 2;
+		double maxSpaceGap = spaceSize * 3;
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
