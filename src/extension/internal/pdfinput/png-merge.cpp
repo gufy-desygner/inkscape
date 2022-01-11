@@ -1205,8 +1205,10 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 		sp_repr_get_double(tspan2, "y", &secondY);
 		sp_repr_get_double(tspan1, "x", &firstX);
 
-		double lenTspan1 = strlen(tspan1->firstChild()->content());
-		double lenTspan2 = strlen(tspan2->firstChild()->content());
+		const char* tspan1Content = tspan1->firstChild()->content();
+		const char* tspan2Content = tspan2->firstChild()->content();
+		double lenTspan1 = strlen(tspan1Content);
+		double lenTspan2 = strlen(tspan2Content);
 
 		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
@@ -1218,6 +1220,15 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			spaceSize = textSize / 3;
 		}
 
+		int nbrSpacesEndTspan1 = 0;
+		// Calculate number of spaces in the end of tspan1
+		for (int idx = strlen(tspan1Content) - 1; idx > 0 ; idx--) {
+				if (tspan1Content[idx] == ' ')
+						nbrSpacesEndTspan1++;
+				else
+						break;
+		}
+
 		/**
 		 * Following this forum: http://www.magazinedesigning.com/columns-pt-2-line-lengths-and-column-width/
 		 * We will check if this is a multi-column text, for example if textSize = 10pt, textWidth < 240pt and gap > 18pt ==> Do not group
@@ -1227,6 +1238,8 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 		// get the width of the smallest between the 2 tspans:
 		double minTspanWidth = std::min(firstEndX - firstX, secondEndX - secondX);
 		double gapX = secondX - firstEndX;
+		double gapXWithoutSpaces = gapX + (nbrSpacesEndTspan1 * spaceSize);
+		double maxSpaceGap = spaceSize * 2;
 
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
@@ -1236,7 +1249,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			(minTspanWidth/24 >= textSize || gapX/1.8 < textSize) &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < spaceSize * 6) &&
+				(gapXWithoutSpaces < maxSpaceGap) &&
 				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
 				/* &&
 				spaceSize > 0*/) {

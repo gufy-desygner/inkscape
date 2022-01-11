@@ -2361,6 +2361,8 @@ void SvgBuilder::_flushText() {
     Glib::ustring text_buffer;
     Glib::ustring glyphs_buffer;
 
+    int nbrConsecutiveSpaces = 0;
+
     // Output all buffered glyphs
     while (1) {
         const SvgGlyph& glyph = (*i);
@@ -2368,14 +2370,22 @@ void SvgBuilder::_flushText() {
         // Check if we need to make a new tspan
         if (glyph.style_changed) {
             new_tspan = true;
-        } else if ( i != _glyphs.begin() ) {
+        } else if ( i != _glyphs.begin() && i != _glyphs.end()) {
             const SvgGlyph& prev_glyph = (*prev_iterator);
-            float calc_dx = glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx;
+            float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
+
+            if (prev_glyph.is_space)
+                nbrConsecutiveSpaces++;
+            else
+                nbrConsecutiveSpaces = 0;
+
+            calc_dx += nbrConsecutiveSpaces * _font_scaling;
+
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
                      glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
-                        (calc_dx > 3 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
+                        (calc_dx > 2 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
                        /*||
                        // negative dx attribute can't be showing in mozilla
                        ( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
