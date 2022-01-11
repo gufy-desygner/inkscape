@@ -13,9 +13,15 @@
 #include "util/list.h"
 #include "svg-builder.h"
 #include "sp-item.h"
+#include "sp-path.h"
+#include "display/curve.h"
 #include "Object.h"
+#include "TableRegion.h"
+#include "TableRecognizeCommon.h"
 
 #define PROFILER_ENABLE 0
+
+#define MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE	2
 
 void print_node(Inkscape::XML::Node *node, uint level);
 
@@ -28,6 +34,12 @@ Inkscape::XML::Node *find_image_node(Inkscape::XML::Node *node, uint level);
 
 Inkscape::XML::Node *merge_images(Inkscape::XML::Node *node1, Inkscape::XML::Node *node2);
 char *readLineFromFile(FILE *fl);
+bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2);
+bool rectHasCommonEdgePoint( const double firstX1, const double firstY1, const double firstX2, const double firstY2,
+		const double secondX1, const double secondY1, const double secondX2, const double secondY2 );
+bool rectHasCommonEdgePoint( const int firstX1, const int firstY1, const int firstX2, const int firstY2,
+		const int secondX1, const int secondY1, const int secondX2, const int secondY2, const int APPROX);
+inline bool definitelyBigger(const float a, const float b, const float epsilon = 0.05f);
 
 namespace Inkscape {
 namespace Extension {
@@ -40,7 +52,7 @@ enum mark_line_style {
 };
 
 void createPrintingMarks(SvgBuilder *builder);
-void mergeImagePathToOneLayer(SvgBuilder *builder);
+void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve = nullptr);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
@@ -49,9 +61,9 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions = true, bo
 void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
 void compressGtag(SvgBuilder *builder);
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff);
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0);
-int64_t svg_get_number_of_objects(Inkscape::XML::Node *node);
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff, ApproveNode* approve);
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0, ApproveNode* approve = nullptr);
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve);
 
 #define timPDF_PARSER 0
 #define timCALCULATE_OBJECTS 1
@@ -85,6 +97,8 @@ extern double profiler_timer_up[];
 #define prnTimer
 #endif
 
+
+
 double GetTickCount(void);
 
 class MergeBuilder {
@@ -107,7 +121,7 @@ public:
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
-	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0);
+	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0, bool excludeTable=true);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);

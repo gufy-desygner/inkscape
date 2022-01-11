@@ -32,7 +32,8 @@
 #include "xml/text-node.h"
 #include "extension/db.h"
 #include "extension/system.h"
-
+#include "sp-path.h"
+#include "2geom/curve.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -271,10 +272,11 @@ bool MergeBuilder::haveContent(Inkscape::XML::Node *node) {
 	return false;
 }
 
-bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int level) {
+bool MergeBuilder::haveTagFormList(Inkscape::XML::Node *node, int *count, int level, bool excludeTable) {
 	  Inkscape::XML::Node *tmpNode = node;
 	  int countOfnodes = 0;
 	  if (node == 0) return false;
+	  if (excludeTable && isTableNode(node)) return false;
 	  //if (haveContent(node)) return false;
 	  // Calculate count of right svg:g before image
 	  while(tmpNode) {
@@ -493,6 +495,19 @@ struct NodeState {
 	};
 };
 
+void NodeState::initGeometry(SPDocument *spDoc)
+{
+	spNode = (SPItem*)spDoc->getObjectByRepr(node);
+
+	Geom::OptRect visualBound(spNode->visualBounds());
+	if (visualBound.is_initialized())
+	{
+		sqBBox = visualBound.get();
+		Geom::Affine nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
+		sqBBox = sqBBox * nodeAffine;
+	}
+}
+
 static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeState> &nodesStatesList, std::vector<std::string> &tags)
 {
 	static unsigned int zCounter = 0;
@@ -655,12 +670,18 @@ Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, In
 	return tempNode;
 }
 
-int64_t svg_get_number_of_objects(Inkscape::XML::Node *node) {
+
+
+int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve) {
 	int64_t count_of_nodes = 0;
 	Inkscape::XML::Node *childNode = node->firstChild();
 	while(childNode) {
+		if (approve != nullptr && (! approve(childNode))) {
+			childNode = childNode->next();
+			continue;
+		}
 		count_of_nodes++;
-		count_of_nodes += svg_get_number_of_objects(childNode);
+		count_of_nodes += svg_get_number_of_objects(childNode, approve);
 		childNode = childNode->next();
 	}
 	return count_of_nodes;
@@ -1173,16 +1194,25 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 	for(int i = 0; i < tspanArray->len - 1; i++) {
 	    double firstY;
 	    double secondY;
-	    double firstEndX;
-	    double secondX;
-	    double spaceSize;
+		double firstX;
+		double firstEndX;
+		double secondX;
+		double secondEndX;
+		double spaceSize;
 		Inkscape::XML::Node *tspan1 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i);
 		Inkscape::XML::Node *tspan2 = (Inkscape::XML::Node *)g_ptr_array_index(tspanArray, i + 1);
 		sp_repr_get_double(tspan1, "y", &firstY);
 		sp_repr_get_double(tspan2, "y", &secondY);
+		sp_repr_get_double(tspan1, "x", &firstX);
+
+		const char* tspan1Content = tspan1->firstChild()->content();
+		const char* tspan2Content = tspan2->firstChild()->content();
+		double lenTspan1 = strlen(tspan1Content);
+		double lenTspan2 = strlen(tspan2Content);
 
 		if (! sp_repr_get_double(tspan1, "data-endX", &firstEndX)) firstEndX = 0;
 		if (! sp_repr_get_double(tspan2, "x", &secondX)) secondX = 0;
+		if (! sp_repr_get_double(tspan2, "data-endX", &secondEndX)) secondEndX = 0;
 		if (! sp_repr_get_double(tspan1, "sodipodi:spaceWidth", &spaceSize)) spaceSize = 0;
 		const char* align1 = tspan1->attribute("data-align");
 		const char* align2 = tspan2->attribute("data-align");
@@ -1190,13 +1220,36 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			spaceSize = textSize / 3;
 		}
 
+		int nbrSpacesEndTspan1 = 0;
+		// Calculate number of spaces in the end of tspan1
+		for (int idx = strlen(tspan1Content) - 1; idx > 0 ; idx--) {
+				if (tspan1Content[idx] == ' ')
+						nbrSpacesEndTspan1++;
+				else
+						break;
+		}
+
+		/**
+		 * Following this forum: http://www.magazinedesigning.com/columns-pt-2-line-lengths-and-column-width/
+		 * We will check if this is a multi-column text, for example if textSize = 10pt, textWidth < 240pt and gap > 18pt ==> Do not group
+		 * In other words, if textWidth / 24 < textSize && gap/1.8 > textSize, we will not merge the 2 tspans.
+		 */
+
+		// get the width of the smallest between the 2 tspans:
+		double minTspanWidth = std::min(firstEndX - firstX, secondEndX - secondX);
+		double gapX = secondX - firstEndX;
+		double gapXWithoutSpaces = gapX + (nbrSpacesEndTspan1 * spaceSize);
+		double maxSpaceGap = spaceSize * 3;
+
 		if (textSize == 0) textSize = 0.00001;
 		// round Y to 20% of font size and compare
 		// if gap more then 3.5 of text size - mind other column
 		if (fabs(firstY - secondY)/textSize < 0.2 &&
+			// Is this a multi-column text?
+			(minTspanWidth/24 >= textSize || gapX/1.8 < textSize) &&
 			// litle negative gap
 				(fabs(firstEndX - secondX)/textSize < 0.2 || (firstEndX <= secondX)) &&
-				(secondX - firstEndX < spaceSize * 6) &&
+				(gapXWithoutSpaces < maxSpaceGap) &&
 				((align1 == nullptr && align2 == nullptr) || ((align1 != nullptr && align2 != nullptr) && (strcmp(align1, align2) == 0)))
 				/* &&
 				spaceSize > 0*/) {
@@ -1204,6 +1257,7 @@ static void mergeTspanList(GPtrArray *tspanArray) {
 			tspan2->parent()->removeChild(tspan2);
 			g_ptr_array_remove_index(tspanArray, i+1);
 			i--;
+
 		}
 	}
 }
@@ -1276,7 +1330,7 @@ void scanTextNodes(Inkscape::XML::Node *mainNode, Inkscape::Extension::Internal:
 // compare all component except "translate"
 bool isCompatibleAffine(Geom::Affine firstAffine, Geom::Affine secondAffine) {
 	for(int i = 0; i < 4; i++) {
-		if (firstAffine[i] != secondAffine[i])
+		if (! approxEqual(firstAffine[i], secondAffine[i], std::fabs(firstAffine[i]/10)))
 			return false;
 	}
 	return true;
@@ -1288,6 +1342,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 	// load first text node
 	Inkscape::XML::Node *mainTextNode = (Inkscape::XML::Node *)g_ptr_array_index(listNodes, 0);
 	SPItem *mainSpText = (SPItem*)builder->getSpDocument()->getObjectByRepr(mainTextNode);
+	mainSpText->updateRepr(2);  // without it we can't compare style direct
 	Geom::Affine mainAffine = mainSpText->transform;
 
 	// process for each text node
@@ -1295,6 +1350,7 @@ void mergeTextNodesToFirst(GPtrArray *listNodes, SvgBuilder *builder) {
 		// load current text node
 		Inkscape::XML::Node *currentTextNode = (Inkscape::XML::Node *)g_ptr_array_index(listNodes, i);
 		SPItem *currentSpText = (SPItem*)builder->getSpDocument()->getObjectByRepr(currentTextNode);
+		currentSpText->updateRepr(2); // without it we can't compare style direct
 		Geom::Affine currentAffine = currentSpText->transform;
 
 		bool styleIsEqualent = (0 == strcmp(mainTextNode->attribute("style"),
@@ -1378,6 +1434,14 @@ Inkscape::XML::Node *textLayerMergeProc(Inkscape::XML::Node *startNode, SvgBuild
 		mergeTextNodesToFirst(listNodes, builder);
 	}
 
+	//remove empty text nodes
+	tmpNode = startNode;
+	while(tmpNode && (strcmp(tmpNode->name(), "svg:text") == 0)) {
+		Inkscape::XML::Node *current = tmpNode;
+		tmpNode = tmpNode->next();
+		if (current->childCount() == 0) current->parent()->removeChild(current);
+	}
+
 	g_ptr_array_free(listNodes, false);
 	return tmpNode;
 }
@@ -1454,6 +1518,13 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 			}
 
 			SvgBuilder::todoRemoveClip canRemoveClip = builder->checkClipAroundText(tmpNode);
+			if (canRemoveClip == SvgBuilder::todoRemoveClip::OUT_OF_CLIP)
+			{
+				Inkscape::XML::Node* delNode = tmpNode;
+				tmpNode = tmpNode->next();
+				delNode->parent()->removeChild(delNode);
+				continue;
+			}
 			Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 			// We can remove only empty <g> or if it contains only info-attributes
 			while( attrList && fl) {
@@ -1522,7 +1593,8 @@ void compressGtag(SvgBuilder *builder){
  * @param currNode node from which do scan for text tags
  * @param aff affine matrix for transformation objects from currNode to mainNode
  */
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff, ApproveNode* approve)
+{
 	// position for inserting new node
 	// each new text node will shift this position to self
 	Inkscape::XML::Node *pos = mainNode;
@@ -1532,6 +1604,11 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 	}
 	Inkscape::XML::Node *chNode = currNode->firstChild();
 	while(chNode) {
+		if (approve != nullptr && (! approve(chNode)))
+		{
+			chNode = chNode->next();
+			continue;
+		}
 		nextNode = chNode->next();
 		// move found text node
 		if (strcmp(chNode->name(), "svg:text") == 0) {
@@ -1555,18 +1632,18 @@ void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::
 				Geom::Affine aff2;
 				sp_svg_transform_read(chNode->attribute("transform"), &aff2);
 				// move children to 'pos'
-				moveTextNode(builder, pos, chNode, aff2 * aff );
+				moveTextNode(builder, pos, chNode, aff2 * aff, approve);
 			}
 		}
 		chNode = nextNode;
 	}
 }
 
-void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode) {
+void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, ApproveNode* approve) {
 	Geom::Affine aff;
 	if (mainNode->parent() != currNode)
 		sp_svg_transform_read(mainNode->attribute("transform"), &aff);
-	moveTextNode(builder, mainNode, currNode, aff);
+	moveTextNode(builder, mainNode, currNode, aff, approve);
 }
 
 /**
@@ -1710,7 +1787,7 @@ uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions, bool simu
 }
 
 // merge all object and put it how background
-void mergeImagePathToOneLayer(SvgBuilder *builder) {
+void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve) {
 	  Inkscape::XML::Node *root = builder->getRoot();
 	  Inkscape::XML::Node *remNode;
 	  Inkscape::XML::Node *toImageNode;
@@ -1729,7 +1806,8 @@ void mergeImagePathToOneLayer(SvgBuilder *builder) {
 		countMergedNodes = 0;
 		mergeBuilder->clearMerge();
 		while (mergeNode) {
-			if (! mergeBuilder->haveTagFormList(mergeNode)) {
+
+			if ((approve != nullptr && !approve(mergeNode)) || (! mergeBuilder->haveTagFormList(mergeNode))) {
 				mergeNode = mergeNode->next();
 				continue;
 			}
@@ -2068,5 +2146,113 @@ bool objStreamToFile(Object* obj, const char* fileName)
 	  return false;
 }
 
+bool rectHasCommonEdgePoint(Geom::Rect& rect1, Geom::Rect& rect2)
+{
+	const double firstX1 = rect1.left();
+	const double firstY1 = rect1.top();
+	const double firstX2 = rect1.right();
+	const double firstY2 = rect1.bottom();
+
+	const double secondX1 = rect2.left();
+	const double secondY1 = rect2.top();
+	const double secondX2 = rect2.right();
+	const double secondY2 = rect2.bottom();
+
+	return rectHasCommonEdgePoint(firstX1, firstY1, firstX2, firstY2,
+			secondX1, secondY1, secondX2, secondY2);
+}
+
+bool rectHasCommonEdgePoint( const double firstX1, const double firstY1, const double firstX2, const double firstY2,
+		const double secondX1, const double secondY1, const double secondX2, const double secondY2 )
+{
+    const double APPROX = 2;
+
+	const bool xApproxEqual = 	approxEqual(firstX1, secondX1, APPROX/2) ||
+								approxEqual(firstX1, secondX2, APPROX/2) ||
+								approxEqual(firstX2, secondX1, APPROX/2) ||
+								approxEqual(firstX2, secondX2, APPROX/2);
+
+	const bool yApproxEqual = 	approxEqual(firstY1, secondY1, APPROX/2) ||
+								approxEqual(firstY1, secondY2, APPROX/2) ||
+								approxEqual(firstY2, secondY1, APPROX/2) ||
+								approxEqual(firstY2, secondY2, APPROX/2);
+
+	const bool xIntersectInterval =
+			(firstX1 > (secondX1 -APPROX) && (firstX2 > secondX2 -APPROX) && firstX1 < (secondX2 +APPROX)) ||
+			(firstX1 < (secondX1 +APPROX) && (firstX2 < secondX2 +APPROX) && firstX2 > (secondX1 -APPROX));
+
+	const bool yIntersectInterval =
+			(firstY1 > (secondY1 -APPROX) && (firstY2 > secondY2 -APPROX) && firstY1 < (secondY2 +APPROX)) ||
+			(firstY1 < (secondY1 +APPROX) && (firstY2 < secondY2 +APPROX) && firstY2 > (secondY1 -APPROX));
+
+	const bool xContainInterval =
+			(firstX1 < (secondX1 +APPROX) && (firstX2 > secondX2 -APPROX)) ||
+			(firstX1 > (secondX1 -APPROX) && (firstX2 < secondX2 +APPROX));
+
+	const bool yContainInterval =
+			(firstY1 < (secondY1 +APPROX) && (firstY2 > secondY2 -APPROX)) ||
+			(firstY1 > (secondY1 -APPROX) && (firstY2 < secondY2 +APPROX));
+
+
+	const bool touch =
+			(xContainInterval && yApproxEqual) ||
+			(yContainInterval && xApproxEqual) ||
+			(xIntersectInterval && yIntersectInterval) ||
+			(xContainInterval && yIntersectInterval) ||
+			(yContainInterval && xIntersectInterval);
+
+	return touch;
+}
+
+bool intApproxEqual(const int first, const int second, int epsilon)
+{
+
+	return std::abs(first - second) < epsilon;
+}
+
+bool rectHasCommonEdgePoint( const int firstX1, const int firstY1, const int firstX2, const int firstY2,
+		const int secondX1, const int secondY1, const int secondX2, const int secondY2, const int APPROX)
+{
+	const bool xApproxEqual = 	intApproxEqual(firstX1, secondX1, APPROX/2) ||
+			intApproxEqual(firstX1, secondX2, APPROX/2) ||
+			intApproxEqual(firstX2, secondX1, APPROX/2) ||
+			intApproxEqual(firstX2, secondX2, APPROX/2);
+
+	const bool yApproxEqual = 	intApproxEqual(firstY1, secondY1, APPROX/2) ||
+			intApproxEqual(firstY1, secondY2, APPROX/2) ||
+			intApproxEqual(firstY2, secondY1, APPROX/2) ||
+			intApproxEqual(firstY2, secondY2, APPROX/2);
+
+	const bool xIntersectInterval =
+			(firstX1 > (secondX1 -APPROX) && (firstX2 > secondX2 -APPROX) && firstX1 < (secondX2 +APPROX)) ||
+			(firstX1 < (secondX1 +APPROX) && (firstX2 < secondX2 +APPROX) && firstX2 > (secondX1 -APPROX));
+
+	const bool yIntersectInterval =
+			(firstY1 > (secondY1 -APPROX) && (firstY2 > secondY2 -APPROX) && firstY1 < (secondY2 +APPROX)) ||
+			(firstY1 < (secondY1 +APPROX) && (firstY2 < secondY2 +APPROX) && firstY2 > (secondY1 -APPROX));
+
+	const bool xContainInterval =
+			(firstX1 < (secondX1 +APPROX) && (firstX2 > secondX2 -APPROX)) ||
+			(firstX1 > (secondX1 -APPROX) && (firstX2 < secondX2 +APPROX));
+
+	const bool yContainInterval =
+			(firstY1 < (secondY1 +APPROX) && (firstY2 > secondY2 -APPROX)) ||
+			(firstY1 > (secondY1 -APPROX) && (firstY2 < secondY2 +APPROX));
+
+
+	const bool touch =
+			(xContainInterval && yApproxEqual) ||
+			(yContainInterval && xApproxEqual) ||
+			(xIntersectInterval && yIntersectInterval) ||
+			(xContainInterval && yIntersectInterval) ||
+			(yContainInterval && xIntersectInterval);
+
+	return touch;
+}
+
+inline bool definitelyBigger(const float a, const float b, const float epsilon)
+{
+   return ((a - epsilon) > b);
+}
 
 

@@ -69,6 +69,8 @@
 #include "BookMarks.h"
 #include "shared_opt.h"
 #include "svg/svg.h"
+#include "TextTableDetector.h"
+#include "table-detector.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -669,6 +671,12 @@ static cairo_status_t
 }
 #endif
 
+static bool sortTablesSmalToBig(TableRegion* first,  TableRegion* second)
+{
+
+	return first->getAreaSize() < second->getAreaSize();
+}
+
 /**
  * Parses the selected page of the given PDF document using PdfParser.
  */
@@ -946,10 +954,59 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	//builder->getNodeListByTag("svg:tspan", &listOfTSpan);
             	if (bookMarks)
             		bookMarks->MergeWithSvgBuilder(builder);
+
+                if (sp_detect_tables_sh) {
+                    TableList regions;
+                    detectTables(builder, &regions);
+                    // if we have table in table - should render smal tables first.
+                    //std::sort(regions.begin(), regions.end(), sortTablesSmalToBig);
+                    SPDocument* spDoc = builder->getSpDocument();
+
+                    Inkscape::XML::Node* mainNode = builder->getMainNode();
+                    SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
+                    for(TableRegion* tabRegion : regions)
+                    {
+                        if (tabRegion->buildKnote(builder))
+                        {
+                            TabLine* firstPathLine = tabRegion->lines[0];
+                            Inkscape::XML::Node* tabPathNode = firstPathLine->node;
+                            Inkscape::XML::Node* tabParent = tabPathNode->parent();
+
+                            SPItem* spParentTable = (SPItem*)spDoc->getObjectByRepr(tabPathNode);
+                            Geom::Affine aff = spParentTable->getRelativeTransform(spMainNode);
+
+
+                            //sp_svg_transform_read(tabParent->attribute("transform"), &aff);
+
+                            Inkscape::XML::Node* tabNode = tabRegion->render(builder, aff);
+                            if (mainNode) {
+                                mainNode->appendChild(tabNode);
+
+                                // Append any unsupported text items after the table!
+                                // This will fix layering problem.
+                                std::vector<Inkscape::XML::Node*> unsupportedTextVector = tabRegion->getUnsupportedTextInTable();
+                                std::vector<Inkscape::XML::Node*>::const_iterator itrNode;
+                                for(itrNode = unsupportedTextVector.begin(); itrNode != unsupportedTextVector.end(); itrNode++) {
+                                    Inkscape::XML::Node *node = *itrNode;
+                                    mainNode->appendChild(node);
+                                }
+                            }
+                        }
+                    }
+
+                   /* NodeList listOfTspan;
+                    builder->getNodeListByTag("svg:tspan", &listOfTspan, builder->getMainNode(), isNotTable);
+                    TextTableDetector textTableDetector(builder);
+                    for(auto& node : listOfTspan)
+                    	textTableDetector.addTspan(node);*/
+
+                }// endif (sp_detect_tables_sh)
+
+
             	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder;
             	if (sp_fast_svg_sh != 0 && sp_fast_svg_sh != FAST_SVG_DEFAULT) {
             	  mergeBuilder = new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
-            	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual());
+            	  count_of_nodes = svg_get_number_of_objects(mergeBuilder->getSourceSubVisual(), isNotTable);
             	}
             	incTimer(timCALCULATE_OBJECTS);
             	prnTimer(timCALCULATE_OBJECTS, "time take calculate count of objects");
@@ -960,13 +1017,13 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             			visualChild = visualChild->next();
             		Inkscape::XML::Node *lastMergedNode = visualChild;
             		//extract text nodes
-            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual());
+            		moveTextNode(builder, lastMergedNode, mergeBuilder->getSourceSubVisual(), isNotTable);
             		visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		std::vector<Inkscape::XML::Node *> remNodes;
             		// collect node for merge
             		lastMergedNode = lastMergedNode->next();
             		while(visualChild != lastMergedNode) {
-            			if (strcmp(visualChild->name(), "svg:text") != 0) {
+             			if (strcmp(visualChild->name(), "svg:text") != 0 &&  isNotTable(visualChild)) {
 							mergeBuilder->addImageNode(visualChild, sp_export_svg_path_sh);
 							remNodes.push_back(visualChild);
             			}
@@ -988,25 +1045,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					remNodes.clear();
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
-					NodeList listOfTSpan;
 
-
-					builder->getNodeListByTag("svg:tspan", &listOfTSpan);
-					for(auto& tspan : listOfTSpan)
-					{
-						Geom::Affine textAffine;
-						Geom::Affine newTextAffine;
-						auto textNode = tspan->parent();
-						auto newParent = textNode->parent();
-						sp_svg_transform_read(textNode->attribute("transform"), &textAffine);
-						char* tmpChar;
-						float tspanX = std::strtof(tspan->attribute("x"), &tmpChar);
-						float tspanY = std::strtof(tspan->attribute("y"), &tmpChar);
-						Geom::Point tspanTranslate(tspanX,  tspanY);
-						tspanTranslate = tspanTranslate * textAffine.inverse();
-						newTextAffine = textAffine;
-						newTextAffine.setTranslation(tspanTranslate);
-					}
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
 					logTime("Start merge mask");
@@ -1015,16 +1054,20 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeMaskGradientToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
+
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||
-						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath() > sp_merge_limit_path_sh) ||
+						(sp_merge_jpeg_sp && sp_merge_limit_path_sh && builder->getCountOfPath(isNotTable) > sp_merge_limit_path_sh) ||
 						nodeMergeCount > 15) {
 
 						warning3tooManyImages = TRUE;
 						mergeImagePathToOneLayer(builder);
 					} else {
+
+
 						mergeImagePathToLayerSave(builder, (regionMergeCount < 16));
 					}
+
 					logTime("Start merge text tags");
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);

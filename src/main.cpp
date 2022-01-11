@@ -221,7 +221,8 @@ enum {
     SP_ARG_VERB_LIST,
     SP_ARG_VERB,
     SP_ARG_SELECT,
-    SP_ARG_LAST
+    SP_ARG_LAST,
+    SP_ARG_DETECT_TABLES
 };
 
 int sp_main_gui(int argc, char const **argv);
@@ -304,6 +305,7 @@ static gchar *sp_dbus_name = NULL;
 static gchar *sp_export_png_utf8 = NULL;
 static gchar *sp_export_svg_utf8 = NULL;
 static gchar *sp_global_printer_utf8 = NULL;
+static gboolean sp_detect_tables = FALSE;
 
 /**
  *  Reset variables to default values.
@@ -788,6 +790,11 @@ struct poptOption options[] = {
     {"no-convert-text-baseline-spacing", 0,
     POPT_ARG_NONE, &sp_no_convert_text_baseline_spacing, SP_ARG_NO_CONVERT_TEXT_BASELINE_SPACING,
     N_("Do not fix legacy (pre-0.92) files' text baseline spacing on opening."),
+    NULL},
+
+    {"detect-tables", 0,
+    POPT_ARG_NONE, &sp_detect_tables, SP_ARG_DETECT_TABLES,
+    N_("detect tables in thePDF"),
     NULL},
 
     POPT_AUTOHELP POPT_TABLEEND
@@ -2678,6 +2685,10 @@ sp_process_args(poptContext ctx)
             case SP_ARG_EXPORT_DPI: {
             	sp_export_dpi_sh = atof(sp_export_dpi);
             	break;
+            }
+            case SP_ARG_DETECT_TABLES: {
+                sp_detect_tables_sh = TRUE;
+                break;
             }
             default: {
                 break;

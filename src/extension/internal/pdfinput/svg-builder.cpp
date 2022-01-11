@@ -47,6 +47,8 @@
 #include "libnrtype/font-instance.h"
 #include "shared_opt.h"
 #include "sp-clippath.h"
+#include "sp-tspan.h"
+#include "sp-text.h"
 
 #include "Function.h"
 #include "GfxState.h"
@@ -60,10 +62,12 @@
 #include "sp-path.h"
 #include "display/curve.h"
 #include "2geom/path.h"
+#include "2geom/line.h"
 #include "2geom/path-intersection.h"
 #include "text-editing.h"
-//#include "helper/png-write.h"
-//#include "display/cairo-utils.h"
+#include "png-merge.h"
+#include <queue>
+#include "TableRectangle.h"
 
 
 namespace Inkscape {
@@ -515,23 +519,35 @@ void SvgBuilder::setLayoutName(char *layout_name) {
 	}
 }
 
-static void _getNodesByTag(Inkscape::XML::Node* node, const char* tag, NodeList* list)
+static void _getNodesByTags(Inkscape::XML::Node* node, std::vector<std::string> &tags, NodeList* list, ApproveNode* approve = nullptr)
 {
 	Inkscape::XML::Node* cursorNode = node;
 	while(cursorNode)
 	{
+		if (approve != nullptr && approve(cursorNode) == false) {
+			cursorNode = cursorNode->next();
+			continue;
+		}
 		const char* nodeName = cursorNode->name();
-		if (strcasecmp(nodeName, tag) == 0)
-			list->push_back(cursorNode);
+		for(int tagIdx = 0; tags.size() > tagIdx; tagIdx++)
+		{
+			if (strcasecmp(nodeName, tags[tagIdx].c_str()) == 0)
+			{
+				list->push_back(cursorNode);
+				break;
+			}
+
+		}
 		if (cursorNode->childCount() > 0)
-			_getNodesByTag(cursorNode->firstChild(), tag, list);
+			_getNodesByTags(cursorNode->firstChild(), tags, list);
 		cursorNode = cursorNode->next();
 	}
 }
 
-NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode)
+NodeList* SvgBuilder::getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve)
 {
 
+	if (tags.size() == 0) return list;
 
 	Inkscape::XML::Node* rootNode;
 	if (startNode == nullptr)
@@ -539,9 +555,20 @@ NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape
 	else
 		rootNode = startNode->firstChild();
 
-	_getNodesByTag(rootNode, tag, list);
+	_getNodesByTags(rootNode, tags, list);
 
 	return list;
+}
+
+NodeList* SvgBuilder::getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve)
+{
+
+	if (tag == nullptr) return list;
+
+	std::vector<std::string> tags;
+	tags.push_back(tag);
+
+	return getNodeListByTags(tags, list, startNode, approve);
 }
 
 static Inkscape::XML::Node*  _getMainNode(Inkscape::XML::Node* rootNode, int maxDeep = 0)
@@ -575,47 +602,377 @@ Inkscape::XML::Node* SvgBuilder::getMainNode()
 	return _getMainNode(rootNode, 2);
 }
 
-struct NodeState {
-	Inkscape::XML::Node* node;
-	SPItem* spNode;
-	bool isConnected;
-	bool isRejected;
-	Geom::Rect sqBBox;
-	unsigned int z;
+static bool sortPointsLtoR(const Geom::Point &a, const Geom::Point &b)
+{
+	if (!approxEqual(a.y(), b.y())  && a.y() > b.y()) return false;
+	if (approxEqual(a.y(), b.y()) && a.x() > b.x()) return false;
+	return true;
+}
 
-	void initGeometry(SPDocument *spDoc);
+static bool sortLinesLtoR(const Geom::Line &a, const Geom::Line &b)
+{
+	Geom::Point first = a.initialPoint().x() < a.finalPoint().x() ?
+			a.initialPoint() : a.finalPoint();
 
-	NodeState(Inkscape::XML::Node* _node) :
-		spNode(nullptr),
-		isConnected(false),
-		isRejected(true),
-		z(0)
+	Geom::Point second = b.initialPoint().x() < b.finalPoint().x() ?
+			b.initialPoint() : b.finalPoint();
+	return sortPointsLtoR(first, second);
+}
+
+static bool buildVertDashed(const Geom::Line &a, const Geom::Line &b)
+{
+	Geom::Point startA =  a.initialPoint().y() < a.finalPoint().y() ?
+			a.initialPoint() : a.finalPoint();
+	Geom::Point startB = b.initialPoint().y() < b.finalPoint().y() ?
+			b.initialPoint() : b.finalPoint();
+
+	Geom::Point endA = a.initialPoint().y() > a.finalPoint().y() ?
+			a.initialPoint() : a.finalPoint();
+	Geom::Point endB = b.initialPoint().y() > b.finalPoint().y() ?
+			b.initialPoint() : b.finalPoint();
+
+	return approxEqual(startA.y(), startB.y()) && approxEqual(endA.y(), endB.y());
+}
+
+// return false if line list is not part of table
+static bool hIsOkcheckPeriodByY(std::vector<Geom::Line>& hLines, double& gap)
+{
+	gap = 0;
+	if (hLines.size() < 2) return false;
+
+	std::vector< Geom::Interval > hDashe; // build horizontal plane.projection of potential table
+	std::vector< double > yList;
+	for(auto& line : hLines)
 	{
-		node = _node;
-	};
+		double initX = line.initialPoint().x();
+		double finalX = line.finalPoint().x();
+		hDashe.push_back(Geom::Interval(initX < finalX ? initX: finalX,
+				initX > finalX ? initX: finalX));
+
+		yList.push_back(line.initialPoint().y());
+	}
+
+	std::sort(yList.begin(), yList.end());
+	auto yIt = std::unique(yList.begin(), yList.end());
+	yList.erase(yIt, yList.end());
+
+	std::sort(hDashe.begin(), hDashe.end(),
+			[](Geom::Interval &a, Geom::Interval &b)
+				{
+					return a.min() < b.min();
+				}
+			);
+	auto it = std::unique(hDashe.begin(), hDashe.end(),
+			[](Geom::Interval &a, Geom::Interval &b)
+				{
+					return approxEqual(a.min(), b.min()) && approxEqual(a.max(), b.max());
+				}
+			);
+	hDashe.erase(it, hDashe.end());
+	if (hDashe.size() > 2) return false; // we do not meet case with more than 2 tables yet
+
+	// So if in the horizontal Projection we have more than one line
+	// possible we have two tables in one path
+	std::vector< TableRectangle* > vecTables;
+	int lineCount = 0;
+	for(auto& interval : hDashe)
+	{
+		TableRectangle* tableStat = new TableRectangle();
+		// all lines should have one width
+		for(auto& hLine : hLines)
+		{
+			const double minX = MIN(hLine.initialPoint().x(), hLine.finalPoint().x());
+			const double maxX = MAX(hLine.initialPoint().x(), hLine.finalPoint().x());
+			if ((! approxEqual(interval.min(), minX)) || (! approxEqual(interval.max(), maxX))) continue;
+
+			tableStat->addLine(hLine);
+		}
+
+		if (tableStat->countOfLines() == 0)
+		{
+			for(auto& it : vecTables) delete(it);
+			return 0;
+		}
+		vecTables.push_back(tableStat);
+		lineCount += tableStat->countOfLines();
+	}
+
+	// was not all lines use
+	if (lineCount != hLines.size() || vecTables.empty())
+	{
+		for(auto& it : vecTables) delete(it);
+		return false;
+	}
+
+	gap = vecTables[0]->calcGap();
+
+	for(int idx = 1 ; idx < vecTables.size(); idx++)
+	{
+		if (! approxEqual(gap, vecTables[idx]->calcGap()))
+		{
+			for(auto& it : vecTables) delete(it);
+			return 0;
+		}
+	}
+
+	for(auto& it : vecTables) delete(it);
+	return gap > 0;
+}
+
+struct ClipsCashe {
+	SPObject* node;
+	Geom::OptRect clipRect;
+	bool isCashe;
+	ClipsCashe():
+		node(nullptr),
+		isCashe(false)
+	{}
 };
 
-void NodeState::initGeometry(SPDocument *spDoc)
+
+// cash in this function is not thread safe.
+bool TableNodeState::checkClipPath(SPDocument *spDoc, Geom::OptRect& intersectSquare)
+{
+	static std::deque<ClipsCashe> clipPathsCash; // cash in this function is not thread safe.
+	SPObject *parentNode = spNode->parent;
+	while(parentNode)
+	{
+		ClipsCashe clipData;
+		const char* clipPathId = parentNode->getAttribute("clip-path");
+		if (clipPathId)
+		{
+			clipData.node = parentNode;
+			for(int idx = 0 ; idx < clipPathsCash.size(); idx++)
+			{
+				ClipsCashe& casheClip = clipPathsCash[idx];
+				if (casheClip.node == parentNode)
+				{
+					clipData = casheClip;
+					break;
+				}
+			}
+
+			if (! clipData.isCashe)
+			{
+				char *clipId = strdup(&clipPathId[5]);
+				clipId[strlen(clipId) -1] = 0;
+
+				SPObject *clipObject = spDoc->getObjectById(clipId);
+				if (clipObject)
+				{
+					clipData.clipRect = SP_ITEM(parentNode)->visualBounds(SP_ITEM(parentNode)->getRelativeTransform(spDoc->getRoot()));
+					clipData.isCashe = true;
+					clipPathsCash.push_back(clipData);
+					if (clipPathsCash.size() > 10 ) clipPathsCash.pop_front();
+				}
+				free(clipId);
+			}
+
+
+			if( ! clipData.clipRect.intersects(sqBBox))
+			{
+				return true;
+			} else {
+
+				intersectSquare = clipData.clipRect;
+			}
+
+		}
+
+		parentNode = parentNode->parent;
+	}
+	return false;
+}
+
+void TableNodeState::initGeometry(SPDocument *spDoc)
 {
 	spNode = (SPItem*)spDoc->getObjectByRepr(node);
+	//printf("node id = %s \n", node->attribute("id"));
+	spNode->updateRepr(2);
 
 	Geom::OptRect visualBound(spNode->visualBounds());
+	Geom::Affine nodeAffine;
 	if (visualBound.is_initialized())
 	{
 		sqBBox = visualBound.get();
-		Geom::Affine nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
+		nodeAffine = spNode->getRelativeTransform(spDoc->getRoot());
 		sqBBox = sqBBox * nodeAffine;
 	}
+
+	if (spNode == nullptr) return;
+
+	if (! isHidden)
+	{
+		Geom::OptRect clipRect;
+		isHidden = checkClipPath(spDoc, clipRect);
+		if ((!isHidden) && clipRect.is_initialized())
+		{
+			Geom::OptRect sqOptRect(sqBBox);
+			Geom::OptRect trimRect = Geom::intersect(*clipRect, sqBBox);
+			sqBBox = trimRect.get();
+
+		}
+
+
+	}
+
+	Geom::PathVector pathArray;
+
+// =================detect/extend part of table without vertical lines==============
+	if(strcmp(node->name(), "svg:path") == 0)
+	{
+		bool isGarbage = false;
+		std::vector<Geom::Line> linesListH;
+		std::vector<Geom::Line> linesListV;
+		SPCurve* curve = ((SPPath*)spNode)->getCurve();
+		pathArray = curve->get_pathvector();
+		// collect all lines from the path
+		for (const Geom::Path& itPath : pathArray)
+		{
+			if (isGarbage) break;
+			for(const Geom::Curve& simplCurve : itPath)
+			{
+				// only simpl lines
+				if (! simplCurve.isLineSegment())
+				{
+					isGarbage = true;
+					break;
+				}
+				Geom::Point start = simplCurve.initialPoint() * nodeAffine;
+				Geom::Point end = simplCurve.finalPoint() * nodeAffine;
+
+				//split arrays of vertical and horizontal
+				if (approxEqual(start.x(), end.x()))
+				{
+
+					if (sortPointsLtoR(start, end))
+						linesListV.push_back(Geom::Line(start, end));
+					else
+						linesListV.push_back(Geom::Line(end, start));
+				} else
+					if(approxEqual(start.y(), end.y()))
+				{
+					if (sortPointsLtoR(start, end))
+						linesListH.push_back(Geom::Line(start, end));
+					else
+						linesListH.push_back(Geom::Line(end, start));
+				} else
+				{
+					isGarbage = true;
+					break;
+				}
+
+			}
+		}
+
+		// no lees than 4 horizontal lines
+		//printf("node id %s\n", node->attribute("id"));
+		if (linesListH.size() < 4) isGarbage = true;
+
+		//printf("node id %s\n", node->attribute("id"));
+		// all vertical line/splitters should be equivalent
+		if (! isGarbage)
+		{
+			// try merge all vertical splitters to left one.
+			auto it = std::unique(linesListV.begin(), linesListV.end(), buildVertDashed);
+			linesListV.erase(it, linesListV.end());
+
+			double etalon_x;
+			if (!linesListV.empty()) etalon_x = linesListV[0].initialPoint().x();
+			else isGarbage = true;
+			for(auto vLine : linesListV)
+			{
+				if (! approxEqual(vLine.initialPoint().x(), etalon_x))
+				{
+					isGarbage = true;
+					break;
+				}
+			}
+		}
+
+		if (! isGarbage)
+		{
+
+		//merge horizontal lines -  should receive normal table's horizontal borders
+			std::sort(linesListH.begin(), linesListH.end(), sortLinesLtoR);
+			std::vector<Geom::Line> linesListHMerged; // list of horizontal lines
+			bool startPoint = true;
+			double startX, startY;
+			double endX, endY;
+			for(auto& line : linesListH)
+			{
+				//printf("X=%f Y=%f X=%f Y=%f\n", line.initialPoint().x(), line.initialPoint().y(),
+				//						line.finalPoint().x(), line.finalPoint().y());
+				if (startPoint)
+				{
+					startX = line.initialPoint().x() < line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					startY = line.initialPoint().y() < line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					endX = line.initialPoint().x() > line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					endY = line.initialPoint().y() > line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					startPoint = false;
+					continue;
+				}
+
+				if (&line != &linesListH.back() && line.initialPoint().x() <= (endX + 1) &&
+						approxEqual(startY, line.initialPoint().y()))
+					endX = line.finalPoint().x();
+				else
+				{
+					if (&line == &linesListH.back())
+					{
+						endX = line.initialPoint().x() > line.finalPoint().x() ?
+								line.initialPoint().x() : line.finalPoint().x();
+						endY = line.initialPoint().y() > line.finalPoint().y() ?
+								line.initialPoint().y() : line.finalPoint().y();
+					}
+					Geom::Line mergedLine(Geom::Point(startX, startY), Geom::Point(endX, endY));
+					//printf("merged X=%f Y=%f X=%f Y=%f\n", mergedLine.initialPoint().x(), mergedLine.initialPoint().y(),
+					//		mergedLine.finalPoint().x(), mergedLine.finalPoint().y());
+
+					startX = line.initialPoint().x() < line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					startY = line.initialPoint().y() < line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					endX = line.initialPoint().x() > line.finalPoint().x() ?
+							line.initialPoint().x() : line.finalPoint().x();
+					endY = line.initialPoint().y() > line.finalPoint().y() ?
+							line.initialPoint().y() : line.finalPoint().y();
+					startPoint = false;
+					linesListHMerged.push_back(mergedLine);
+				}
+			}
+
+			// check left/right borders for horizontal lines - should one for all lines
+			double period;
+			bool isPeriod = hIsOkcheckPeriodByY(linesListHMerged, period);
+			if (isPeriod)
+			{
+				double extendTop = sqBBox.top() - period;
+				double extendBottom = sqBBox.bottom() + period;
+				sqBBox.setBottom(extendBottom);
+				sqBBox.setTop(extendTop);
+			}
+		}
+	}
+
+	fastleft = sqBBox.left() * 100;
+	fastright = sqBBox.right() * 100;
+	fasttop = sqBBox.top() * 100;
+	fastbottom = sqBBox.bottom() * 100;
 }
 
-static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeState> &nodesStatesList, std::vector<std::string> &tags)
+static void appendGraphNodes(Inkscape::XML::Node *startNode, std::vector<NodeStatePtr> &nodesStatesList, std::vector<std::string> &tags)
 {
 	static unsigned int zCounter = 0;
 	if (inList(tags, startNode->name()))
 	{
 		zCounter++;
-		NodeState nodeState(startNode);
-		nodeState.z = zCounter;
+		NodeStatePtr nodeState = std::make_shared<TableNodeState>(startNode);
+		nodeState->z = zCounter;
 		nodesStatesList.push_back(nodeState);
 		//return;
 	}
@@ -677,92 +1034,113 @@ bool checkForSolid(Inkscape::XML::Node* firstNode, Inkscape::XML::Node* secondNo
 */
 }
 
-std::vector<NodeList> SvgBuilder::getRegions(std::vector<std::string> &tags)
+Geom::Rect SvgBuilder::getNodeBBox(Inkscape::XML::Node* node)
 {
-	std::vector<NodeList> result;
+	SPDocument* spDoc = getSpDocument();
+	static SPObject* spMainNode = spDoc->getObjectByRepr(getMainNode());
+	SPObject* spNode = spDoc->getObjectByRepr(node);
+
+	Geom::Affine pathAffine = SP_ITEM(spNode)->getRelativeTransform(spMainNode);
+    Geom::OptRect visualBound(SP_ITEM(spNode)->visualBounds());
+    if (visualBound) {
+    	return visualBound.get() * pathAffine;
+    }
+    return Geom::Rect(0,0,0,0);
+}
+
+std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tags)
+{
+	std::vector<NodeStateList>* _result = new std::vector<NodeStateList>();
+	std::vector<NodeStateList>& result = *_result;
 
    	SPDocument *spDoc = getSpDocument();
 	SPRoot* spRoot = spDoc->getRoot();
-	te_update_layout_now_recursive(spRoot);
+	//te_update_layout_now_recursive(spRoot);
 
 	Inkscape::XML::Node *mainNode = getMainNode();
 	Inkscape::XML::Document *currentDocument = mainNode->document();
 	SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
 
-	std::vector<NodeState> nodesStatesList;
+	std::vector<NodeStatePtr> nodesStatesList;
 	appendGraphNodes(mainNode, nodesStatesList, tags);
 
 	// cashe list parameters
-	for(NodeState& nodeState : nodesStatesList)
+	for(NodeStatePtr& nodeState : nodesStatesList)
 	{
-		nodeState.initGeometry(spDoc);
+		nodeState->initGeometry(spDoc);
 	}
+	const long int nodesStatesListSize = nodesStatesList.size();
+
+	//long int compareCount = 0;
+	long int regionNodesStart = 0;
 
 	while(true) // it will ended when we make empty region
 	{
-		long int regionNodesCount = -1;
-		std::vector<NodeState*> currentRegion;
-		bool startNewRegion = false;
-
-		while(regionNodesCount != currentRegion.size() && (!startNewRegion)) // if count of paths for region changed - try found other paths
-		{
-			long int regionChecked = regionNodesCount;
-			regionNodesCount = currentRegion.size();
-			if (regionChecked < 0) regionChecked = 0;
-
-			for(NodeState& nodeState : nodesStatesList)
+		std::vector<NodeStatePtr> currentRegion;
+		bool currentRegionIsEmpty = true;
+		//bool startNewRegion = false;
+		//printf("region %i, need compare %i\n", result.size(),
+		//		nodesStatesList.size() - regionNodesStart
+		//		);
+			//Run by all free nodes
+			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
 			{
-				if (nodeState.isConnected) continue;
-
-				if (currentRegion.size() == 0) // it will first path in the symbol
+				NodeStatePtr regionNode;
+				if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
+				else
 				{
-					currentRegion.push_back(&nodeState);
-					nodeState.isConnected = true;
-					continue;
-				}
-// we can merge objects it do not exist layout beetwine
-				if (! checkForSolid(currentRegion[currentRegion.size()-1]->node, nodeState.node)) {
-					startNewRegion = true;
-					break;
-				}
-
-				// todo: Should be avoid run to same nodes some times - when added new node loop will check all regionNodes agen
-				for(size_t regionIdx = regionChecked; regionIdx < currentRegion.size(); regionIdx++)
-				{
-					NodeState* regionNode = currentRegion[regionIdx];
-					const char* rId = regionNode->node->attribute("id");
-					const char* nId = nodeState.node->attribute("id");
-					//printf("region %s : node %s\n", rId, nId);
-
-
-					if (regionNode->sqBBox.intersects(nodeState.sqBBox) ||
-							regionNode->sqBBox.contains(nodeState.sqBBox))
+					for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
 					{
-						nodeState.isConnected = true;
-						currentRegion.push_back(&nodeState);
-						break;
+						const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+						if (nodeState->isConnected || nodeState->isHidden) continue;
+
+						if (currentRegionIsEmpty) // it will first path in the symbol
+						{
+							currentRegion.push_back(nodeState);
+							currentRegionIsEmpty = false;
+							nodeState->isConnected = true;
+							regionNodesStart = nodeStatIdx+1;
+							regionNode = currentRegion[0];
+							break;
+						}
+					}
+				}
+
+#pragma omp parallel for shared(currentRegion, regionNode)
+				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
+				{
+					const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+					if (nodeState->isConnected || nodeState->isHidden) continue;
+
+					//compareCount++;
+					//if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
+					if (rectHasCommonEdgePoint(regionNode->fastleft, regionNode->fasttop, regionNode->fastright, regionNode->fastbottom,
+							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200))
+					{
+						nodeState->isConnected = true;
+#pragma omp critical
+						{
+						currentRegion.push_back(nodeState);
+						}
+						//break;
 					}
 				} // end for
+				if (currentRegion.size() == 0) break;
 			} // for by node states
-		} //end while (region was changed)
 		//start new region
 
+		//printf("compare count %li\n", compareCount);
 		std::sort(currentRegion.begin(), currentRegion.end(),
-		          [] (NodeState* const a, NodeState* const b) { return a->z < b->z; });
+		          [] (NodeStatePtr const a, NodeStatePtr const b) { return a->z < b->z; });
 
 		if (currentRegion.size() > 0)
 		{
-			NodeList region;
-			for(NodeState* regionNode : currentRegion)
-			{
-				region.push_back(regionNode->node);
-			}
-			result.push_back(region);
+			result.push_back(currentRegion);
 		}
 		else break;
 	};
 
-	return result;
+	return _result;
 }
 
 
@@ -848,6 +1226,10 @@ Inkscape::XML::Node *SvgBuilder::getContainer() {
 
 Inkscape::XML::Node *SvgBuilder::createElement(char const *name) {
 	return _xml_doc->createElement(name);
+}
+
+Inkscape::XML::Node *SvgBuilder::createTextNode(char const *content) {
+	return _xml_doc->createTextNode(content);
 }
 
 static gchar *svgConvertRGBToText(double r, double g, double b) {
@@ -1194,6 +1576,17 @@ bool SvgBuilder::getTransform(double *transform) {
 
 gchar *SvgBuilder::getDocName() {
 	return _docname;
+}
+
+gint SvgBuilder::getCountOfPath(ApproveNode* approve)
+{
+	if (approve == nullptr)
+		return _countOfPath;
+
+	NodeList list;
+	getNodeListByTag("svg:path", &list, getMainNode(), approve);
+
+	return list.size();
 }
 
 /**
@@ -1930,6 +2323,7 @@ void SvgBuilder::_flushText() {
     int glipCount = 0;
     std::vector<SvgGlyph>::iterator i = _glyphs.begin();
     const SvgGlyph& first_glyph = (*i);
+    const SvgGlyph* tspan_first_glyph = &first_glyph;
     int render_mode = first_glyph.render_mode;
     // Ignore invisible characters
     if ( render_mode == 3 ) {
@@ -1967,6 +2361,8 @@ void SvgBuilder::_flushText() {
     Glib::ustring text_buffer;
     Glib::ustring glyphs_buffer;
 
+    int nbrConsecutiveSpaces = 0;
+
     // Output all buffered glyphs
     while (1) {
         const SvgGlyph& glyph = (*i);
@@ -1974,23 +2370,32 @@ void SvgBuilder::_flushText() {
         // Check if we need to make a new tspan
         if (glyph.style_changed) {
             new_tspan = true;
-        } else if ( i != _glyphs.begin() ) {
+        } else if ( i != _glyphs.begin() && i != _glyphs.end()) {
             const SvgGlyph& prev_glyph = (*prev_iterator);
-            float calc_dx = glyph.text_position[0] - prev_glyph.text_position[0] - prev_glyph.dx;
+            float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
+
+            if (prev_glyph.is_space)
+                nbrConsecutiveSpaces++;
+            else
+                nbrConsecutiveSpaces = 0;
+
+            calc_dx += nbrConsecutiveSpaces * _font_scaling;
+
             if ( !( ( glyph.dy == 0.0 && prev_glyph.dy == 0.0 &&
                      glyph.text_position[1] == prev_glyph.text_position[1] ) ||
                     ( glyph.dx == 0.0 && prev_glyph.dx == 0.0 &&
                      glyph.text_position[0] == prev_glyph.text_position[0] ) ) ||
-            		(calc_dx > 3 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
-            		/*||
-            		// negative dx attribute can't be showing in mozilla
-            		( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
+                        (calc_dx > 2 * _font_scaling) || (calc_dx < (-_font_scaling)) // start new TSPAN if we have gap (positive or negative)
+                       /*||
+                       // negative dx attribute can't be showing in mozilla
+                       ( calc_dx < (prev_glyph.dx/(-5)) && sp_use_dx_sh && text_buffer.length() > 0 && i != _glyphs.end())*/) {
             	new_tspan = true;
             }
         }
 
         // Create tspan node if needed
         if ( new_tspan || i == _glyphs.end() ) {
+        	tspan_first_glyph = &glyph;
             if (tspan_node) {
                 // Set the x and y coordinate arrays
                 if ( same_coords[0] ) {
@@ -2004,10 +2409,10 @@ void SvgBuilder::_flushText() {
                 	} else {
                 		tspan_node->setAttribute("x", x_coords.c_str());
                 	}
-                    sp_svg_number_write_de(c, sizeof(c), lastDeltaX/glipCount, 8, -8);
+                    sp_svg_number_write_de(c, sizeof(c), (lastDeltaX- first_glyphX)/glipCount, 8, -8);
                     tspan_node->setAttribute("data-dx", c);
-                    glipCount = 0;
                 }
+                glipCount = 0;
                 if ( same_coords[1] ) {
                     sp_repr_set_svg_double(tspan_node, "y", last_delta_pos[1]);
                 } else {
@@ -2089,7 +2494,7 @@ void SvgBuilder::_flushText() {
         Inkscape::CSSOStringStream os_dx;
         const SvgGlyph& prev_glyph = (*prev_iterator);
         os_x << delta_pos[0];
-        if (glyph.text_position[0] != first_glyph.text_position[0] && dx_coords.length() > 0) {
+        if (glyph.text_position[0] != tspan_first_glyph->text_position[0] && dx_coords.length() > 0) {
         	float calc_dx = calculateSvgDx(glyph, prev_glyph, _font_scaling);
 
             if (fabs(calc_dx) >0.001) dxIsDefault = false; // if we always have dx~0 we do not create attribute
@@ -2146,6 +2551,64 @@ void SvgBuilder::_flushText() {
         ++i;
     }
     _container->appendChild(text_node);
+
+  /*  SPDocument* spDoc = getSpDocument();
+    SPRoot* spRoot = spDoc->getRoot();
+    te_update_layout_now_recursive(spRoot);
+
+    Inkscape::XML::Node *mainNode = getMainNode();
+    SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+
+    for (Inkscape::XML::Node* ptSpanNode = text_node->firstChild() ; ptSpanNode ; ptSpanNode = ptSpanNode->next()) {
+
+        SvgTextPosition textPosition;
+
+       /* textPosition.text = g_strdup("");
+
+        for(SvgGlyph gl : _glyphs) {
+            textPosition.text = g_strdup_printf("%s%s", textPosition.text, gl.code.c_str());
+        }*/
+
+    /*    textPosition.text = g_strdup_printf("%s", ptSpanNode->firstChild()->content());
+
+        textPosition.ptextNode = ptSpanNode;
+
+        SPItem* spNode = (SPItem*)spDoc->getObjectByRepr(textPosition.ptextNode);
+
+        if (spNode == NULL)
+            continue;
+
+        Geom::OptRect visualBound(spNode->visualBounds());
+
+        if (!visualBound.is_initialized())
+            continue;
+
+        Geom::Rect sqTextBBox = visualBound.get();
+        Geom::Affine nodeAffine = spNode->getRelativeTransform(spMainNode);
+        sqTextBBox = sqTextBBox * nodeAffine;
+
+        // ROund the coordinates to be conform with table lines.
+        textPosition.sqTextBBox = new Geom::Rect(round(sqTextBBox[Geom::X][0]),
+                                                    round(sqTextBBox[Geom::Y][0]),
+                                                        round(sqTextBBox[Geom::X][1]),
+                                                            round(sqTextBBox[Geom::Y][1]));
+
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+        printf("Text = %s ===== X1 = %f X2 = %f Y1 = %f Y2 = %f\n", textPosition.text,
+                                                round(sqTextBBox[Geom::X][0]),
+                                                    round(sqTextBBox[Geom::Y][0]),
+                                                        round(sqTextBBox[Geom::X][1]),
+                                                            round(sqTextBBox[Geom::Y][1]));
+
+        print_node(ptSpanNode, 3);
+        //printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+
+        textPositionList.push_back(textPosition);
+
+        //print_node(ptSpanNode, 3);
+    }*/
+
+
     Inkscape::GC::release(text_node);
 
     _glyphs.clear();
@@ -3166,12 +3629,40 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
 	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
-	if (firstChild == nullptr || bbox.contains(spGNode->geometricBounds(affine)))
+	if (! bbox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		bbox = spClipPath->geometricBounds(affine);
+	}
+	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
+	if (! nodeBBox.is_initialized())
+	{
+		te_update_layout_now_recursive(spGNode);
+		nodeBBox = spGNode->geometricBounds(affine);
+	}
+	Geom::Rect clipRect = bbox.get();
+
+	/*printf("=======================\n");
+	print_node(gNode,1);
+	printf("clip rect (%f,%f)(%f,%f)\n", clipRect[Geom::X][0], clipRect[Geom::Y][0], clipRect[Geom::X][1], clipRect[Geom::Y][1]);
+	if (nodeBBox.is_initialized()) {
+		Geom::Rect nodeRect = nodeBBox.get();
+		printf("node rect (%f,%f)(%f,%f)\n", nodeRect[Geom::X][0], nodeRect[Geom::Y][0], nodeRect[Geom::X][1], nodeRect[Geom::Y][1]);
+	}
+	else
+		printf("node rect is empty\n");*/
+
+	if (firstChild == nullptr || bbox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
 		return REMOVE_CLIP;
+	}
+
+	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), bbox.get()) < 5)
+	{
+		return OUT_OF_CLIP;
 	}
 
 	return CLIP_NOTFOUND;
@@ -3626,6 +4117,323 @@ void SvgBuilder::clearSoftMask(GfxState * /*state*/) {
         _state_stack.back().softmask = NULL;
         popGroup();
     }
+}
+
+
+void regenerateList(SvgBuilder* builder, std::vector<SvgTextPosition>& textInAreaList)
+{
+    SPDocument* spDoc = builder->getSpDocument();
+
+    Inkscape::XML::Node *mainNode = builder->getMainNode();
+    SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
+    NodeList nodeList;
+
+    builder->getNodeListByTag("svg:tspan", &nodeList, mainNode);
+    te_update_layout_now_recursive((SPItem*)spMainNode);
+
+    for(auto& pTspanNode : nodeList)
+    {
+    	SPText* spText = (SPText*)spDoc->getObjectByRepr(pTspanNode->parent());
+    	spText->rebuildLayout();
+    	double x, y;
+    	sp_svg_number_read_d( pTspanNode->attribute("y"), &y );
+    	sp_svg_number_read_d( pTspanNode->attribute("x"), &x );
+
+    	SvgTextPosition textPosition;
+    	SPTSpan* spNode = (SPTSpan*)spDoc->getObjectByRepr(pTspanNode);
+
+        if (spNode == NULL)
+            continue;
+
+        Geom::Affine nodeAffine1;
+        textPosition.affine = spNode->getRelativeTransform(spMainNode);
+        // reliteb to default transform - we will use real transform later
+        Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
+
+
+        if (!visualBound.is_initialized())
+            continue;
+
+        Geom::Rect _sqTextBBox = visualBound.get();
+        double dx = x - _sqTextBBox[Geom::X][0];
+        double dy = y - _sqTextBBox[Geom::Y][1];
+        nodeAffine1[4] = dx;
+        nodeAffine1[5] = dy;
+
+        Geom::Rect sqTextBBox = _sqTextBBox * nodeAffine1 * textPosition.affine;
+
+
+
+
+
+        textPosition.text = (char*)pTspanNode->firstChild()->content();
+        textPosition.ptextNode = pTspanNode;
+
+        //round is not always is good solution so remove it from here
+        textPosition.sqTextBBox = new Geom::Rect(sqTextBBox[Geom::X][0],
+                                                    sqTextBBox[Geom::Y][0],
+                                                        sqTextBBox[Geom::X][1],
+                                                            sqTextBBox[Geom::Y][1]);
+
+        textPosition.rotationAngle = 0;
+        textPosition.needRemove = false;
+        textPosition.isUsed = false;
+        textInAreaList.push_back(textPosition);
+        //printf("X1=%f X2=%f Y1=%f Y2=%f %s\n", sqTextBBox[Geom::X][0], sqTextBBox[Geom::X][1],
+        //		sqTextBBox[Geom::Y][0], sqTextBBox[Geom::Y][1], textPosition.text);
+    }
+}
+
+static double trimSvgArrayLeft(int toPosition, const char* name, Inkscape::XML::Node* sourceTspan)
+{
+	const gchar *strArray = sourceTspan->attribute(name);
+	if (strArray == nullptr) return 0;
+	std::vector<SVGLength> vecArray = sp_svg_length_list_read(strArray);
+	double firstElement = 0;
+	if (vecArray.size() > 0 )
+		firstElement = vecArray[0].value;
+
+	vecArray.erase(vecArray.begin(), vecArray.begin() + toPosition);
+
+	std::string arrayValue;
+	bool isFirstDx = true;
+	for(auto& val :vecArray)
+	{
+		if (strcmp(name, "dx") == 0 && (isFirstDx))
+		{
+			arrayValue.append("0");
+			isFirstDx = false;
+		} else{
+			arrayValue.append(sp_svg_length_write_with_units(val));
+		}
+		arrayValue.append(" ");
+	}
+
+	//if (vecArray.size() == 0) return 0;
+
+	sourceTspan->setAttribute(name, arrayValue.c_str());
+
+	if (vecArray.empty()) return 0;
+	return vecArray[0].value - firstElement;
+}
+
+static void trimSvgArrayRight(int fromPosition, const char* name, Inkscape::XML::Node* sourceTspan)
+{
+	const gchar *strArray = sourceTspan->attribute(name);
+	if (strArray == nullptr) return ;
+	std::vector<SVGLength> vecArray = sp_svg_length_list_read(strArray);
+	vecArray.erase(vecArray.begin()+ fromPosition, vecArray.end());
+
+	std::string arrayValue;
+	for(auto& val :vecArray)
+	{
+		arrayValue.append(sp_svg_length_write_with_units(val));
+		arrayValue.append(" ");
+	}
+
+	sourceTspan->setAttribute(name, arrayValue.c_str());
+}
+
+Inkscape::XML::Node* splitTspan(int position, Inkscape::XML::Node* sourceTspan)
+{
+	if (position <= 0 ) return sourceTspan;
+	sourceTspan->document();
+	Inkscape::XML::Node* newNode = sourceTspan->duplicate(sourceTspan->document());
+
+	Glib::ustring content(sourceTspan->firstChild()->content());
+	double dx = trimSvgArrayLeft(position, "data-x", newNode);
+	double x;
+	if (! sp_svg_number_read_d(newNode->attribute("x") ,&x))
+		x = 0;
+	x += dx;
+
+	Inkscape::SVGOStringStream strX;  strX << x;
+	newNode->setAttribute("x", strX.str());
+	trimSvgArrayLeft(position, "dx", newNode);
+	newNode->firstChild()->setContent(content.substr(position).c_str());
+	//trimSvgArrayRight(position, "data-x", sourceTspan);
+	//trimSvgArrayRight(position, "dx", sourceTspan);
+
+	//sourceTspan->firstChild()->setContent(content.substr(0, position).c_str());
+
+	//if (sourceTspan->parent())
+	//{
+	//	sourceTspan->parent()->addChild(newNode, sourceTspan);
+	//}
+
+
+    return newNode;
+}
+
+void SvgBuilder::removeNodesByTextPositionList()
+{
+	for(SvgTextPosition& item: textPositionList)
+	{
+		if (item.isUsed != true && item.needRemove && item.ptextNode->parent())
+		{
+			item.ptextNode->parent()->removeChild(item.ptextNode);
+			item.isUsed = true;
+		}
+	}
+}
+
+std::vector<SvgTextPosition> SvgBuilder::getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate) {
+
+    // Parse this vector textPositionList
+    // And get exact text inside the area.
+
+	static bool listGenerated =  false;
+	if (! listGenerated)
+	{
+		regenerateList(this, textPositionList);
+		listGenerated = true;
+	}
+
+    if ( textPositionList.empty()) {
+        textPositionList.clear();
+        return {};
+    }
+
+    std::vector<SvgTextPosition> textInAreaList;
+
+    Geom::Rect sqCellBBox(x1, y1, x2, y2);
+    float cellX1 = sqCellBBox[Geom::X][0];
+    float cellX2 = sqCellBBox[Geom::X][1];
+    float cellY1 = sqCellBBox[Geom::Y][0];
+    float cellY2 = sqCellBBox[Geom::Y][1];
+    for(SvgTextPosition& textPosition : textPositionList) {
+    	if (textPosition.isUsed) continue;
+
+        Geom::Rect sqTxtBBox = *textPosition.sqTextBBox;
+
+        float textX1 = sqTxtBBox[Geom::X][0];
+        float textX2 = sqTxtBBox[Geom::X][1];
+        float textY1 = sqTxtBBox[Geom::Y][0];
+        float textY2 = sqTxtBBox[Geom::Y][1];
+
+        const gchar *dataX = textPosition.ptextNode->attribute("data-x");
+        std::vector<SVGLength> data_x;
+        if (dataX == nullptr || strlen(dataX) == 0)
+        {
+        	const gchar *x = textPosition.ptextNode->attribute("x");
+        	data_x = sp_svg_length_list_read(x);
+        }
+        else
+        	data_x = sp_svg_length_list_read(dataX);
+
+
+        bool bIsPointInsideCellFound = false;
+
+        Glib::ustring textInsideCell;
+        Glib::ustring uniTextPosition(textPosition.text);
+        int start = -1;
+        int end = -1;
+
+        if (sqTxtBBox.intersects(sqCellBBox)) //speed optimization
+        {
+			Geom::Point p_start(textX1, textY1);
+			p_start = p_start * textPosition.affine.inverse();
+			if (isSimulate)
+			{
+				Geom::Point p(textX1, textY1);
+				if (sqCellBBox.interiorContains(p))
+				{
+					textInsideCell = uniTextPosition;
+				}
+			} else {
+			// Check every Letter position in the text if inside a Cell!
+				for(int i = 0; i < data_x.size(); i++) {
+					if (data_x[i]._set) {
+						// Now you can start extracting characters!
+						Geom::Point p(p_start[Geom::X] + data_x[i].value - data_x[0].value, p_start[Geom::Y]);
+						p = p * textPosition.affine;
+						// if x of character and left side of table approx equivalent. sqCellBBox.interiorContains can return false
+						// usually for table without visibly left line
+						if (i == 0 && p.x() <= sqCellBBox.left() && p.x() > (sqCellBBox.left() - 0.1))
+							p += Geom::Point(0.11, 0);
+						if (sqCellBBox.interiorContains(p)) {
+							if (start == -1) start = i;
+							end = i;
+							//printf("Point inside Cell Found!\n");
+							bIsPointInsideCellFound = true;
+							Inkscape::CSSOStringStream os_x;
+							textInsideCell += uniTextPosition[i];
+						}
+					}
+				}
+			}
+        }
+        if (!textInsideCell.empty()){
+			Inkscape::XML::Node* tspanAfterStart = nullptr;
+			if (! isSimulate) // isSimulate - avoid generate new nodes
+				if (start > 0 || ((end + 1) != uniTextPosition.size() && (end+1) > 0))
+				{
+
+					if (start > 0)
+					{
+						tspanAfterStart = splitTspan(start, textPosition.ptextNode);
+						//textPosition.ptextNode = tspanAfterStart;
+					} else {
+						tspanAfterStart = textPosition.ptextNode;
+					}
+					if ((end + 1) != uniTextPosition.size() && (end +1) > 0)
+					{
+						if (start == 0)
+						{
+							textPosition.needRemove = true;
+							tspanAfterStart = textPosition.ptextNode->duplicate(textPosition.ptextNode->document());
+						}
+
+						//std::string content(tspanAfterStart->firstChild()->content());
+
+						trimSvgArrayRight(end + 1 - start, "data-x", tspanAfterStart);
+						trimSvgArrayRight(end + 1 - start, "dx", tspanAfterStart);
+
+						tspanAfterStart->firstChild()->setContent(textInsideCell.c_str());
+					}
+
+					if (tspanAfterStart != textPosition.ptextNode && textPosition.ptextNode->parent())
+					{
+						textPosition.ptextNode->parent()->addChild(tspanAfterStart, textPosition.ptextNode);
+					}
+				}
+
+
+            //printf("[Cell Text Found : %s]\n", textInsideCell.c_str());
+            //print_node(textPosition.ptextNode, 3);
+           // printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+			double angle = std::atan2(textPosition.affine[1], textPosition.affine[0]) * (180 / M_PI);
+			// if put it to renderCell - we can receive cell without cell - we should have empty text anyway.
+			if (angle > MAX_ROTATION_ANGLE_SUPPORTED_TEXT_TABLE)
+			{
+				continue;
+			}
+            SvgTextPosition tmpTextPosition;
+            if (tspanAfterStart != nullptr)
+            {
+            	tmpTextPosition.ptextNode = tspanAfterStart;
+            }
+            else
+            {
+            	tmpTextPosition.ptextNode = textPosition.ptextNode;
+            	if (! isSimulate) textPosition.isUsed = true;
+            }
+            tmpTextPosition.text = g_strdup(textInsideCell.c_str());
+            tmpTextPosition.x = textPosition.x;
+            tmpTextPosition.y = textPosition.y;
+            tmpTextPosition.start = start;
+            tmpTextPosition.end = end;
+            tmpTextPosition.rotationAngle = angle;
+            tmpTextPosition.affine = textPosition.affine;
+
+            //printf("text area %f %f %f %f\n", (*textPosition.sqTextBBox)[Geom::X][0], (*textPosition.sqTextBBox)[Geom::X][1],
+            //					(*textPosition.sqTextBBox)[Geom::Y][0], (*textPosition.sqTextBBox)[Geom::Y][1]);
+
+            textInAreaList.push_back(tmpTextPosition);
+        }
+    }
+
+    return textInAreaList;
 }
 
 } } } /* namespace Inkscape, Extension, Internal */

@@ -66,6 +66,14 @@ set(extension_SRC
 	internal/pdfinput/svg-builder.cpp
 	internal/pdfinput/png-merge.cpp
 	internal/pdfinput/BookMarks.cpp
+	internal/pdfinput/TableRegion.cpp
+	internal/pdfinput/TableDefenition.cpp
+	internal/pdfinput/TabLine.cpp
+	internal/pdfinput/TabRect.cpp
+	internal/pdfinput/TableRecognizeCommon.cpp
+	internal/pdfinput/TextTableDetector.cpp
+	internal/pdfinput/TableRectangle.cpp
+	internal/pdfinput/table-detector.cpp
 
 	# ------
 	# Header
@@ -138,6 +146,14 @@ set(extension_SRC
 	internal/pdfinput/svg-builder.h
 	internal/pdfinput/png-merge.h
 	internal/pdfinput/BookMarks.h
+	internal/pdfinput/TableRegion.h
+	internal/pdfinput/TableDefenition.h
+	internal/pdfinput/TabLine.h
+	internal/pdfinput/TableRecognizeCommon.h
+	internal/pdfinput/TextTableDetector.h
+	internal/pdfinput/TableRectangle.h
+	internal/pdfinput/TabRect.h
+	internal/pdfinput/table-detector.h
 	internal/pov-out.h
 	internal/svg.h
 	internal/svgz.h

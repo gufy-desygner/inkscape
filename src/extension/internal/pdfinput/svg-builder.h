@@ -28,6 +28,7 @@ namespace Inkscape {
 #include <2geom/affine.h>
 #include <glibmm/ustring.h>
 #include <ft2build.h>
+#include "TableRecognizeCommon.h"
 #include FT_FREETYPE_H
 
 #include "CharTypes.h"
@@ -50,12 +51,44 @@ class SPCSSAttr;
 
 #include <vector>
 #include <glib.h>
+#include <sp-item.h>
 
 typedef std::vector<Inkscape::XML::Node*> NodeList;
 
 namespace Inkscape {
 namespace Extension {
 namespace Internal {
+
+struct TableNodeState {
+	Inkscape::XML::Node* node;
+	SPItem* spNode;
+	bool isConnected;
+	bool isRejected;
+	bool isHidden;
+	int fastleft, fastright, fasttop, fastbottom;
+	Geom::Rect sqBBox;
+	unsigned int z;
+
+	void initGeometry(SPDocument *spDoc);
+	bool checkClipPath(SPDocument *spDoc, Geom::OptRect& intersectSquare);
+
+	TableNodeState(Inkscape::XML::Node* _node) :
+		spNode(nullptr),
+		isConnected(false),
+		isRejected(true),
+		z(0),
+		isHidden(false),
+		node(_node),
+		fastleft(0),
+		fastright(0),
+		fasttop(0),
+		fastbottom(0)
+	{
+	};
+};
+
+typedef std::shared_ptr<TableNodeState> NodeStatePtr;
+typedef std::vector<NodeStatePtr> NodeStateList;
 
 struct SvgTransparencyGroup;
 
@@ -95,11 +128,27 @@ struct SvgGlyph {
     double wordSpace;
 };
 
+typedef bool ApproveNode(Inkscape::XML::Node *node);
 void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second);
 void mergeTspanList(NodeList &tspanArray);
 /**
  * Builds the inner SVG representation using libpoppler from the calls of PdfParser.
  */
+
+struct SvgTextPosition {
+    Inkscape::XML::Node* ptextNode;
+    Geom::Affine affine;
+    bool isUsed;
+    gchar* text;
+    double x = 0;
+    double y = 0;
+    Geom::Rect* sqTextBBox;
+    int start; //text position where cell started
+    int end; // text position where text ended
+    bool needRemove;
+    double rotationAngle; // rotation angle of the text
+};
+
 class SvgBuilder {
 public:
     SvgBuilder(SPDocument *document, gchar *docname, XRef *xref);
@@ -113,14 +162,16 @@ public:
     void setAsLayer(char *layer_name=NULL);
     void setLayoutName(char *layout_name=NULL);
     void setGroupOpacity(double opacity);
-    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr);
+    NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve = nullptr);
+    NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr, ApproveNode* approve = nullptr);
     Inkscape::XML::Node* getMainNode();
 
     Inkscape::XML::Node *getPreferences() {
         return _preferences;
     }
 
-    std::vector<NodeList> getRegions(std::vector<std::string> &tags);
+    std::vector<NodeStateList>* getRegions(std::vector<std::string> &tags);
+    Geom::Rect getNodeBBox(Inkscape::XML::Node* node);
 
 
     // Handling the node stack
@@ -128,6 +179,7 @@ public:
     Inkscape::XML::Node *popGroup();
     Inkscape::XML::Node *getContainer();    // Returns current group node
     Inkscape::XML::Node *createElement(char const *name);
+    Inkscape::XML::Node *createTextNode(char const *content);
 
     char *getGlyph(SvgGlyph * svgGlyph, FT_Face face);
     FT_GlyphSlot getFTGlyph(GfxFont *font, double fontSize, uint gidCode, unsigned long int zoom);
@@ -136,6 +188,7 @@ public:
     enum todoRemoveClip {
     	CLIP_NOTFOUND,
     	REMOVE_CLIP,
+		OUT_OF_CLIP,
     	KEEP_CLIP,
     };
     todoRemoveClip checkClipAroundText(Inkscape::XML::Node *gNode);
@@ -206,10 +259,14 @@ public:
     bool getTransform(double *transform);
     gchar *getDocName();
     gint getCountOfImages(void) { return _countOfImages;};
-    gint getCountOfPath(void) { return _countOfPath;};
+    gint getCountOfPath(ApproveNode* approve = nullptr);// { return _countOfPath;};
     SPDocument *getSpDocument(void){ return _doc;};
     double glipEndX, glipEndY;
     double spaceWidth;
+
+    std::vector<SvgTextPosition> getTextInArea(double x1, double y1, double x2, double y2, bool isSimulate = false);
+    void removeNodesByTextPositionList();
+
 private:
     void _init();
 
@@ -282,6 +339,8 @@ private:
     int _countOfImages;
     int _countOfPath;
     bool _ttm_is_set;
+
+    std::vector<SvgTextPosition> textPositionList;
 };
 
 
