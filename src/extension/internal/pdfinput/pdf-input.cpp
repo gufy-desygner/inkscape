@@ -966,6 +966,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
                     SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
                     for(TableRegion* tabRegion : regions)
                     {
+                    	// need add condition - if table contain intersected rects - it is not table - is some layout
                         if (tabRegion->buildKnote(builder))
                         {
                             TabLine* firstPathLine = tabRegion->lines[0];

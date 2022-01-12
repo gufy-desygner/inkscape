@@ -10,6 +10,15 @@
 
 #include "TableDefenition.h"
 #include "sp-path.h"
+#include <exception>
+
+struct ExceptionFillPatternDetected : public std::exception
+{
+	const char * what () const throw ()
+    {
+    	return "Fill pattern detected. Probaly is not table";
+    }
+};
 
 class TableRegion
 {

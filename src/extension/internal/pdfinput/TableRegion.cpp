@@ -121,14 +121,24 @@ TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
 {
 	Geom::Rect inRect(_x1, _y1, _x2, _y2);
 	TabRect* possibleRect = nullptr;
+	float currentIntersect = 0;
 	for(auto& rect : rects)
 	{
 		// Always use round for better results, this will avoid rects not being mactched!
 		Geom::Rect currentRect(round(rect->x1), round(rect->y1), round(rect->x2), round(rect->y2));
+		//float intrsectsquare = rectIntersect(inRect, currentRect);
 		if (rectIntersect(currentRect, inRect) > 90)
 		{
+			//if (currentIntersect >= intrsectsquare) continue;
+			//currentIntersect = intrsectsquare;
+
 			SPItem* spNode = (SPItem*) _builder->getSpDocument()->getObjectByRepr(rect->node);
 			const char* fillStyle = spNode->getStyleProperty("fill", "none");
+
+			if (strncmp(fillStyle, "url(#pattern", 12) == 0)
+			{
+				throw ExceptionFillPatternDetected();
+			}
 
 			if (strncmp(fillStyle, "#ffffff", 7) == 0)
 			{
@@ -311,7 +321,16 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
 			}
 
-			TabRect* rect = matchRect(xStart, yList[yIdx], xList[xIdx], yStart);
+			TabRect* rect;
+			try
+			{
+				rect = matchRect(xStart, yList[yIdx], xList[xIdx], yStart);
+			}
+			catch (ExceptionFillPatternDetected& e)
+			{
+				return false;
+			}
+
 			tableDef->setRect(xIdx -1, yIdx -1, rect);
 
 			xStart = xList[xIdx];
