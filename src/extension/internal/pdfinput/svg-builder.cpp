@@ -3578,6 +3578,36 @@ void SvgBuilder::adjustEndX()
 	g_ptr_array_free(listSpans, false);
 }
 
+void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainNode)
+{
+	SPItem* tmpNode = SP_ITEM(mainNode->firstChild());
+
+	if (tmpNode == nullptr) return;
+
+	while(tmpNode)
+	{
+		SPItem* currNode = tmpNode;
+		tmpNode = SP_ITEM(tmpNode->next);
+		Geom::Affine affine = currNode->getRelativeTransform(getSpDocument()->getRoot());
+		Geom::OptRect nodeBBox = currNode->geometricBounds(affine);
+		if (! nodeBBox.is_initialized())
+		{
+			currNode->updateRepr(SP_OBJECT_WRITE_EXT);
+			nodeBBox = currNode->geometricBounds(affine);
+		}
+		Geom::Rect nodeRect = nodeBBox.get();
+
+		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
+		{
+			Inkscape::XML::Node* hiddenNode = currNode->getRepr();
+			hiddenNode->parent()->removeChild(hiddenNode);
+		} else if (! clipBox.contains(nodeRect)) {
+			removeHiddenObjects(clipBox, currNode);
+		}
+	}
+
+}
+
 SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *gNode)
 {
 	/*
@@ -3628,41 +3658,25 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
-	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
-	if (! bbox.is_initialized())
-	{
-		te_update_layout_now_recursive(spGNode);
-		bbox = spClipPath->geometricBounds(affine);
-	}
+	te_update_layout_now_recursive(spGNode);
+	Geom::OptRect clipBBox = spClipPath->geometricBounds(affine);
+
+	spGNode->updateRepr(SP_OBJECT_WRITE_EXT);
 	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
-	if (! nodeBBox.is_initialized())
-	{
-		te_update_layout_now_recursive(spGNode);
-		nodeBBox = spGNode->geometricBounds(affine);
-	}
-	Geom::Rect clipRect = bbox.get();
 
-	/*printf("=======================\n");
-	print_node(gNode,1);
-	printf("clip rect (%f,%f)(%f,%f)\n", clipRect[Geom::X][0], clipRect[Geom::Y][0], clipRect[Geom::X][1], clipRect[Geom::Y][1]);
-	if (nodeBBox.is_initialized()) {
-		Geom::Rect nodeRect = nodeBBox.get();
-		printf("node rect (%f,%f)(%f,%f)\n", nodeRect[Geom::X][0], nodeRect[Geom::Y][0], nodeRect[Geom::X][1], nodeRect[Geom::Y][1]);
-	}
-	else
-		printf("node rect is empty\n");*/
-
-	if (firstChild == nullptr || bbox.contains(nodeBBox))
+	if (firstChild == nullptr || clipBBox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
-		return REMOVE_CLIP;
+		return USELESS_CLIP;
 	}
 
-	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), bbox.get()) < 5)
+	if ( rectIntersect(clipBBox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
+	} else {
+		removeHiddenObjects(clipBBox, spGNode);
 	}
 
 	return CLIP_NOTFOUND;
