@@ -1013,6 +1013,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	prnTimer(timCALCULATE_OBJECTS, "time take calculate count of objects");
             	if (sp_fast_svg_sh == 0 || sp_fast_svg_sh < count_of_nodes) {
             		//search last child
+            		compressGtag(builder);
             		Inkscape::XML::Node *visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		while (visualChild->next())
             			visualChild = visualChild->next();
@@ -1044,6 +1045,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						mergeBuilder->removeGFromNode(remNodes[i]);
 					}
 					remNodes.clear();
+					 // removing empty <g> around <text> and <path>
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
 
