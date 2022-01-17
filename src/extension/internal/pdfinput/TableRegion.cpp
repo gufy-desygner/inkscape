@@ -51,7 +51,8 @@ static bool tableRowsSorter(const double &a, const double &b)
 
 static bool predAproxUniq(const float &a, const float &b)
 {
-	return approxEqual(a, b, 0.5); //minimal cell size/resolution.
+	static float aproxValue = 0.5 * getDpiCoff();
+	return approxEqual(a, b, aproxValue); //minimal cell size/resolution.
 }
 
 TableRegion::~TableRegion()
@@ -221,14 +222,14 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
 
-	if (! approxEqual(this->x1, xList.front(), 5))
+	if (! approxEqual(this->x1, xList.front(), 5 * getDpiCoff()))
 		xList.push_back(this->x1);
-	if (! approxEqual(this->x2, xList.back(), 5))
+	if (! approxEqual(this->x2, xList.back(), 5 * getDpiCoff()))
 		xList.push_back(this->x2);
 
-	if (! approxEqual(this->y1, yList.back(), 5))
+	if (! approxEqual(this->y1, yList.back(), 5 * getDpiCoff()))
 		yList.push_back(this->y1);
-	if (! approxEqual(this->y2, yList.front(), 5))
+	if (! approxEqual(this->y2, yList.front(), 5 * getDpiCoff()))
 		yList.push_back(this->y2);
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
