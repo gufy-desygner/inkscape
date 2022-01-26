@@ -39,6 +39,8 @@ private:
 
 	int countCol, countRow;
 
+	static int tableID;
+
 	bool isHidCell(int c, int r);
 	Inkscape::XML::Node* cellRender(SvgBuilder *builder, int c, int r, Geom::Affine aff);
 	Inkscape::XML::Node* getLeftBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff);
@@ -58,7 +60,7 @@ public:
 		height(0)
 	{
 		_cells = new TableCell[countCol*countRow];
-
+		tableID++;
 	}
 	void setStroke(int xIdx, int yIdx, TabLine *topLine, TabLine *bottomLine, TabLine *leftLine, TabLine *rightLine);
 	void setVertex(int xIdx, int yIdx, double xStart, double yStart, double xEnd, double yEnd);
