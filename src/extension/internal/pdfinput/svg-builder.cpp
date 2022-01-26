@@ -1078,33 +1078,29 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 	{
 		std::vector<NodeStatePtr> currentRegion;
 		bool currentRegionIsEmpty = true;
-		//bool startNewRegion = false;
-		//printf("region %i, need compare %i\n", result.size(),
-		//		nodesStatesList.size() - regionNodesStart
-		//		);
-			//Run by all free nodes
-			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
+		//Run by all free nodes
+		for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
+		{
+			NodeStatePtr regionNode;
+			if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
+			else
 			{
-				NodeStatePtr regionNode;
-				if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
-				else
+				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
 				{
-					for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
-					{
-						const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
-						if (nodeState->isConnected || nodeState->isHidden) continue;
+					const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+					if (nodeState->isConnected || nodeState->isHidden) continue;
 
-						if (currentRegionIsEmpty) // it will first path in the symbol
-						{
-							currentRegion.push_back(nodeState);
-							currentRegionIsEmpty = false;
-							nodeState->isConnected = true;
-							regionNodesStart = nodeStatIdx+1;
-							regionNode = currentRegion[0];
-							break;
-						}
+					if (currentRegionIsEmpty) // it will first path in the symbol
+					{
+						currentRegion.push_back(nodeState);
+						currentRegionIsEmpty = false;
+						nodeState->isConnected = true;
+						regionNodesStart = nodeStatIdx+1;
+						regionNode = currentRegion[0];
+						break;
 					}
 				}
+			}
 
 #pragma omp parallel for shared(currentRegion, regionNode)
 				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
@@ -1115,7 +1111,7 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 					//compareCount++;
 					//if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
 					if (rectHasCommonEdgePoint(regionNode->fastleft, regionNode->fasttop, regionNode->fastright, regionNode->fastbottom,
-							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200))
+							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200 * getDpiCoff()))
 					{
 						nodeState->isConnected = true;
 #pragma omp critical
@@ -1127,7 +1123,6 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 				} // end for
 				if (currentRegion.size() == 0) break;
 			} // for by node states
-		//start new region
 
 		//printf("compare count %li\n", compareCount);
 		std::sort(currentRegion.begin(), currentRegion.end(),

@@ -51,7 +51,8 @@ static bool tableRowsSorter(const double &a, const double &b)
 
 static bool predAproxUniq(const float &a, const float &b)
 {
-	return approxEqual(a, b, 0.5); //minimal cell size/resolution.
+	static float aproxValue = 0.5 * getDpiCoff();
+	return approxEqual(a, b, aproxValue); //minimal cell size/resolution.
 }
 
 TableRegion::~TableRegion()
@@ -121,14 +122,24 @@ TabRect* TableRegion::matchRect(double _x1, double _y1, double _x2, double _y2)
 {
 	Geom::Rect inRect(_x1, _y1, _x2, _y2);
 	TabRect* possibleRect = nullptr;
+	float currentIntersect = 0;
 	for(auto& rect : rects)
 	{
 		// Always use round for better results, this will avoid rects not being mactched!
 		Geom::Rect currentRect(round(rect->x1), round(rect->y1), round(rect->x2), round(rect->y2));
+		//float intrsectsquare = rectIntersect(inRect, currentRect);
 		if (rectIntersect(currentRect, inRect) > 90)
 		{
+			//if (currentIntersect >= intrsectsquare) continue;
+			//currentIntersect = intrsectsquare;
+
 			SPItem* spNode = (SPItem*) _builder->getSpDocument()->getObjectByRepr(rect->node);
 			const char* fillStyle = spNode->getStyleProperty("fill", "none");
+
+			if (strncmp(fillStyle, "url(#pattern", 12) == 0)
+			{
+				throw ExceptionFillPatternDetected();
+			}
 
 			if (strncmp(fillStyle, "#ffffff", 7) == 0)
 			{
@@ -211,14 +222,14 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
 
-	if (! approxEqual(this->x1, xList.front(), 5))
+	if (! approxEqual(this->x1, xList.front(), 5 * getDpiCoff()))
 		xList.push_back(this->x1);
-	if (! approxEqual(this->x2, xList.back(), 5))
+	if (! approxEqual(this->x2, xList.back(), 5 * getDpiCoff()))
 		xList.push_back(this->x2);
 
-	if (! approxEqual(this->y1, yList.back(), 5))
+	if (! approxEqual(this->y1, yList.back(), 5 * getDpiCoff()))
 		yList.push_back(this->y1);
-	if (! approxEqual(this->y2, yList.front(), 5))
+	if (! approxEqual(this->y2, yList.front(), 5 * getDpiCoff()))
 		yList.push_back(this->y2);
 	std::sort(xList.begin(), xList.end());
 	std::sort(yList.begin(), yList.end(), &tableRowsSorter); // invert sort order
@@ -311,7 +322,16 @@ bool TableRegion::buildKnote(SvgBuilder *builder)
 				skipCell.addRect(xIdx -1, yIdx -1, xIdx + xShift -1, yIdx + yShift -1, true);
 			}
 
-			TabRect* rect = matchRect(xStart, yList[yIdx], xList[xIdx], yStart);
+			TabRect* rect;
+			try
+			{
+				rect = matchRect(xStart, yList[yIdx], xList[xIdx], yStart);
+			}
+			catch (ExceptionFillPatternDetected& e)
+			{
+				return false;
+			}
+
 			tableDef->setRect(xIdx -1, yIdx -1, rect);
 
 			xStart = xList[xIdx];
