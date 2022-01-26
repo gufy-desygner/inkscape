@@ -12,6 +12,8 @@
 #include "document.h"
 #include "svg/svg.h"
 
+int TableDefenition::tableID = 0;
+
 Inkscape::XML::Node* TableDefenition::getTopBorder(SvgBuilder *builder, int c, int r, Geom::Affine aff)
 {
 	/*<line class="table-border table-border-v index-r-0 index-c-0 table-border-editor"
@@ -193,7 +195,7 @@ Inkscape::XML::Node* TableDefenition::cellRender(SvgBuilder *builder, int c, int
 	//nodeCellRect->setAttribute("stroke", "blue");
 
 	nodeTextAttribs->appendChild(nodeCellRect);
-
+	nodeTextAttribs->setAttribute("data-table-id", std::to_string(tableID));
 	//printf("[%d,%d] (x=%f, y=%f, w=%f, h=%f) #lines = %d\n", r, c, cell->x, cell->y, cell->width, cell->height, nLinesInCell);
 
 	std::vector<SvgTextPosition> textInAreaList;
