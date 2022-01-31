@@ -4159,9 +4159,23 @@ void regenerateList(SvgBuilder* builder, std::vector<SvgTextPosition>& textInAre
         // reliteb to default transform - we will use real transform later
         Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
 
+	if (!visualBound.is_initialized()) {
+		// Try to get the visual bounds with another method,,
+		// This is a fix for wingdings characters not being loaded correctly,
+		// Because it's missing from the font file and inkscape can't support them now.
+		SPItem* spParentNodeNode = (SPItem*) spDoc->getObjectByRepr(pTspanNode->parent());
 
-        if (!visualBound.is_initialized())
-            continue;
+		double fDataEndX, dFontSize;
+
+		sp_svg_number_read_d( pTspanNode->attribute( "data-endX" ), &fDataEndX );
+		sp_svg_number_read_d( spParentNodeNode->getStyleProperty("font-size", "1"), &dFontSize);
+
+		visualBound = Geom::OptRect( Geom::Point(x, y), Geom::Point(x + fDataEndX, y + dFontSize) );
+
+		// This shouldn't happen, but just in case, make the test.
+		if (!visualBound.is_initialized())
+			continue;
+	}
 
         Geom::Rect _sqTextBBox = visualBound.get();
         double dx = x - _sqTextBBox[Geom::X][0];
