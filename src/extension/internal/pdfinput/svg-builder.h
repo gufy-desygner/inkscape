@@ -187,10 +187,11 @@ public:
     void adjustEndX();
     enum todoRemoveClip {
     	CLIP_NOTFOUND,
-    	REMOVE_CLIP,
+    	USELESS_CLIP,
 		OUT_OF_CLIP,
     	KEEP_CLIP,
     };
+    void removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainNode);
     todoRemoveClip checkClipAroundText(Inkscape::XML::Node *gNode);
     double fetchAverageColor(Inkscape::XML::Node *container, Inkscape::XML::Node *image_node);
 

@@ -1078,33 +1078,29 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 	{
 		std::vector<NodeStatePtr> currentRegion;
 		bool currentRegionIsEmpty = true;
-		//bool startNewRegion = false;
-		//printf("region %i, need compare %i\n", result.size(),
-		//		nodesStatesList.size() - regionNodesStart
-		//		);
-			//Run by all free nodes
-			for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
+		//Run by all free nodes
+		for(size_t regionIdx = 0; regionIdx < currentRegion.size() || currentRegionIsEmpty; regionIdx++)
+		{
+			NodeStatePtr regionNode;
+			if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
+			else
 			{
-				NodeStatePtr regionNode;
-				if (! currentRegionIsEmpty) regionNode = currentRegion[regionIdx];
-				else
+				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
 				{
-					for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
-					{
-						const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
-						if (nodeState->isConnected || nodeState->isHidden) continue;
+					const NodeStatePtr nodeState = nodesStatesList[nodeStatIdx];
+					if (nodeState->isConnected || nodeState->isHidden) continue;
 
-						if (currentRegionIsEmpty) // it will first path in the symbol
-						{
-							currentRegion.push_back(nodeState);
-							currentRegionIsEmpty = false;
-							nodeState->isConnected = true;
-							regionNodesStart = nodeStatIdx+1;
-							regionNode = currentRegion[0];
-							break;
-						}
+					if (currentRegionIsEmpty) // it will first path in the symbol
+					{
+						currentRegion.push_back(nodeState);
+						currentRegionIsEmpty = false;
+						nodeState->isConnected = true;
+						regionNodesStart = nodeStatIdx+1;
+						regionNode = currentRegion[0];
+						break;
 					}
 				}
+			}
 
 #pragma omp parallel for shared(currentRegion, regionNode)
 				for(int nodeStatIdx = regionNodesStart;  nodeStatIdx < nodesStatesListSize; ++nodeStatIdx)
@@ -1115,7 +1111,7 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 					//compareCount++;
 					//if (rectHasCommonEdgePoint(regionNode->sqBBox, nodeState->sqBBox))
 					if (rectHasCommonEdgePoint(regionNode->fastleft, regionNode->fasttop, regionNode->fastright, regionNode->fastbottom,
-							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200))
+							nodeState->fastleft, nodeState->fasttop, nodeState->fastright, nodeState->fastbottom, 200 * getDpiCoff()))
 					{
 						nodeState->isConnected = true;
 #pragma omp critical
@@ -1127,7 +1123,6 @@ std::vector<NodeStateList>* SvgBuilder::getRegions(std::vector<std::string> &tag
 				} // end for
 				if (currentRegion.size() == 0) break;
 			} // for by node states
-		//start new region
 
 		//printf("compare count %li\n", compareCount);
 		std::sort(currentRegion.begin(), currentRegion.end(),
@@ -3578,6 +3573,36 @@ void SvgBuilder::adjustEndX()
 	g_ptr_array_free(listSpans, false);
 }
 
+void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainNode)
+{
+	SPItem* tmpNode = SP_ITEM(mainNode->firstChild());
+
+	if (tmpNode == nullptr) return;
+
+	while(tmpNode)
+	{
+		SPItem* currNode = tmpNode;
+		tmpNode = SP_ITEM(tmpNode->next);
+		Geom::Affine affine = currNode->getRelativeTransform(getSpDocument()->getRoot());
+		Geom::OptRect nodeBBox = currNode->geometricBounds(affine);
+		if (! nodeBBox.is_initialized())
+		{
+			currNode->updateRepr(SP_OBJECT_WRITE_EXT);
+			nodeBBox = currNode->geometricBounds(affine);
+		}
+		Geom::Rect nodeRect = nodeBBox.get();
+
+		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
+		{
+			Inkscape::XML::Node* hiddenNode = currNode->getRepr();
+			hiddenNode->parent()->removeChild(hiddenNode);
+		} else if (! clipBox.contains(nodeRect)) {
+			removeHiddenObjects(clipBox, currNode);
+		}
+	}
+
+}
+
 SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *gNode)
 {
 	/*
@@ -3628,41 +3653,25 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
-	Geom::OptRect bbox = spClipPath->geometricBounds(affine);
-	if (! bbox.is_initialized())
-	{
-		te_update_layout_now_recursive(spGNode);
-		bbox = spClipPath->geometricBounds(affine);
-	}
+	te_update_layout_now_recursive(spGNode);
+	Geom::OptRect clipBBox = spClipPath->geometricBounds(affine);
+
+	spGNode->updateRepr(SP_OBJECT_WRITE_EXT);
 	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
-	if (! nodeBBox.is_initialized())
-	{
-		te_update_layout_now_recursive(spGNode);
-		nodeBBox = spGNode->geometricBounds(affine);
-	}
-	Geom::Rect clipRect = bbox.get();
 
-	/*printf("=======================\n");
-	print_node(gNode,1);
-	printf("clip rect (%f,%f)(%f,%f)\n", clipRect[Geom::X][0], clipRect[Geom::Y][0], clipRect[Geom::X][1], clipRect[Geom::Y][1]);
-	if (nodeBBox.is_initialized()) {
-		Geom::Rect nodeRect = nodeBBox.get();
-		printf("node rect (%f,%f)(%f,%f)\n", nodeRect[Geom::X][0], nodeRect[Geom::Y][0], nodeRect[Geom::X][1], nodeRect[Geom::Y][1]);
-	}
-	else
-		printf("node rect is empty\n");*/
-
-	if (firstChild == nullptr || bbox.contains(nodeBBox))
+	if (firstChild == nullptr || clipBBox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
-		return REMOVE_CLIP;
+		return USELESS_CLIP;
 	}
 
-	if ( rectIntersect(bbox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), bbox.get()) < 5)
+	if ( rectIntersect(clipBBox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
+	} else {
+		removeHiddenObjects(clipBBox, spGNode);
 	}
 
 	return CLIP_NOTFOUND;
@@ -4150,9 +4159,23 @@ void regenerateList(SvgBuilder* builder, std::vector<SvgTextPosition>& textInAre
         // reliteb to default transform - we will use real transform later
         Geom::OptRect visualBound(spNode->bbox( nodeAffine1, SPItem::APPROXIMATE_BBOX));
 
+	if (!visualBound.is_initialized()) {
+		// Try to get the visual bounds with another method,,
+		// This is a fix for wingdings characters not being loaded correctly,
+		// Because it's missing from the font file and inkscape can't support them now.
+		SPItem* spParentNodeNode = (SPItem*) spDoc->getObjectByRepr(pTspanNode->parent());
 
-        if (!visualBound.is_initialized())
-            continue;
+		double fDataEndX, dFontSize;
+
+		sp_svg_number_read_d( pTspanNode->attribute( "data-endX" ), &fDataEndX );
+		sp_svg_number_read_d( spParentNodeNode->getStyleProperty("font-size", "1"), &dFontSize);
+
+		visualBound = Geom::OptRect( Geom::Point(x, y), Geom::Point(x + fDataEndX, y + dFontSize) );
+
+		// This shouldn't happen, but just in case, make the test.
+		if (!visualBound.is_initialized())
+			continue;
+	}
 
         Geom::Rect _sqTextBBox = visualBound.get();
         double dx = x - _sqTextBBox[Geom::X][0];

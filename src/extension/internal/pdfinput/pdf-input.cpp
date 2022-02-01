@@ -966,6 +966,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
                     SPItem* spMainNode = (SPItem*)spDoc->getObjectByRepr(mainNode);
                     for(TableRegion* tabRegion : regions)
                     {
+                    	// need add condition - if table contain intersected rects - it is not table - is some layout
                         if (tabRegion->buildKnote(builder))
                         {
                             TabLine* firstPathLine = tabRegion->lines[0];
@@ -1012,6 +1013,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             	prnTimer(timCALCULATE_OBJECTS, "time take calculate count of objects");
             	if (sp_fast_svg_sh == 0 || sp_fast_svg_sh < count_of_nodes) {
             		//search last child
+            		compressGtag(builder);
             		Inkscape::XML::Node *visualChild = mergeBuilder->getSourceSubVisual()->firstChild();
             		while (visualChild->next())
             			visualChild = visualChild->next();
@@ -1043,6 +1045,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 						mergeBuilder->removeGFromNode(remNodes[i]);
 					}
 					remNodes.clear();
+					 // removing empty <g> around <text> and <path>
 					mergeNearestTextToOnetag(builder);
 					mergeTspan(builder);
 
