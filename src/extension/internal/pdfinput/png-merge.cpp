@@ -330,7 +330,8 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  // style tag is right only if it have some parametrs
 					  if (strcmp(attrName, "style") == 0) {
 						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
-								  (strstr(styleValue, "url(#pattern") > 0) ||
+								  // Don't merge gradients with pattern
+								  /*(strstr(styleValue, "url(#pattern") > 0) ||*/
 								  (strstr(styleValue, "fill:url(#linearGradient") > 0);
 						  //printf("style=%s\n",styleValue);
 						  //printf("id=%s\n",tmpNode->attribute("id"));
