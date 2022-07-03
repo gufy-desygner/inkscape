@@ -3785,10 +3785,10 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     		for(int colIdx = x1 * 4; colIdx < x2 * 4; colIdx += 4)
     		{
     			uint32_t pointIdx = rowIdx * stride + colIdx;
-    			r += px[pointIdx];
-				g += px[pointIdx+1];
-				b += px[pointIdx+2];
-				a += px[pointIdx+3];
+    			b += px[pointIdx];
+    			g += px[pointIdx+1];
+    			r += px[pointIdx+2];
+    			a += px[pointIdx+3];
     		}
     	}
 
