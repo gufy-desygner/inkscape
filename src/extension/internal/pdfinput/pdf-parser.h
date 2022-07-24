@@ -14,6 +14,8 @@
 #pragma interface
 #endif
 
+char* prepareFamilyName(const char *fontName, bool encode = true);
+
 namespace Inkscape {
     namespace Extension {
         namespace Internal {
@@ -121,7 +123,7 @@ struct RecExportFont {
 	GfxFont *font;
 	PdfParser *parser;
 	pthread_t thredID;
-	char *fontName;
+	const char *fontName;
 	bool isCIDFont;
 	//gooString *fontName;
 	char *buf;
@@ -131,7 +133,6 @@ struct RecExportFont {
 };
 
 void* exportFontStatic(void *args);
-char* prepareFamilyName(char *fontName, bool encode = true);
 
 
 /**
@@ -324,7 +325,7 @@ private:
   void opMoveSetShowText(Object args[], int numArgs);
   void opShowSpaceText(Object args[], int numArgs);
   void replaceFromActulaHidenText(Unicode **u, CharCode &code); // serviceFunction
-  void doShowText(GooString *s);
+  void doShowText(const GooString *s);
 
   // XObject operators
   void opXObject(Object args[], int numArgs);

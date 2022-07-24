@@ -11,16 +11,16 @@ PagesCatalog::PagesCatalog(XRef* docXRef)
 {
 	const int rootGen = docXRef->getRootGen();
 	const int rootNum = docXRef->getRootNum();
-	Object rootObj;
-	docXRef->fetch(rootNum, rootGen, &rootObj);
+	Object rootObj = docXRef->fetch(rootNum, rootGen);
+
 	if (rootObj.isDict())
 	{
 		Dict* rootDict = rootObj.getDict();
 		const int rootDictLen = rootDict->getLength();
 		if (rootDict->hasKey("Pages"))
 		{
-			Object pagesObj;
-			rootDict->lookup("Pages", &pagesObj);
+			Object pagesObj = rootDict->lookup("Pages");
+
 			addPages(&pagesObj);
 		}
 	}
@@ -38,8 +38,7 @@ bool PagesCatalog::addPages(Object* obj)
 		Dict* dictPages = obj->getDict();
 		if (dictPages->hasKey("Kids"))
 		{
-			Object arrayObj;
-			dictPages->lookup("Kids", &arrayObj);
+			Object arrayObj = dictPages->lookup("Kids");
 			if (arrayObj.isArray())
 				return addArray(arrayObj.getArray());
 			else return false;
@@ -63,8 +62,8 @@ bool PagesCatalog::addArray(Array* pagesArray)
 
 	for(int i = 0; i < arrLen; i++)
 	{
-		Object page;
-		pagesArray->getNF(i, &page);
+		Object page = pagesArray->getNF(i).copy();
+
 		if (page.isRef())
 			pagesRef.push_back(page.getRef());
 		else

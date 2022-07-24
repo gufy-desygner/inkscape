@@ -160,7 +160,7 @@ public:
     // Property setting
     void setDocumentSize(double width, double height);  // Document size in px
     void setAsLayer(char *layer_name=NULL);
-    void setLayoutName(char *layout_name=NULL);
+    void setLayoutName(const char *layout_name=NULL);
     void setGroupOpacity(double opacity);
     NodeList* getNodeListByTags(std::vector<std::string> &tags, NodeList* list, Inkscape::XML::Node* startNode, ApproveNode* approve = nullptr);
     NodeList* getNodeListByTag(const char* tag, NodeList* list, Inkscape::XML::Node* startNode = nullptr, ApproveNode* approve = nullptr);
@@ -228,12 +228,12 @@ public:
     void clearSoftMask(GfxState *state);
 
     // Text handling
-    void beginString(GfxState *state, GooString *s);
+    void beginString(GfxState *state);
     void endString(GfxState *state);
     void addChar(GfxState *state, double x, double y,
                  double dx, double dy,
                  double originX, double originY,
-                 CharCode code, int nBytes, Unicode *u, int uLen);
+                 CharCode code, int nBytes, const Unicode *u, int uLen);
     char* glyphToPath(GfxState *state, CharCode codeCopy, Unicode uCopy);
     void beginTextObject(GfxState *state);
     void endTextObject(GfxState *state);
@@ -277,7 +277,7 @@ private:
     void _addStopToGradient(Inkscape::XML::Node *gradient, double offset,
                             GfxRGB *color, double opacity);
     bool _addGradientStops(Inkscape::XML::Node *gradient, GfxShading *shading,
-                           Function *func);
+                           const Function *func);
     gchar *_createTilingPattern(GfxTilingPattern *tiling_pattern, GfxState *state,
                                 bool is_stroke=false);
 

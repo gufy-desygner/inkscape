@@ -41,7 +41,7 @@ extern "C" {
 
 #include "goo/gmem.h"
 #include "goo/GooTimer.h"
-#include "goo/GooHash.h"
+//#include "goo/GooHash.h"
 #include "GlobalParams.h"
 #include "CharTypes.h"
 #include "Object.h"
@@ -342,7 +342,7 @@ PdfParser::PdfParser(XRef *xrefA,
   builder->setDocumentSize(Inkscape::Util::Quantity::convert(state->getPageWidth(), "pt", "px"),
                            Inkscape::Util::Quantity::convert(state->getPageHeight(), "pt", "px"));
 
-  double *ctm = state->getCTM();
+  const double *ctm = state->getCTM();
   double scaledCTM[6];
   for (int i = 0; i < 6; ++i) {
     baseMatrix[i] = ctm[i];
@@ -366,7 +366,7 @@ PdfParser::PdfParser(XRef *xrefA,
         state->lineTo(cropBox->x1, cropBox->y2);
         state->closePath();
         state->clip();
-        clipHistory->setClip(state->getPath(), clipNormal);
+        clipHistory->setClip((GfxPath*)state->getPath(), clipNormal);
         builder->setClipPath(state);
         state->clearPath();
     }
@@ -460,19 +460,18 @@ void PdfParser::parse(Object *obj, GBool topLevel) {
 
   if (obj->isArray()) {
     for (int i = 0; i < obj->arrayGetLength(); ++i) {
-      obj->arrayGet(i, &obj2);
+      obj2 = obj->arrayGet(i);
       if (!obj2.isStream()) {
 	error(errInternal, -1, "Weird page contents");
-	obj2.free();
 	return;
       }
-      obj2.free();
     }
   } else if (!obj->isStream()) {
 	error(errInternal, -1, "Weird page contents");
     	return;
   }
-  parser = new Parser(xref, new Lexer(xref, obj), gFalse);
+  //parser = new Parser(xref, new Lexer(xref, obj), gFalse);
+  parser = new Parser(xref, obj, gFalse);
   go(topLevel);
 
 
@@ -490,7 +489,7 @@ void PdfParser::go(GBool /*topLevel*/)
 
   // scan a sequence of objects
   int numArgs = 0;
-  parser->getObj(&obj);
+  obj = parser->getObj();
   while (!obj.isEOF()) {
 
     // got a command - execute it
@@ -509,14 +508,11 @@ void PdfParser::go(GBool /*topLevel*/)
       if (! simulate)
     	  execOp(&obj, args, numArgs);
 
-      obj.free();
-      for (int i = 0; i < numArgs; ++i)
-	args[i].free();
       numArgs = 0;
 
     // got an argument - save it
     } else if (numArgs < maxArgs) {
-      args[numArgs++] = obj;
+    	args[numArgs++] = std::move(obj);
 
     // too many arguments - something is wrong
     } else {
@@ -527,13 +523,11 @@ void PdfParser::go(GBool /*topLevel*/)
 	printf("\n");
 	fflush(stdout);
       }
-      obj.free();
     }
 
     // grab the next object
-    parser->getObj(&obj);
+    obj = parser->getObj();
   }
-  obj.free();
 
   // args at end with no command
   if (numArgs > 0) {
@@ -548,8 +542,8 @@ void PdfParser::go(GBool /*topLevel*/)
       printf("\n");
       fflush(stdout);
     }
-    for (int i = 0; i < numArgs; ++i)
-      args[i].free();
+   /* for (int i = 0; i < numArgs; ++i)
+      args[i].free();*/
   }
 
 }
@@ -598,13 +592,13 @@ const char *PdfParser::getPreviousOperator(unsigned int look_back) {
 
 void PdfParser::execOp(Object *cmd, Object args[], int numArgs) {
   PdfOperator *op;
-  char *name;
+  const char *name;
   Object *argPtr;
   int i;
 
   // find operator
   name = cmd->getCmd();
-  if (!(op = findOp(name))) {
+  if (!(op = findOp((char*)name))) {
     if (ignoreUndef == 0)
       error(errSyntaxError, getPos(), "Unknown operator '{0:s}'", name);
     return;
@@ -746,9 +740,7 @@ void PdfParser::opSetDash(Object args[], int /*numArgs*/)
   if (length != 0) {
     dash = (double *)gmallocn(length, sizeof(double));
     for (int i = 0; i < length; ++i) {
-      Object obj;
-      dash[i] = a->get(i, &obj)->getNum();
-      obj.free();
+      dash[i] = a->get(i).getNum();
     }
   }
   state->setLineDash(dash, length, args[1].getNum());
@@ -798,12 +790,13 @@ void PdfParser::opSetExtGState(Object args[], int /*numArgs*/)
   GBool haveBackdropColor = gFalse;
   GBool alpha = gFalse;
 
-  if (!res->lookupGState(args[0].getName(), &obj1)) {
+  obj1 = res->lookupGState(args[0].getName());
+  if (obj1.isNull()) {
     return;
   }
   if (!obj1.isDict()) {
     error(errSyntaxError, getPos(), "ExtGState '{0:s}' is wrong type"), args[0].getName();
-    obj1.free();
+    //obj1.free();
     return;
   }
   if (printCommands) {
@@ -813,7 +806,8 @@ void PdfParser::opSetExtGState(Object args[], int /*numArgs*/)
   }
 
   // transparency support: blend mode, fill/stroke opacity
-  if (!obj1.dictLookup(const_cast<char*>("BM"), &obj2)->isNull()) {
+  obj2 = obj1.dictLookup(const_cast<char*>("BM"));
+  if (! obj2.isNull()) {
     GfxBlendMode mode = gfxBlendNormal;
     if (state->parseBlendMode(&obj2, &mode)) {
       state->setBlendMode(mode);
@@ -821,40 +815,42 @@ void PdfParser::opSetExtGState(Object args[], int /*numArgs*/)
       error(errSyntaxError, getPos(), "Invalid blend mode in ExtGState");
     }
   }
-  obj2.free();
-  if (obj1.dictLookup(const_cast<char*>("ca"), &obj2)->isNum()) {
+
+  obj2 = obj1.dictLookup(const_cast<char*>("ca"));
+  if (obj2.isNum()) {
     state->setFillOpacity(obj2.getNum());
   }
-  obj2.free();
-  if (obj1.dictLookup(const_cast<char*>("CA"), &obj2)->isNum()) {
+
+  obj2 = obj1.dictLookup(const_cast<char*>("CA"));
+  if (obj2.isNum()) {
     state->setStrokeOpacity(obj2.getNum());
   }
-  obj2.free();
 
   // fill/stroke overprint
   GBool haveFillOP = gFalse;
-  if ((haveFillOP = (obj1.dictLookup(const_cast<char*>("op"), &obj2)->isBool()))) {
+  obj2 = obj1.dictLookup(const_cast<char*>("op"));
+  if (haveFillOP = (obj2.isBool())) {
     state->setFillOverprint(obj2.getBool());
   }
-  obj2.free();
-  if (obj1.dictLookup(const_cast<char*>("OP"), &obj2)->isBool()) {
+
+  obj2 = obj1.dictLookup(const_cast<char*>("OP"));
+  if (obj2.isBool()) {
     state->setStrokeOverprint(obj2.getBool());
     if (!haveFillOP) {
       state->setFillOverprint(obj2.getBool());
     }
   }
-  obj2.free();
 
   // stroke adjust
-  if (obj1.dictLookup(const_cast<char*>("SA"), &obj2)->isBool()) {
+  obj2 = obj1.dictLookup(const_cast<char*>("SA"));
+  if (obj2.isBool()) {
     state->setStrokeAdjust(obj2.getBool());
   }
-  obj2.free();
 
   // transfer function
-  if (obj1.dictLookup(const_cast<char*>("TR2"), &obj2)->isNull()) {
-    obj2.free();
-    obj1.dictLookup(const_cast<char*>("TR"), &obj2);
+  obj2 = obj1.dictLookup(const_cast<char*>("TR2"));
+  if (obj2.isNull()) {
+    obj2 = obj1.dictLookup(const_cast<char*>("TR"));
   }
   if (obj2.isName(const_cast<char*>("Default")) ||
       obj2.isName(const_cast<char*>("Identity"))) {
@@ -863,9 +859,8 @@ void PdfParser::opSetExtGState(Object args[], int /*numArgs*/)
   } else if (obj2.isArray() && obj2.arrayGetLength() == 4) {
     int pos = 4;
     for (int i = 0; i < 4; ++i) {
-      obj2.arrayGet(i, &obj3);
+      obj3 = obj2.arrayGet(i);
       funcs[i] = Function::parse(&obj3);
-      obj3.free();
       if (!funcs[i]) {
 	pos = i;
 	break;
@@ -882,96 +877,99 @@ void PdfParser::opSetExtGState(Object args[], int /*numArgs*/)
   } else if (!obj2.isNull()) {
     error(errSyntaxError, getPos(), "Invalid transfer function in ExtGState");
   }
-  obj2.free();
 
   // soft mask
-  if (!obj1.dictLookup(const_cast<char*>("SMask"), &obj2)->isNull()) {
+  obj2 = obj1.dictLookup(const_cast<char*>("SMask"));
+  if (!obj2.isNull()) {
     if (obj2.isName(const_cast<char*>("None"))) {
       builder->clearSoftMask(state);
     } else if (obj2.isDict()) {
-      if (obj2.dictLookup(const_cast<char*>("S"), &obj3)->isName(const_cast<char*>("Alpha"))) {
-	alpha = gTrue;
+      obj3 = obj2.dictLookup(const_cast<char*>("S"));
+      if (obj3.isName(const_cast<char*>("Alpha"))) {
+	    alpha = gTrue;
       } else { // "Luminosity"
-	alpha = gFalse;
+	    alpha = gFalse;
       }
-      obj3.free();
+
       funcs[0] = NULL;
-      if (!obj2.dictLookup(const_cast<char*>("TR"), &obj3)->isNull()) {
-	funcs[0] = Function::parse(&obj3);
-	if (funcs[0]->getInputSize() != 1 ||
-	    funcs[0]->getOutputSize() != 1) {
-	  error(errSyntaxError, getPos(), "Invalid transfer function in soft mask in ExtGState");
-	  delete funcs[0];
-	  funcs[0] = NULL;
-	}
+      obj3 = obj2.dictLookup(const_cast<char*>("TR"));
+      if (! obj3.isNull()) {
+	    funcs[0] = Function::parse(&obj3);
+	    if (funcs[0]->getInputSize() != 1 ||
+	        funcs[0]->getOutputSize() != 1) {
+	      error(errSyntaxError, getPos(), "Invalid transfer function in soft mask in ExtGState");
+	     delete funcs[0];
+	     funcs[0] = NULL;
+	    }
       }
-      obj3.free();
-      if ((haveBackdropColor = obj2.dictLookup(const_cast<char*>("BC"), &obj3)->isArray())) {
-	for (int i = 0; i < gfxColorMaxComps; ++i) {
-	  backdropColor.c[i] = 0;
-	}
-	for (int i = 0; i < obj3.arrayGetLength() && i < gfxColorMaxComps; ++i) {
-	  obj3.arrayGet(i, &obj4);
-	  if (obj4.isNum()) {
-	    backdropColor.c[i] = dblToCol(obj4.getNum());
-	  }
-	  obj4.free();
-	}
-      }
-      obj3.free();
-      if (obj2.dictLookup(const_cast<char*>("G"), &obj3)->isStream()) {
-	if (obj3.streamGetDict()->lookup(const_cast<char*>("Group"), &obj4)->isDict()) {
-	  GfxColorSpace *blendingColorSpace = 0;
-	  GBool isolated = gFalse;
-	  GBool knockout = gFalse;
-	  if (!obj4.dictLookup(const_cast<char*>("CS"), &obj5)->isNull()) {
-#if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
-	    blendingColorSpace = GfxColorSpace::parse(NULL, &obj5, NULL, NULL);
-#elif defined(POPPLER_EVEN_NEWER_COLOR_SPACE_API)
-	    blendingColorSpace = GfxColorSpace::parse(&obj5, NULL, NULL);
-#else
-	    blendingColorSpace = GfxColorSpace::parse(&obj5, NULL);
-#endif
-	  }
-	  obj5.free();
-	  if (obj4.dictLookup(const_cast<char*>("I"), &obj5)->isBool()) {
-	    isolated = obj5.getBool();
-	  }
-	  obj5.free();
-	  if (obj4.dictLookup(const_cast<char*>("K"), &obj5)->isBool()) {
-	    knockout = obj5.getBool();
-	  }
-	  obj5.free();
-	  if (!haveBackdropColor) {
-	    if (blendingColorSpace) {
-	      blendingColorSpace->getDefaultColor(&backdropColor);
-	    } else {
-	      //~ need to get the parent or default color space (?)
-	      for (int i = 0; i < gfxColorMaxComps; ++i) {
-		backdropColor.c[i] = 0;
+
+      obj3 = obj2.dictLookup(const_cast<char*>("BC"));
+      if ((haveBackdropColor = obj3.isArray())) {
+	    for (int i = 0; i < gfxColorMaxComps; ++i) {
+	      backdropColor.c[i] = 0;
+	    }
+	    for (int i = 0; i < obj3.arrayGetLength() && i < gfxColorMaxComps; ++i) {
+	      obj4 = obj3.arrayGet(i);
+	      if (obj4.isNum()) {
+	        backdropColor.c[i] = dblToCol(obj4.getNum());
 	      }
 	    }
-	  }
-	  doSoftMask(&obj3, alpha, blendingColorSpace,
+      }
+
+      obj3 = obj2.dictLookup(const_cast<char*>("G"));
+      if (obj3.isStream()) {
+    	obj4 = obj3.streamGetDict()->lookup(const_cast<char*>("Group"));
+        if ( obj4.isDict() ) {
+	      GfxColorSpace *blendingColorSpace = 0;
+	      GBool isolated = gFalse;
+	      GBool knockout = gFalse;
+	      obj5 = obj4.dictLookup(const_cast<char*>("CS"));
+	      if (! obj5.isNull()) {
+#if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
+	        blendingColorSpace = GfxColorSpace::parse(NULL, &obj5, NULL, NULL);
+#elif defined(POPPLER_EVEN_NEWER_COLOR_SPACE_API)
+	        blendingColorSpace = GfxColorSpace::parse(&obj5, NULL, NULL);
+#else
+	        blendingColorSpace = GfxColorSpace::parse(&obj5, NULL);
+#endif
+	      }
+
+	      obj5 = obj4.dictLookup(const_cast<char*>("I"));
+	      if (obj5.isBool()) {
+	        isolated = obj5.getBool();
+	      }
+
+	      obj5 = obj4.dictLookup(const_cast<char*>("K"));
+	      if (obj5.isBool()) {
+	        knockout = obj5.getBool();
+	      }
+
+	      if (!haveBackdropColor) {
+	        if (blendingColorSpace) {
+	          blendingColorSpace->getDefaultColor(&backdropColor);
+	        } else {
+	      //~ need to get the parent or default color space (?)
+	          for (int i = 0; i < gfxColorMaxComps; ++i) {
+		        backdropColor.c[i] = 0;
+	          }
+	        }
+	      }
+	      doSoftMask(&obj3, alpha, blendingColorSpace,
 		     isolated, knockout, funcs[0], &backdropColor);
-	  if (funcs[0]) {
-	    delete funcs[0];
-	  }
-	} else {
-	  error(errSyntaxError, getPos(), "Invalid soft mask in ExtGState - missing group");
-	}
-	obj4.free();
+	      if (funcs[0]) {
+	        delete funcs[0];
+	      }
+	    } else {
+	       error(errSyntaxError, getPos(), "Invalid soft mask in ExtGState - missing group");
+	    }
       } else {
 	error(errSyntaxError, getPos(), "Invalid soft mask in ExtGState - missing group");
       }
-      obj3.free();
+
     } else if (!obj2.isNull()) {
       error(errSyntaxError, getPos(), "Invalid soft mask in ExtGState");
     }
   }
-  obj2.free();
-
-  obj1.free();
 }
 
 void PdfParser::doSoftMask(Object *str, GBool alpha,
@@ -992,43 +990,43 @@ void PdfParser::doSoftMask(Object *str, GBool alpha,
   dict = str->streamGetDict();
 
   // check form type
-  dict->lookup(const_cast<char*>("FormType"), &obj1);
+  obj1 = dict->lookup(const_cast<char*>("FormType"));
   if (!(obj1.isNull() || (obj1.isInt() && obj1.getInt() == 1))) {
     error(errSyntaxError, getPos(), "Unknown form type");
   }
-  obj1.free();
+  //obj1.free();
 
   // get bounding box
-  dict->lookup(const_cast<char*>("BBox"), &obj1);
+  obj1 = dict->lookup(const_cast<char*>("BBox"));
   if (!obj1.isArray()) {
-    obj1.free();
+    //obj1.free();
     error(errSyntaxError, getPos(), "Bad form bounding box");
     return;
   }
   for (i = 0; i < 4; ++i) {
-    obj1.arrayGet(i, &obj2);
+	obj2 = obj1.arrayGet(i);
     bbox[i] = obj2.getNum();
-    obj2.free();
+    //obj2.free();
   }
-  obj1.free();
+  //obj1.free();
 
   // get matrix
-  dict->lookup(const_cast<char*>("Matrix"), &obj1);
+  obj1 = dict->lookup(const_cast<char*>("Matrix"));
   if (obj1.isArray()) {
     for (i = 0; i < 6; ++i) {
-      obj1.arrayGet(i, &obj2);
+    	obj2 = obj1.arrayGet(i);
       m[i] = obj2.getNum();
-      obj2.free();
+      //obj2.free();
     }
   } else {
     m[0] = 1; m[1] = 0;
     m[2] = 0; m[3] = 1;
     m[4] = 0; m[5] = 0;
   }
-  obj1.free();
+  //obj1.free();
 
   // get resources
-  dict->lookup(const_cast<char*>("Resources"), &obj1);
+  obj1 = dict->lookup(const_cast<char*>("Resources"));
   resDict = obj1.isDict() ? obj1.getDict() : (Dict *)NULL;
 
   // draw it
@@ -1041,7 +1039,7 @@ void PdfParser::doSoftMask(Object *str, GBool alpha,
   if (blendingColorSpace) {
     delete blendingColorSpace;
   }
-  obj1.free();
+  //obj1.free();
 }
 
 void PdfParser::opSetRenderingIntent(Object /*args*/[], int /*numArgs*/)
@@ -1151,7 +1149,7 @@ void PdfParser::opSetFillColorSpace(Object args[], int /*numArgs*/)
   Object obj;
 
   state->setFillPattern(NULL);
-  res->lookupColorSpace(args[0].getName(), &obj);
+  obj = res->lookupColorSpace(args[0].getName());
 
   GfxColorSpace *colorSpace = 0;
 #if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
@@ -1173,7 +1171,7 @@ void PdfParser::opSetFillColorSpace(Object args[], int /*numArgs*/)
     colorSpace = GfxColorSpace::parse(&obj, NULL);
   }
 #endif
-  obj.free();
+  //obj.free();
   if (colorSpace) {
   GfxColor color;
     state->setFillColorSpace(colorSpace);
@@ -1192,7 +1190,7 @@ void PdfParser::opSetStrokeColorSpace(Object args[], int /*numArgs*/)
   GfxColorSpace *colorSpace = 0;
 
   state->setStrokePattern(NULL);
-  res->lookupColorSpace(args[0].getName(), &obj);
+  obj = res->lookupColorSpace(args[0].getName());
 #if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
   if (obj.isNull()) {
     colorSpace = GfxColorSpace::parse(NULL, &args[0], NULL, NULL);
@@ -1212,7 +1210,7 @@ void PdfParser::opSetStrokeColorSpace(Object args[], int /*numArgs*/)
     colorSpace = GfxColorSpace::parse(&obj, NULL);
   }
 #endif
-  obj.free();
+  //obj.free();
   if (colorSpace) {
     GfxColor color;
     state->setStrokeColorSpace(colorSpace);
@@ -1639,7 +1637,7 @@ void PdfParser::doShadingPatternFillFallback(GfxShadingPattern *sPat,
                                              GBool stroke, GBool eoFill) {
   GfxShading *shading;
   GfxPath *savedPath;
-  double *ctm, *btm, *ptm;
+  const double *ctm, *btm, *ptm;
   double m[6], ictm[6], m1[6];
   double xMin, yMin, xMax, yMax;
   double det;
@@ -1881,7 +1879,7 @@ void PdfParser::doFunctionShFill1(GfxFunctionShading *shading,
   GfxColor color0M, color1M, colorM0, colorM1, colorMM;
   GfxColor colors2[4];
   double functionColorDelta = colorDeltas[pdfFunctionShading-1];
-  double *matrix;
+  const double *matrix;
   double xM, yM;
   int nComps, i, j;
 
@@ -2056,7 +2054,7 @@ void PdfParser::doPatchMeshShFill(GfxPatchMeshShading *shading) {
     start = 0;
   }
   for (i = 0; i < shading->getNPatches(); ++i) {
-    fillPatch(shading->getPatch(i), shading->getColorSpace()->getNComps(),
+    fillPatch((GfxPatch*)shading->getPatch(i), shading->getColorSpace()->getNComps(),
 	      start);
   }
 }
@@ -2205,10 +2203,10 @@ void PdfParser::doEndPath() {
   if (state->isCurPt() && clip != clipNone) {
     state->clip();
     if (clip == clipNormal) {
-      clipHistory->setClip(state->getPath(), clipNormal);
+      clipHistory->setClip((GfxPath*)state->getPath(), clipNormal);
       builder->clip(state);
     } else {
-      clipHistory->setClip(state->getPath(), clipEO);
+      clipHistory->setClip((GfxPath*)state->getPath(), clipEO);
       builder->clip(state, true);
     }
   }
@@ -2286,7 +2284,7 @@ bool checkExcludeListCharsStatic(char c, const char* charList = ",") {
 	return false;
 }
 
-char* prepareFamilyName(char *fontName, bool encode) {
+char* prepareFamilyName(const char *fontName, bool encode) {
 	  if (fontName) {
 		CURL *curl = curl_easy_init();
 		GooString *fontName2= new GooString(fontName);
@@ -2306,9 +2304,9 @@ char* prepareFamilyName(char *fontName, bool encode) {
 		}
 		char *encodeName;
 		if (encode)
-			encodeName = curl_easy_escape(curl, fontName2->getCString(), 0);
+			encodeName = curl_easy_escape(curl, fontName2->c_str(), 0);
 		else
-			encodeName = g_strdup(fontName2->getCString());
+			encodeName = g_strdup(fontName2->c_str());
 
 	    delete(fontName2);
 	    return encodeName;
@@ -2317,7 +2315,7 @@ char* prepareFamilyName(char *fontName, bool encode) {
 	  }
 }
 
-char* prepareFileFontName(char *fontName, bool isCIDFont) {
+char* prepareFileFontName(const char *fontName, bool isCIDFont) {
 	char *fontExt;
 	  if ( isCIDFont ) {
 		  fontExt = g_strdup_printf("%s", "cff");
@@ -2333,7 +2331,7 @@ char* prepareFileFontName(char *fontName, bool isCIDFont) {
 			}
 		}
 
-		char *preparedFontName = g_strdup(gooFileName->getCString());
+		char *preparedFontName = g_strdup(gooFileName->c_str());
 
 		delete(gooFileName);
 
@@ -2371,7 +2369,7 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 				  RecExportFont *param = (RecExportFont *) g_ptr_array_index(exportFontThreads, fontThredN);
 				  if (strlen(param->fontName) && font->getName() && font->getName()->getLength() > 0) {
 					  char *paramFontFile = prepareFileFontName(param->fontName, param->isCIDFont);
-					  char *arrFontFile = prepareFileFontName(font->getName()->getCString(), font->isCIDFont());
+					  char *arrFontFile = prepareFileFontName(font->getName()->c_str(), font->isCIDFont());
 					  if (strcmp(paramFontFile, arrFontFile) == 0){
 						  pthread_join(param->thredID, &p);
 					  }
@@ -2385,12 +2383,12 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 		  g_ptr_array_add(exportFontThreads, params);
 		  params->parser = this;
 		  params->font = font;
-	      char *embFontName = font->getEmbeddedFontName()->getCString();
-          char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
+	      const char *embFontName = font->getEmbeddedFontName()->c_str();
+          const char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->c_str();
 		  params->fontName = fullFontName;
 		  params->isCIDFont = font->isCIDFont();
 		  params->buf = font->readEmbFontFile(xref, &params->len);
-		  params->ctu = font->getToUnicode();
+		  params->ctu = (void*)font->getToUnicode();
 		  params->status = 1;
 
 		  if (async) {
@@ -2411,15 +2409,15 @@ inline bool isExistFile (const std::string& name) {
 void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 {
 	int len;
-	char *fname;
+	const char *fname;
 	static int num = 0;
-	char *embFontName = font->getEmbeddedFontName()->getCString();
-	char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
-	char *fontName = args ? args->fontName : fullFontName;
+	const char *embFontName = font->getEmbeddedFontName()->c_str();
+	const char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->c_str();
+	const char *fontName = args ? args->fontName : fullFontName;
 	bool isCIDFont = args ? args->isCIDFont : font->isCIDFont();
 	char *buf = args ? args->buf : font->readEmbFontFile(xref, &len);
 	if (args) len = args->len;
-	CharCodeToUnicode *ctu = args ? (CharCodeToUnicode *)args->ctu : font->getToUnicode();
+	const CharCodeToUnicode *ctu = args ? (CharCodeToUnicode *)args->ctu : font->getToUnicode();
 
 	CURL *curl = curl_easy_init();
 	char *fontExt;
@@ -2434,7 +2432,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 	  else {
 		fname = g_strdup_printf("%s_unnamed%i", builder->getDocName(), num);
 		char * encodeName = curl_easy_escape(curl, fname, 0);
-	    free(fname);
+	    //free(fname);
 		fname = g_strdup_printf("%s%s.%s", sp_export_svg_path_sh, encodeName, fontExt);
 		free(encodeName);
 	  }
@@ -2452,15 +2450,15 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 			  while(exeDir[strlen(exeDir) - 1 ] != '/') {
 				  exeDir[strlen(exeDir) - 1 ] = 0;
 			  }
-			  static int noname_num = 0; // conter of nemed of noname fonts
+			  //static int noname_num = 0; // conter of nemed of noname fonts
 			  //GooString *fontName2 = args ? new GooString(args->fontName) : fontName2 = new GooString(font->getName());
 
-			  char *originalFontName;
+			  const char *originalFontName;
 			  if (args) {
 				  originalFontName = args->fontName;
 			  }
 			  else {
-				  originalFontName = font->getName()->getCString();
+				  originalFontName = font->getName()->c_str();
 			  }
 			  GooString *fontName2 = new GooString(prepareFamilyName(originalFontName, false));
 
@@ -2517,7 +2515,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 
 				  bool jsonArrayStarted = false;
 				  for(int i = 0; i < mapLen; i++) {
-					  if (ctu->mapToUnicode(i, &u)) {
+					  if (ctu->mapToUnicode(i, (const unsigned int**)&u)) {
 						 if (jsonArrayStarted) {
 							buff[0] = ','; buff[1] = 0;
 							fwrite(buff, 1, strlen(buff), fMap);
@@ -2557,14 +2555,14 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 				  								exeDir, // path to script, without name
 				  								fname,  // name of TTF file for path
 												fontName, //postscriptname
-				  								fontName2->getCString()); //family
+				  								fontName2->c_str()); //family
 			  } else {
 			     // generate command for path names inside TTF file
 				  fontForgeCmd = g_strdup_printf("%sfontAdapter.py %s \"%s\" \"%s\" 2>/dev/null",
 								exeDir, // path to script, without name
 								fname,  // name of TTF file for path
-								fontName2->getCString(), //fontName, //postscriptname
-								fontName2->getCString()); //family
+								fontName2->c_str(), //fontName, //postscriptname
+								fontName2->c_str()); //family
 
 			  }
 
@@ -2582,7 +2580,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 						  free(attrName);
 
 						  attrName = g_strdup_printf("data-E%i%sex", errcount++, errcode);
-						  builder->getRoot()->setAttribute(attrName, fontName2->getCString());
+						  builder->getRoot()->setAttribute(attrName, fontName2->c_str());
 						  free(attrName);
 						  free(errcode);
 					  }
@@ -2594,7 +2592,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 			  g_free(fontForgeCmd);
 		  }
 	  }
-	  curl_free(fname);
+	  curl_free((void*)fname);
 	  free(fontExt);
 	  free(buf);
 	  free (curl);
@@ -2621,8 +2619,8 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   }
   if (printCommands) {
     printf("  font: tag=%s name='%s' %g\n",
-	   font->getTag()->getCString(),
-	   font->getName() ? font->getName()->getCString() : "???",
+	   font->getTag()->c_str(),
+	   font->getName() ? font->getName()->c_str() : "???",
 	   args[1].getNum());
     fflush(stdout);
   }
@@ -2631,12 +2629,12 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   state->setFont(font, args[1].getNum());
 
   // calculate comfortable space width
-  CharCodeToUnicode *ctu = font->getToUnicode();
+  const CharCodeToUnicode *ctu = font->getToUnicode();
   if (ctu) {
 	  builder->spaceWidth = 0;
 	  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
 		  Unicode *u;
-		  ctu->mapToUnicode(i, &u);
+		  ctu->mapToUnicode(i, (const unsigned int**)&u);
 		  if (*u == 32) {
 			  if (font->isCIDFont()) {
 				  builder->spaceWidth = ((GfxCIDFont *)font)->getWidth((char *)&i, 1) * state->getFontSize();
@@ -2771,7 +2769,7 @@ void PdfParser::opShowText(Object args[], int /*numArgs*/)
     builder->updateFont(state);
     fontChanged = gFalse;
   }
-  doShowText(args[0].getString());
+  doShowText((GooString*)args[0].getString());
 }
 
 // TODO not good that numArgs is ignored but args[] is used:
@@ -2792,7 +2790,7 @@ void PdfParser::opMoveShowText(Object args[], int /*numArgs*/)
   ty = state->getLineY() - state->getLeading();
   state->textMoveTo(tx, ty);
   builder->updateTextPosition(tx, ty);
-  doShowText(args[0].getString());
+  doShowText((GooString*)args[0].getString());
 }
 
 // TODO not good that numArgs is ignored but args[] is used:
@@ -2815,7 +2813,7 @@ void PdfParser::opMoveSetShowText(Object args[], int /*numArgs*/)
   ty = state->getLineY() - state->getLeading();
   state->textMoveTo(tx, ty);
   builder->updateTextPosition(tx, ty);
-  doShowText(args[2].getString());
+  doShowText((GooString*)args[2].getString());
 }
 
 // TODO not good that numArgs is ignored but args[] is used:
@@ -2836,7 +2834,7 @@ void PdfParser::opShowSpaceText(Object args[], int /*numArgs*/)
   wMode = state->getFont()->getWMode();
   a = args[0].getArray();
   for (int i = 0; i < a->getLength(); ++i) {
-    a->get(i, &obj);
+	  obj = a->get(i);
     if (obj.isNum()) {
       // this uses the absolute value of the font size to match
       // Acrobat's behavior
@@ -2853,7 +2851,7 @@ void PdfParser::opShowSpaceText(Object args[], int /*numArgs*/)
     } else {
       error(errSyntaxError, getPos(), "Element of show/space array must be number or string");
     }
-    obj.free();
+    //obj.free();
   }
 }
 
@@ -2877,9 +2875,9 @@ static void scaleByFontSize(GfxState *state, double &dx, double  &dy, double  &o
     originY *= state->getFontSize();
 }
 
-static bool isEmptyLine(GooString *s, char *p, int charLen) {
+static bool isEmptyLine(const GooString *s, const char *p, int charLen) {
   int _len = s->getLength();
-  char *_p = s->getCString();
+  const char *_p = s->c_str();
   bool onlySpase = true;
   uint _currentCode = 0;
   for(int ii = 0; ii < charLen; ii++) {
@@ -2909,8 +2907,8 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 		const CharCode codeCopy = code;
 		uActual = 0;
 		*u = &uActual;
-		((char*)*u)[0] = actualtextString->getCString()[actualMarkerPosition * 2 + 1];
-		((char*)*u)[1] = actualtextString->getCString()[actualMarkerPosition * 2];
+		((char*)*u)[0] = actualtextString->c_str()[actualMarkerPosition * 2 + 1];
+		((char*)*u)[1] = actualtextString->c_str()[actualMarkerPosition * 2];
 		if (uActual < 32) uActual = 32;
 		code = uActual;
 
@@ -2931,7 +2929,7 @@ void PdfParser::replaceFromActulaHidenText(Unicode **u, CharCode &code) {
 	}
 }
 
-void specialReplacesOfPDFChars(GooString *s, Unicode *u, int n) {
+void specialReplacesOfPDFChars(const GooString *s, Unicode *u, int n) {
     // change 0x1F as bullet point. if string consist of only one char - (s->getLength() == n)
 	if (u && (*u == 0x2002))
 	{
@@ -2947,27 +2945,27 @@ void specialReplacesOfPDFChars(GooString *s, Unicode *u, int n) {
     }
 }
 
-void PdfParser::doShowText(GooString *s) {
+void PdfParser::doShowText(const GooString *s) {
   GfxFont *font;
   int wMode;
   double riseX, riseY;
   CharCode code;
-  Unicode *u = NULL;
+  Unicode *u = nullptr;
   Unicode uActual = 0;
   double x, y, dx, dy, tdx, tdy;
   double originX, originY, tOriginX, tOriginY;
   double oldCTM[6], newCTM[6];
-  double *mat;
+  const double *mat;
   Object charProc;
   Dict *resDict;
   Parser *oldParser;
-  char *p;
+  const char *p =nullptr;
   int len, n, uLen;
 
   font = state->getFont();
   wMode = font->getWMode();
 
-  builder->beginString(state, s);
+  builder->beginString(state);
 
   // handle a Type 3 char
   if (font->getType() == fontType3 && 0) {//out->interpretType3Chars()) {
@@ -2997,11 +2995,11 @@ void PdfParser::doShowText(GooString *s) {
     double lineX = state->getLineX();
     double lineY = state->getLineY();
     oldParser = parser;
-    p = s->getCString();
+    p = g_strdup( s->c_str() );
     len = s->getLength();
     while (len > 0) {
       n = font->getNextChar(p, len, &code,
-			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
+			    (const unsigned int**)&u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
       dx = dx * state->getFontSize() + state->getCharSpace();
       if (n == 1 && *p == ' ') {
@@ -3017,7 +3015,7 @@ void PdfParser::doShowText(GooString *s) {
       //out->updateCTM(state, 1, 0, 0, 1, 0, 0);
       if (0){ /*!out->beginType3Char(state, curX + riseX, curY + riseY, tdx, tdy,
 			       code, u, uLen)) {*/
-		((Gfx8BitFont *)font)->getCharProc(code, &charProc);
+    	charProc = ((Gfx8BitFont *)font)->getCharProc(code);
 		if ((resDict = ((Gfx8BitFont *)font)->getResources())) {
 		  pushResources(resDict);
 		}
@@ -3030,7 +3028,7 @@ void PdfParser::doShowText(GooString *s) {
 		if (resDict) {
 		  popResources();
 		}
-		charProc.free();
+		//charProc.free();
       }
       restoreState();
       // GfxState::restore() does *not* restore the current position,
@@ -3042,15 +3040,18 @@ void PdfParser::doShowText(GooString *s) {
       p += n;
       len -= n;
     }
+    //if (p != nullptr)
+    //	free(p);
     parser = oldParser;
 
   } else { // is not fontType3
     state->textTransformDelta(0, state->getRise(), &riseX, &riseY);
-    p = s->getCString();
+    p = s->c_str();
     len = s->getLength();
     while (len > 0) {
+      //const Unicode *uTmp = nullptr;
       n = font->getNextChar(p, len, &code,
-			    &u, &uLen,  /* TODO: This looks like a memory leak for u. */
+			    (const Unicode **)&u, &uLen,  /* TODO: This looks like a memory leak for u. */
 			    &dx, &dy, &originX, &originY);
       // stub for photoshop's PDF - it do not want set widths
       if (dx == 1 && creator && strstr(creator, "Adobe Photoshop"))
@@ -3068,7 +3069,7 @@ void PdfParser::doShowText(GooString *s) {
 			  strcmp(font->getTag()->getCString(), "TT5")) {
     	  *u = p[0];
       }*/
-      specialReplacesOfPDFChars(s, u, n);
+      specialReplacesOfPDFChars(s, (unsigned int*)u, n);
       if (u && printCommands) {
 		  printf("%04x ", *u);
 		  fflush(stdout);
@@ -3100,8 +3101,9 @@ void PdfParser::doShowText(GooString *s) {
       builder->glipEndY = state->getCurY();
       p += n;
       len -= n;
-    }
-  }// END of while
+    }// END of while
+    //	free(p);
+  }
 
   builder->endString(state);
   //builder->updateStyle(state); // do start new text block.
@@ -3117,24 +3119,25 @@ void PdfParser::opXObject(Object args[], int /*numArgs*/)
 {
   Object obj1, obj2, obj3, refObj;
 
-  char *name = args[0].getName();
-  if (!res->lookupXObject(name, &obj1)) {
+  const char *name = args[0].getName();
+  obj1 = res->lookupXObject(name);
+  if (obj1.isNull()) {
     return;
   }
   if (!obj1.isStream()) {
     error(errSyntaxError, getPos(), "XObject '{0:s}' is wrong type", name);
-    obj1.free();
+    //obj1.free();
     return;
   }
-  obj1.streamGetDict()->lookup(const_cast<char*>("Subtype"), &obj2);
+  obj2 = obj1.streamGetDict()->lookup(const_cast<char*>("Subtype"));
   if (obj2.isName(const_cast<char*>("Image"))) {
-    res->lookupXObjectNF(name, &refObj);
+	  refObj = res->lookupXObjectNF(name);
     doImage(&refObj, obj1.getStream(), gFalse);
-    refObj.free();
+    //refObj.free();
   } else if (obj2.isName(const_cast<char*>("Form"))) {
     doForm(&obj1);
   } else if (obj2.isName(const_cast<char*>("PS"))) {
-    obj1.streamGetDict()->lookup(const_cast<char*>("Level1"), &obj3);
+	  obj3 = obj1.streamGetDict()->lookup(const_cast<char*>("Level1"));
 /*    out->psXObject(obj1.getStream(),
     		   obj3.isStream() ? obj3.getStream() : (Stream *)NULL);*/
   } else if (obj2.isName()) {
@@ -3142,8 +3145,8 @@ void PdfParser::opXObject(Object args[], int /*numArgs*/)
   } else {
     error(errSyntaxError, getPos(), "XObject subtype is missing or wrong type");
   }
-  obj2.free();
-  obj1.free();
+  //obj2.free();
+  //obj1.free();
 }
 
 void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
@@ -3170,10 +3173,10 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
     dict = str->getDict();
     
     // get size
-    dict->lookup(const_cast<char*>("Width"), &obj1);
+    obj1 = dict->lookup(const_cast<char*>("Width"));
     if (obj1.isNull()) {
-        obj1.free();
-        dict->lookup(const_cast<char*>("W"), &obj1);
+        //obj1.free();
+        obj1 = dict->lookup(const_cast<char*>("W"));
     }
     if (obj1.isInt()){
         width = obj1.getInt();
@@ -3184,11 +3187,11 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
     else {
         goto err2;
     }
-    obj1.free();
-    dict->lookup(const_cast<char*>("Height"), &obj1);
+    //obj1.free();
+    obj1 = dict->lookup(const_cast<char*>("Height"));
     if (obj1.isNull()) {
-        obj1.free();
-        dict->lookup(const_cast<char*>("H"), &obj1);
+        //obj1.free();
+        obj1 = dict->lookup(const_cast<char*>("H"));
     }
     if (obj1.isInt()) {
         height = obj1.getInt();
@@ -3199,26 +3202,26 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
     else {
         goto err2;
     }
-    obj1.free();
+    //obj1.free();
     
     // image interpolation
-    dict->lookup("Interpolate", &obj1);
+    obj1 = dict->lookup("Interpolate");
     if (obj1.isNull()) {
-      obj1.free();
-      dict->lookup("I", &obj1);
+      //obj1.free();
+      obj1 = dict->lookup("I");
     }
     if (obj1.isBool())
       interpolate = obj1.getBool();
     else
       interpolate = gFalse;
-    obj1.free();
+    //obj1.free();
     maskInterpolate = gFalse;
 
     // image or mask?
-    dict->lookup(const_cast<char*>("ImageMask"), &obj1);
+    obj1 = dict->lookup(const_cast<char*>("ImageMask"));
     if (obj1.isNull()) {
-        obj1.free();
-        dict->lookup(const_cast<char*>("IM"), &obj1);
+        //obj1.free();
+        obj1 = dict->lookup(const_cast<char*>("IM"));
     }
     mask = gFalse;
     if (obj1.isBool()) {
@@ -3227,14 +3230,14 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
     else if (!obj1.isNull()) {
         goto err2;
     }
-    obj1.free();
+    //obj1.free();
     
     // bit depth
     if (bits == 0) {
-        dict->lookup(const_cast<char*>("BitsPerComponent"), &obj1);
+    	obj1 = dict->lookup(const_cast<char*>("BitsPerComponent"));
         if (obj1.isNull()) {
-            obj1.free();
-            dict->lookup(const_cast<char*>("BPC"), &obj1);
+            //obj1.free();
+            obj1 = dict->lookup(const_cast<char*>("BPC"));
         }
         if (obj1.isInt()) {
             bits = obj1.getInt();
@@ -3243,7 +3246,7 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         } else {
             goto err2;
         }
-        obj1.free();
+        //obj1.free();
     }
     
     // display a mask
@@ -3253,21 +3256,21 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
             goto err1;
         }
         invert = gFalse;
-        dict->lookup(const_cast<char*>("Decode"), &obj1);
+        obj1 = dict->lookup(const_cast<char*>("Decode"));
         if (obj1.isNull()) {
-            obj1.free();
-            dict->lookup(const_cast<char*>("D"), &obj1);
+            //obj1.free();
+        	obj1 = dict->lookup(const_cast<char*>("D"));
         }
         if (obj1.isArray()) {
-            obj1.arrayGet(0, &obj2);
+        	obj2 = obj1.arrayGet(0);
             if (obj2.isInt() && obj2.getInt() == 1) {
                 invert = gTrue;
             }
-            obj2.free();
+            //obj2.free();
         } else if (!obj1.isNull()) {
             goto err2;
         }
-        obj1.free();
+        //obj1.free();
         
         // draw it
         builder->addImageMask(state, str, width, height, invert, interpolate);
@@ -3275,18 +3278,18 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
     } else {
         // get color space and color map
         GfxColorSpace *colorSpace;
-        dict->lookup(const_cast<char*>("ColorSpace"), &obj1);
+        obj1 = dict->lookup(const_cast<char*>("ColorSpace"));
         if (obj1.isNull()) {
-            obj1.free();
-            dict->lookup(const_cast<char*>("CS"), &obj1);
+            //obj1.free();
+            obj1 = dict->lookup(const_cast<char*>("CS"));
         }
         if (obj1.isName()) {
-            res->lookupColorSpace(obj1.getName(), &obj2);
+        	obj2 = res->lookupColorSpace(obj1.getName());
             if (!obj2.isNull()) {
-	            obj1.free();
-	            obj1 = obj2;
+	            //obj1.free();
+	            obj1 = obj2.copy();
             } else {
-	            obj2.free();
+	            //obj2.free();
             }
         }
         if (!obj1.isNull()) {
@@ -3306,17 +3309,17 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         } else {
             colorSpace = NULL;
         }
-        obj1.free();
+        //obj1.free();
         if (!colorSpace) {
             goto err1;
         }
-        dict->lookup(const_cast<char*>("Decode"), &obj1);
+        obj1 = dict->lookup(const_cast<char*>("Decode"));
         if (obj1.isNull()) {
-            obj1.free();
-            dict->lookup(const_cast<char*>("D"), &obj1);
+            //obj1.free();
+        	obj1 = dict->lookup(const_cast<char*>("D"));
         }
         GfxImageColorMap *colorMap = new GfxImageColorMap(bits, &obj1, colorSpace);
-        obj1.free();
+        //obj1.free();
         if (!colorMap->isOk()) {
             delete colorMap;
             goto err1;
@@ -3330,8 +3333,8 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         int maskHeight = 0;
         maskInvert = gFalse;
         GfxImageColorMap *maskColorMap = NULL;
-        dict->lookup(const_cast<char*>("Mask"), &maskObj);
-        dict->lookup(const_cast<char*>("SMask"), &smaskObj);
+        maskObj = dict->lookup(const_cast<char*>("Mask"));
+        smaskObj = dict->lookup(const_cast<char*>("SMask"));
         Dict* maskDict;
         if (smaskObj.isStream()) {
             // soft mask
@@ -3340,58 +3343,58 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
             }
             maskStr = smaskObj.getStream();
             maskDict = smaskObj.streamGetDict();
-            maskDict->lookup(const_cast<char*>("Width"), &obj1);
+            obj1 = maskDict->lookup(const_cast<char*>("Width"));
             if (obj1.isNull()) {
-        	    obj1.free();
-	            maskDict->lookup(const_cast<char*>("W"), &obj1);
+        	    //obj1.free();
+        	    obj1 = maskDict->lookup(const_cast<char*>("W"));
             }
             if (!obj1.isInt()) {
 	            goto err2;
             }
             maskWidth = obj1.getInt();
-            obj1.free();
-            maskDict->lookup(const_cast<char*>("Height"), &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup(const_cast<char*>("Height"));
             if (obj1.isNull()) {
-	            obj1.free();
-	            maskDict->lookup(const_cast<char*>("H"), &obj1);
+	            //obj1.free();
+	            obj1 = maskDict->lookup(const_cast<char*>("H"));
             }
             if (!obj1.isInt()) {
 	            goto err2;
             }
             maskHeight = obj1.getInt();
-            obj1.free();
-            maskDict->lookup(const_cast<char*>("BitsPerComponent"), &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup(const_cast<char*>("BitsPerComponent"));
             if (obj1.isNull()) {
-        	    obj1.free();
-	            maskDict->lookup(const_cast<char*>("BPC"), &obj1);
+        	    //obj1.free();
+            	obj1 = maskDict->lookup(const_cast<char*>("BPC"));
             }
             if (!obj1.isInt()) {
 	            goto err2;
             }
             int maskBits = obj1.getInt();
-            obj1.free();
-	    maskDict->lookup("Interpolate", &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup("Interpolate");
 	    if (obj1.isNull()) {
-	      obj1.free();
-	      maskDict->lookup("I", &obj1);
+	      //obj1.free();
+	    	obj1 = maskDict->lookup("I");
 	    }
 	    if (obj1.isBool())
 	      maskInterpolate = obj1.getBool();
 	    else
 	      maskInterpolate = gFalse;
-	    obj1.free();
-            maskDict->lookup(const_cast<char*>("ColorSpace"), &obj1);
+	    //obj1.free();
+	    obj1 = maskDict->lookup(const_cast<char*>("ColorSpace"));
             if (obj1.isNull()) {
-	            obj1.free();
-	            maskDict->lookup(const_cast<char*>("CS"), &obj1);
+	            //obj1.free();
+	            obj1 = maskDict->lookup(const_cast<char*>("CS"));
             }
             if (obj1.isName()) {
-	            res->lookupColorSpace(obj1.getName(), &obj2);
+            	obj2 = res->lookupColorSpace(obj1.getName());
 	            if (!obj2.isNull()) {
-	                obj1.free();
-    	            obj1 = obj2;
+	                //obj1.free();
+    	            obj1 = obj2.copy();
 	            } else {
-	                obj2.free();
+	                //obj2.free();
 	            }
             }
 #if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
@@ -3401,17 +3404,17 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
 #else
             GfxColorSpace *maskColorSpace = GfxColorSpace::parse(&obj1, NULL);
 #endif
-            obj1.free();
+            //obj1.free();
             if (!maskColorSpace || maskColorSpace->getMode() != csDeviceGray) {
                 goto err1;
             }
-            maskDict->lookup(const_cast<char*>("Decode"), &obj1);
+            obj1 = maskDict->lookup(const_cast<char*>("Decode"));
             if (obj1.isNull()) {
-	            obj1.free();
-    	        maskDict->lookup(const_cast<char*>("D"), &obj1);
+	            //obj1.free();
+	            obj1 = maskDict->lookup(const_cast<char*>("D"));
             }
             maskColorMap = new GfxImageColorMap(maskBits, &obj1, maskColorSpace);
-            obj1.free();
+            //obj1.free();
             if (!maskColorMap->isOk()) {
                 delete maskColorMap;
                 goto err1;
@@ -3422,9 +3425,9 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
             // color key mask
             int i;
             for (i = 0; i < maskObj.arrayGetLength() && i < 2*gfxColorMaxComps; ++i) {
-                maskObj.arrayGet(i, &obj1);
+            	obj1 = maskObj.arrayGet(i);
                 maskColors[i] = obj1.getInt();
-                obj1.free();
+                //obj1.free();
             }
               haveColorKeyMask = gTrue;
         } else if (maskObj.isStream()) {
@@ -3434,61 +3437,61 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
             }
             maskStr = maskObj.getStream();
             maskDict = maskObj.streamGetDict();
-            maskDict->lookup(const_cast<char*>("Width"), &obj1);
+            obj1 = maskDict->lookup(const_cast<char*>("Width"));
             if (obj1.isNull()) {
-                obj1.free();
-                maskDict->lookup(const_cast<char*>("W"), &obj1);
+                //obj1.free();
+                obj1 = maskDict->lookup(const_cast<char*>("W"));
             }
             if (!obj1.isInt()) {
                 goto err2;
             }
             maskWidth = obj1.getInt();
-            obj1.free();
-            maskDict->lookup(const_cast<char*>("Height"), &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup(const_cast<char*>("Height"));
             if (obj1.isNull()) {
-                obj1.free();
-                maskDict->lookup(const_cast<char*>("H"), &obj1);
+                //obj1.free();
+                obj1 = maskDict->lookup(const_cast<char*>("H"));
             }
             if (!obj1.isInt()) {
                 goto err2;
             }
             maskHeight = obj1.getInt();
-            obj1.free();
-            maskDict->lookup(const_cast<char*>("ImageMask"), &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup(const_cast<char*>("ImageMask"));
             if (obj1.isNull()) {
-                obj1.free();
-                maskDict->lookup(const_cast<char*>("IM"), &obj1);
+                //obj1.free();
+                obj1 = maskDict->lookup(const_cast<char*>("IM"));
             }
             if (!obj1.isBool() || !obj1.getBool()) {
                 goto err2;
             }
-            obj1.free();
-	    maskDict->lookup("Interpolate", &obj1);
+            //obj1.free();
+            obj1 = maskDict->lookup("Interpolate");
 	    if (obj1.isNull()) {
-	      obj1.free();
-	      maskDict->lookup("I", &obj1);
+	      //obj1.free();
+	      obj1 = maskDict->lookup("I");
 	    }
 	    if (obj1.isBool())
 	      maskInterpolate = obj1.getBool();
 	    else
 	      maskInterpolate = gFalse;
-	    obj1.free();
+	    //obj1.free();
             maskInvert = gFalse;
-            maskDict->lookup(const_cast<char*>("Decode"), &obj1);
+            obj1 = maskDict->lookup(const_cast<char*>("Decode"));
             if (obj1.isNull()) {
-                obj1.free();
-                maskDict->lookup(const_cast<char*>("D"), &obj1);
+                //obj1.free();
+                obj1 = maskDict->lookup(const_cast<char*>("D"));
             }
             if (obj1.isArray()) {
-                obj1.arrayGet(0, &obj2);
+            	obj2 = obj1.arrayGet(0);
                 if (obj2.isInt() && obj2.getInt() == 1) {
                     maskInvert = gTrue;
                 }
-                obj2.free();
+                //obj2.free();
             } else if (!obj1.isNull()) {
                 goto err2;
             }
-            obj1.free();
+            //obj1.free();
             haveExplicitMask = gTrue;
         }
         
@@ -3506,14 +3509,14 @@ void PdfParser::doImage(Object * /*ref*/, Stream *str, GBool inlineImg)
         }
         delete colorMap;
         
-        maskObj.free();
-        smaskObj.free();
+        //maskObj.free();
+        //smaskObj.free();
     }
     incTimer(timCREATE_IMAGE);
     return;
 
  err2:
-    obj1.free();
+    //obj1.free();
  err1:
     error(errSyntaxError, getPos(), "Bad image parameters");
 }
@@ -3538,52 +3541,55 @@ void PdfParser::doForm(Object *str) {
   dict = str->streamGetDict();
 
   // check form type
-  dict->lookup(const_cast<char*>("FormType"), &obj1);
+  obj1 = dict->lookup(const_cast<char*>("FormType"));
   if (!(obj1.isNull() || (obj1.isInt() && obj1.getInt() == 1))) {
     error(errSyntaxError, getPos(), "Unknown form type");
   }
-  obj1.free();
+  //obj1.free();
 
   // get bounding box
-  dict->lookup(const_cast<char*>("BBox"), &bboxObj);
+  bboxObj = dict->lookup(const_cast<char*>("BBox"));
   if (!bboxObj.isArray()) {
-    bboxObj.free();
+    //bboxObj.free();
     error(errSyntaxError, getPos(), "Bad form bounding box");
     return;
   }
   for (i = 0; i < 4; ++i) {
-    bboxObj.arrayGet(i, &obj1);
+	obj1 = bboxObj.arrayGet(i);
     bbox[i] = obj1.getNum();
-    obj1.free();
+    //obj1.free();
   }
-  bboxObj.free();
+  //bboxObj.free();
 
   // get matrix
-  dict->lookup(const_cast<char*>("Matrix"), &matrixObj);
+  matrixObj = dict->lookup(const_cast<char*>("Matrix"));
   if (matrixObj.isArray()) {
     for (i = 0; i < 6; ++i) {
-      matrixObj.arrayGet(i, &obj1);
+    	obj1 = matrixObj.arrayGet(i);
       m[i] = obj1.getNum();
-      obj1.free();
+      //obj1.free();
     }
   } else {
     m[0] = 1; m[1] = 0;
     m[2] = 0; m[3] = 1;
     m[4] = 0; m[5] = 0;
   }
-  matrixObj.free();
+  //matrixObj.free();
 
   // get resources
-  dict->lookup(const_cast<char*>("Resources"), &resObj);
+  resObj = dict->lookup(const_cast<char*>("Resources"));
   resDict = resObj.isDict() ? resObj.getDict() : (Dict *)NULL;
 
   // check for a transparency group
   transpGroup = isolated = knockout = gFalse;
   blendingColorSpace = NULL;
-  if (dict->lookup(const_cast<char*>("Group"), &obj1)->isDict()) {
-    if (obj1.dictLookup(const_cast<char*>("S"), &obj2)->isName(const_cast<char*>("Transparency"))) {
+  obj1 = dict->lookup(const_cast<char*>("Group"));
+  if (obj1.isDict()) {
+	obj2 = obj1.dictLookup(const_cast<char*>("S"));
+    if (obj2.isName(const_cast<char*>("Transparency"))) {
       transpGroup = gTrue;
-      if (!obj1.dictLookup(const_cast<char*>("CS"), &obj3)->isNull()) {
+      obj3 = obj1.dictLookup(const_cast<char*>("CS"));
+      if (!obj3.isNull()) {
 #if defined(POPPLER_EVEN_NEWER_NEW_COLOR_SPACE_API)
 	blendingColorSpace = GfxColorSpace::parse(NULL, &obj3, NULL, NULL);
 #elif defined(POPPLER_EVEN_NEWER_COLOR_SPACE_API)
@@ -3592,19 +3598,21 @@ void PdfParser::doForm(Object *str) {
 	blendingColorSpace = GfxColorSpace::parse(&obj3, NULL);
 #endif
       }
-      obj3.free();
-      if (obj1.dictLookup(const_cast<char*>("I"), &obj3)->isBool()) {
+      //obj3.free();
+      obj3 = obj1.dictLookup(const_cast<char*>("I"));
+      if (obj3.isBool()) {
 	isolated = obj3.getBool();
       }
-      obj3.free();
-      if (obj1.dictLookup(const_cast<char*>("K"), &obj3)->isBool()) {
+      //obj3.free();
+      obj3 = obj1.dictLookup(const_cast<char*>("K"));
+      if (obj3.isBool()) {
 	knockout = obj3.getBool();
       }
-      obj3.free();
+      //obj3.free();
     }
-    obj2.free();
+    //obj2.free();
   }
-  obj1.free();
+  //obj1.free();
 
   // draw it
   ++formDepth;
@@ -3615,7 +3623,7 @@ void PdfParser::doForm(Object *str) {
   if (blendingColorSpace) {
     delete blendingColorSpace;
   }
-  resObj.free();
+  //resObj.free();
 }
 
 void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox,
@@ -3659,7 +3667,7 @@ void PdfParser::doForm1(Object *str, Dict *resDict, double *matrix, double *bbox
   state->lineTo(bbox[0], bbox[3]);
   state->closePath();
   state->clip();
-  clipHistory->setClip(state->getPath());
+  clipHistory->setClip((GfxPath*)state->getPath());
   builder->clip(state);
   state->clearPath();
 
@@ -3744,35 +3752,34 @@ Stream *PdfParser::buildImageStream() {
   Stream *str;
 
   // build dictionary
-  dict.initDict(xref);
-  parser->getObj(&obj);
+  //dict.initDict(xref);
+  dict = Object(new Dict(xref));
+  obj = parser->getObj();
   while (!obj.isCmd(const_cast<char*>("ID")) && !obj.isEOF()) {
     if (!obj.isName()) {
       error(errSyntaxError, getPos(), "Inline image dictionary key must be a name object");
-      obj.free();
+      //obj.free();
     } else {
+      Object obj2;
       key = copyString(obj.getName());
-      obj.free();
-      parser->getObj(&obj);
-      if (obj.isEOF() || obj.isError()) {
+
+      obj2 = parser->getObj();
+      if (obj2.isEOF() || obj2.isError()) {
 	gfree(key);
 	break;
       }
-      dict.dictAdd(key, &obj);
+      dict.dictAdd(obj.getName(), std::move(obj));
     }
-    parser->getObj(&obj);
+    obj = parser->getObj();
   }
   if (obj.isEOF()) {
     error(errSyntaxError, getPos(), "End of file in inline image");
-    obj.free();
-    dict.free();
     return NULL;
   }
-  obj.free();
 
   // make stream
-  str = new EmbedStream(parser->getStream(), &dict, gFalse, 0);
-  str = str->addFilters(&dict);
+  str = new EmbedStream(parser->getStream(), dict.copy(), gFalse, 0);
+  str = str->addFilters(dict.getDict());
 
   return str;
 }
@@ -3828,27 +3835,28 @@ void PdfParser::opBeginMarkedContent(Object args[], int numArgs) {
   }
 
   if (args[0].isName("Span") && numArgs == 2 && args[1].isDict()) {
-      Object obj;
-      if (args[1].dictLookup("ActualText", &obj)->isString()) {
+      Object obj = args[1].dictLookup("ActualText");
+      if (obj.isString()) {
     	actualMarkerBegin = true;
     	actualtextString = new GooString(obj.getString());
     	actualMarkerPosition = 0;
       }
-      obj.free();
+      //obj.free();
   }
 
   if(numArgs == 2 && args[1].isName()) {
-	  Object mcPropertiesObj;
-	  res->lookupMarkedContentNF(args[1].getName(), &mcPropertiesObj);
+	  Object mcPropertiesObj = res->lookupMarkedContentNF(args[1].getName());
+
 	  if (mcPropertiesObj.isRef()) {
 		  Ref mcPropRef = mcPropertiesObj.getRef();
-		  Object mcPropObj;
-		  if (xref->fetch(mcPropRef.num, mcPropRef.gen, &mcPropObj) != nullptr)
+		  const Object &mcPropObj = xref->fetch(mcPropRef.num, mcPropRef.gen);
+		  //if (xref->fetch(mcPropRef.num, mcPropRef.gen, &mcPropObj) != nullptr)
+		  if ( ! mcPropObj.isNull() )
 		  {
 			  if (mcPropObj.isDict()) {
 				  Object layotNameObj;
 				  layoutIsNew = true;
-				  layoutProperties = mcPropObj.getDict();
+				  layoutProperties = mcPropObj.getDict()->copy(xref);
 			  }
 
 		  }
@@ -3909,12 +3917,12 @@ void PdfParser::saveState() {
   builder->saveState();
   if (layoutIsNew && layoutProperties)
   {
-	  Object objName;
-	  if (layoutProperties->lookupNF("Name", &objName) != nullptr && objName.isString())
+	  const Object &objName = layoutProperties->lookupNF("Name");
+	  if (objName.isString())
 	  {
-		  GooString* layoutName = objName.getString();
+		  const GooString* layoutName = objName.getString();
 		  int len = layoutName->getLength();
-		  char* cLayoutName = layoutName->getCString();
+		  char* cLayoutName = g_strdup(layoutName->c_str());
 		  // wrong unicode string. Right marker is 0xFEFF instead 0xFFFE
 		  if ((len > 3) && (cLayoutName[0] == (char)0xFF) && (cLayoutName[1] == (char)0xFE))
 		  {
@@ -3926,6 +3934,7 @@ void PdfParser::saveState() {
 			  cLayoutName[idx] = 0;
 		  }
 		  builder->setLayoutName(cLayoutName);
+		  free(cLayoutName);
 		  layoutIsNew = false;
 	  }
   }

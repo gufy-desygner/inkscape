@@ -14,7 +14,7 @@
 #include <popt.h>
 #include <stdlib.h>
 #include "goo/GooString.h"
-#include "goo/GooList.h"
+//#include "goo/GooList.h"
 #include "string"
 
 class PagesCatalog {

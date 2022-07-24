@@ -18,7 +18,7 @@ public:
 	PdfAnchor* next();
 	PdfAnchor* firstChild();
 	int getKind();
-	char* getDestName();
+	const char* getDestName();
 private:
 	Object anchor;
 };

@@ -329,7 +329,7 @@ PdfImportDialog::PdfImportDialog(PDFDoc *doc, const gchar */*uri*/)
     _render_thumb = true;
 
     // Create PopplerDocument
-    Glib::ustring filename = _pdf_doc->getFileName()->getCString();
+    Glib::ustring filename = _pdf_doc->getFileName()->c_str();
     if (!Glib::path_is_absolute(filename)) {
         filename = Glib::build_filename(Glib::get_current_dir(),filename);
     }
@@ -710,7 +710,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             globalParams = new GlobalParams();
         }
 #else
-        globalParams = new GlobalParams();
+        //globalParams = new GlobalParams();
+        globalParams = std::unique_ptr<GlobalParams>(new GlobalParams());
 #endif // ENABLE_OSX_APP_LOCATIONS
     }
 
@@ -837,19 +838,19 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
             int crop_choice = (int)crop_setting;
             switch (crop_choice) {
                 case 0: // Media box
-                    clipToBox = page->getMediaBox();
+                    clipToBox = (PDFRectangle*)page->getMediaBox();
                     break;
                 case 1: // Crop box
-                    clipToBox = page->getCropBox();
+                    clipToBox = (PDFRectangle*)page->getCropBox();
                     break;
                 case 2: // Bleed box
-                    clipToBox = page->getBleedBox();
+                    clipToBox = (PDFRectangle*)page->getBleedBox();
                     break;
                 case 3: // Trim box
-                    clipToBox = page->getTrimBox();
+                    clipToBox = (PDFRectangle*)page->getTrimBox();
                     break;
                 case 4: // Art box
-                    clipToBox = page->getArtBox();
+                    clipToBox = (PDFRectangle*)page->getArtBox();
                     break;
                 default:
                     break;
@@ -858,28 +859,28 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
         // Create parser  (extension/internal/pdfinput/pdf-parser.h)
         PdfParser *pdf_parser = new PdfParser(pdf_doc->getXRef(), builder, page_num-1, page->getRotate(),
-                                              page->getResourceDict(), page->getCropBox(), clipToBox);
+                                              page->getResourceDict(), (PDFRectangle*)page->getCropBox(), clipToBox);
         Object objInfo;
         gchar *retval = NULL;
-        GooString *gooCreator;
+        const GooString *gooCreator;
         char* strCreator = nullptr;
 
-        pdf_doc->getXRef()->getDocInfo(&objInfo);
+        objInfo = pdf_doc->getXRef()->getDocInfo();
         if (objInfo.isDict ()) {
           //retval = info_dict_get_string (obj.getDict(), "Creator");
           Object obj2;
           gchar *result;
 
-          if (objInfo.getDict()->lookup ((gchar *)"Creator", &obj2)->isString ())
+          obj2 = objInfo.getDict()->lookup ((gchar *)"Creator");
+          if (obj2.isString())
           {
 
         	  gooCreator = obj2.getString ();
-        	  strCreator = strdup(gooCreator->getCString());
+        	  strCreator = strdup(gooCreator->c_str());
         	  pdf_parser->creator = strCreator;
         	  sp_creator_sh = strCreator;
 			  //printf("%s\n", gooCreator->getCString());
           }
-          obj2.free();
         }
 
         // Set up approximation precision for parser. Used for convering Mesh Gradients into tiles.
@@ -898,7 +899,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         Object obj;
 
         logTime("Start parsing of PDF - default inkscape process");
-        page->getContents(&obj);
+        obj = page->getContents();
         if (!obj.isNull()) { // @suppress("Invalid arguments")
         	AdobeExtraData* bookMarks = nullptr;
         	if (sp_bookmarks_sh) {
@@ -1189,7 +1190,6 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
         }
 
         // Cleanup
-        obj.free();
         delete pdf_parser;
         delete builder;
         if (strCreator) free(strCreator);

@@ -5,7 +5,7 @@
 #include <popt.h>
 #include <stdlib.h>
 #include "goo/GooString.h"
-#include "goo/GooList.h"
+//#include "goo/GooList.h"
 #include "string"
 #include <Outline.h>
 #include "PagesCatalog.h"
@@ -78,16 +78,16 @@ void printPdfArray(Array* arr, const int intend = 0)
 	const int arrLen = arr->getLength();
 	for(int i = 0; i < arrLen; i++)
 	{
-		Object obj;
-		arr->getNF(i, &obj);
+		Object obj = arr->getNF(i).copy();
+
 		if (obj.isRef())
 		{
 			printf("%s[%i %i obj]\n", level.c_str(), obj.getRefNum(), obj.getRefGen());
-			arr->get(i, &obj);
+			Object obj = arr->get(i);
 		}
 		switch (obj.getType()){
 		case ObjType::objString :
-			printf("%s==>arrString(\"%s\")\n", level.c_str(), obj.getString()->getCString());
+			printf("%s==>arrString(\"%s\")\n", level.c_str(), obj.getString()->c_str());
 			break;
 		case ObjType::objArray :
 			printPdfArray(obj.getArray(), intend + 1);
@@ -117,12 +117,11 @@ void inspectPDFTree(Object* rootObj, const int intend)
 		{
 			const char* keyName = dict->getKey(i);
 			printf("%skey(%i)=\"%s\"\n", level.c_str(), i, keyName);
-			Object childObj;
-			dict->getValNF(i, &childObj);
+			Object childObj = dict->getValNF(i).copy();
 			if (childObj.isRef())
 			{
 				printf("%s[%i %i obj]\n", level.c_str(),childObj.getRefNum(), childObj.getRefGen());
-				dict->getVal(i, &childObj);
+				childObj = dict->getVal(i).copy();
 			}
 			switch (childObj.getType()) {
 			case ObjType::objDict :
@@ -136,7 +135,7 @@ void inspectPDFTree(Object* rootObj, const int intend)
 				}
 				break;
 			case ObjType::objString :
-				printf("%s==>String(\"%s\")\n", level.c_str(), childObj.getString()->getCString());
+				printf("%s==>String(\"%s\")\n", level.c_str(), childObj.getString()->c_str());
 				break;
 			case ObjType::objArray :
 				Array* arr = childObj.getArray();
@@ -174,27 +173,26 @@ std::vector<DestParams*> parseDestNamesArray(Array* destNamesArray)
 	const int arrLen = destNamesArray->getLength();
 	for(int i = 0; i < arrLen; i+=2)
 	{
-		Object nameObj;
+		Object nameObj = destNamesArray->get(i);
 		Object destObj;
 		Array* destPointArray = nullptr;
-		char* destName = nullptr;
+		const char* destName = nullptr;
 
-		destNamesArray->get(i, &nameObj);
 		if(nameObj.isString())
 		{
-			char* tmpName = nameObj.getString()->getCString();
-			GooString* gooDestName = nameObj.getString();
+			const char* tmpName = nameObj.getString()->c_str();
+			const GooString* gooDestName = nameObj.getString();
 			if (gooDestName->hasUnicodeMarker())
 			{
 				std::string utf8DestName = std::wstring_convert<
-				        std::codecvt_utf8_utf16<char16_t>, char16_t>{}.to_bytes((char16_t*)(gooDestName->getCString() + 3));
+				        std::codecvt_utf8_utf16<char16_t>, char16_t>{}.to_bytes((char16_t*)(gooDestName->c_str() + 3));
 				destName = (char*)malloc(utf8DestName.size() + 1);
-				memcpy(destName, utf8DestName.c_str(), utf8DestName.size() + 1);
+				memcpy((void*)destName, utf8DestName.c_str(), utf8DestName.size() + 1);
 			} else
-				destName = nameObj.getString()->getCString();
+				destName = nameObj.getString()->c_str();
 		}
 
-		destNamesArray->get(i + 1, &destObj);
+		destObj = destNamesArray->get(i + 1);
 		if(destObj.isArray())
 			destPointArray = destObj.getArray();
 
@@ -224,7 +222,7 @@ void printAnchors(PdfAnchor* aTree, std::vector<DestParams*> dests,  std::string
 	while(tmpItem != nullptr)
 	{
 		wprintf(L"%s{\n", intend.c_str());
-		char *destName = tmpItem->getDestName();
+		const char *destName = tmpItem->getDestName();
 		DestParams* dest = nullptr;
 		if (destName == nullptr)
 		{
@@ -360,8 +358,7 @@ int main(int argc, const char** argv)
 	// get root PDF's object
 	const int rootGen = docXRef->getRootGen();
 	const int rootNum = docXRef->getRootNum();
-	Object rootObj;
-	docXRef->fetch(rootNum, rootGen, &rootObj);
+	Object rootObj = docXRef->fetch(rootNum, rootGen);
 
 	// Get destination of links array
 	Object destsNamesObj;
@@ -379,7 +376,7 @@ int main(int argc, const char** argv)
 	if (! rootAnchor.isDict())
 		return 0;
 
-	PdfAnchor aTree(rootAnchor);
+	PdfAnchor aTree(rootAnchor.copy());
 
 	// Spool JSON with matched destination and bookmarks
 	if (parameters.outputFileName)

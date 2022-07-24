@@ -253,14 +253,24 @@ AC_CHECK_FUNCS([mallinfo], [
 			 [#include <malloc.h>])
 ])
 
-AC_PATH_PROG(FREETYPE_CONFIG, freetype-config, no)
+#AC_PATH_PROG(FREETYPE_CONFIG, freetype-config, no)
+#if test "x$FREETYPE_CONFIG" = "xno"; then
+#	AC_MSG_ERROR([Cannot find freetype-config])
+#fi
+#FREETYPE_CFLAGS=`$FREETYPE_CONFIG --cflags`
+#FREETYPE_LIBS=`$FREETYPE_CONFIG --libs`
+#AC_SUBST(FREETYPE_CFLAGS)
+#AC_SUBST(FREETYPE_LIBS)
+
+AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
 if test "x$FREETYPE_CONFIG" = "xno"; then
 	AC_MSG_ERROR([Cannot find freetype-config])
 fi
-FREETYPE_CFLAGS=`$FREETYPE_CONFIG --cflags`
-FREETYPE_LIBS=`$FREETYPE_CONFIG --libs`
+FREETYPE_CFLAGS=`$PKG_CONFIG  freetype2 --cflags`
+FREETYPE_LIBS=`$PKG_CONFIG freetype2 --libs`
 AC_SUBST(FREETYPE_CFLAGS)
 AC_SUBST(FREETYPE_LIBS)
+
 
 dnl ******************************
 dnl Win32
@@ -795,13 +805,13 @@ if test "x$enable_gtk3" = "xyes"; then
 
 	# Enable strict build options that are known to cause failure in
 	# Gtk+ 3 builds
-	if test "x$enable_strict_build" = "xhigh"; then
+	#if test "x$enable_strict_build" = "xhigh"; then
 		# Disable deprecated Gtk+ symbols that have been removed since
 		# Gtk+ 3.
-		CPPFLAGS="-DGTKMM_DISABLE_DEPRECATED $CPPFLAGS"
-		CPPFLAGS="-DGTK_DISABLE_DEPRECATED $CPPFLAGS"
-		CPPFLAGS="-DGDK_DISABLE_DEPRECATED $CPPFLAGS"
-	fi
+		#CPPFLAGS="-DGTKMM_DISABLE_DEPRECATED $CPPFLAGS"
+		#CPPFLAGS="-DGTK_DISABLE_DEPRECATED $CPPFLAGS"
+		#CPPFLAGS="-DGDK_DISABLE_DEPRECATED $CPPFLAGS"
+	#fi
 else
 
 	ink_spell_pkg=
@@ -835,7 +845,7 @@ else
 		# Prevent usage of deprecated Gtk+ symbols.  These have all
 		# been removed in Gtk+ 3 so these checks are important.
 		CPPFLAGS="-DGTKMM_DISABLE_DEPRECATED $CPPFLAGS"
-		CPPFLAGS="-DGTK_DISABLE_DEPRECATED $CPPFLAGS"
+		#CPPFLAGS="-DGTK_DISABLE_DEPRECATED $CPPFLAGS"
 		
 		# Allow only top-level GTK+ headers to be used.  This is mandatory
 		# for GTK+ >= 3.0 so there is no need to apply the flag in GTK+ 3
@@ -880,7 +890,7 @@ if test "x$enable_strict_build" != "xno"; then
 	
 	# Ensure that no deprecated glibmm symbols are introduced.
 	# lp:inkscape builds cleanly with this option at r10957
-	CPPFLAGS="-DGLIBMM_DISABLE_DEPRECATED $CPPFLAGS"
+	# CPPFLAGS="-DGLIBMM_DISABLE_DEPRECATED $CPPFLAGS"
 	
 	dnl Pango 1.32.4 uses a deprecated Glib symbol:
 	dnl   https://bugzilla.gnome.org/show_bug.cgi?id=689843

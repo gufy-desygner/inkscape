@@ -321,7 +321,7 @@ void mergeTwoTspan(Inkscape::XML::Node *first, Inkscape::XML::Node *second)
 {
 	static Inkscape::XML::Node *lastPassedFirstTspan = 0;
 	// todo: calculate averidge parmetrs DX and if current more -> this is space char.
-	static int firstTspanCharMerged = 0;
+	//static int firstTspanCharMerged = 0;
 	static double avrDxMerged = 0;
 
 	double firstEndX;
@@ -513,7 +513,7 @@ void SvgBuilder::setAsLayer(char *layer_name) {
     }
 }
 
-void SvgBuilder::setLayoutName(char *layout_name) {
+void SvgBuilder::setLayoutName(const char *layout_name) {
 	if (layout_name) {
 		_container->setAttribute("data-layoutname", layout_name);
 	}
@@ -1256,10 +1256,10 @@ static void svgSetTransform(Inkscape::XML::Node *node, double c0, double c1,
 /**
  * \brief Generates a SVG path string from poppler's data structure
  */
-static gchar *svgInterpretPath(GfxPath *path) {
+static gchar *svgInterpretPath(const GfxPath *path) {
     Inkscape::SVG::PathString pathString;
     for (int i = 0 ; i < path->getNumSubpaths() ; ++i ) {
-        GfxSubpath *subpath = path->getSubpath(i);
+        const GfxSubpath *subpath = path->getSubpath(i);
         if (subpath->getNumPoints() > 0) {
             pathString.moveTo(subpath->getX(0), subpath->getY(0));
             int j = 1;
@@ -1646,7 +1646,7 @@ gchar *SvgBuilder::_createPattern(GfxPattern *pattern, GfxState *state, bool is_
     if ( pattern != NULL ) {
         if ( pattern->getType() == 2 ) {  // Shading pattern
             GfxShadingPattern *shading_pattern = static_cast<GfxShadingPattern *>(pattern);
-            double *ptm;
+            const double *ptm;
             double m[6] = {1, 0, 0, 1, 0, 0};
             double det;
 
@@ -1693,7 +1693,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
 
     Inkscape::XML::Node *pattern_node = _xml_doc->createElement("svg:pattern");
     // Set pattern transform matrix
-    double *p2u = tiling_pattern->getMatrix();
+    const double *p2u = tiling_pattern->getMatrix();
     double m[6] = {1, 0, 0, 1, 0, 0};
     double det;
     det = _ttm[0] * _ttm[3] - _ttm[1] * _ttm[2];    // see LP Bug 1168908
@@ -1719,7 +1719,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
     pattern_node->setAttribute("patternUnits", "userSpaceOnUse");
     // Set pattern tiling
     // FIXME: don't ignore XStep and YStep
-    double *bbox = tiling_pattern->getBBox();
+    const double *bbox = tiling_pattern->getBBox();
     sp_repr_set_svg_double(pattern_node, "x", 0.0);
     sp_repr_set_svg_double(pattern_node, "y", 0.0);
     sp_repr_set_svg_double(pattern_node, "width", bbox[2] - bbox[0]);
@@ -1772,7 +1772,7 @@ gchar *SvgBuilder::_createTilingPattern(GfxTilingPattern *tiling_pattern,
  */
 gchar *SvgBuilder::_createGradient(GfxShading *shading, double *matrix, bool for_shading) {
     Inkscape::XML::Node *gradient;
-    Function *func;
+    const Function *func;
     int num_funcs;
     bool extend0, extend1;
 
@@ -1886,7 +1886,7 @@ static bool svgGetShadingColorRGB(GfxShading *shading, double offset, GfxRGB *re
 
 #define INT_EPSILON 8
 bool SvgBuilder::_addGradientStops(Inkscape::XML::Node *gradient, GfxShading *shading,
-                                   Function *func) {
+                                   const Function *func) {
     int type = func->getType();
     if ( type == 0 || type == 2 ) {  // Sampled or exponential function
         GfxRGB stop1, stop2;
@@ -1898,9 +1898,9 @@ bool SvgBuilder::_addGradientStops(Inkscape::XML::Node *gradient, GfxShading *sh
             _addStopToGradient(gradient, 1.0, &stop2, 1.0);
         }
     } else if ( type == 3 ) { // Stitching
-        StitchingFunction *stitchingFunc = static_cast<StitchingFunction*>(func);
-        double *bounds = stitchingFunc->getBounds();
-        double *encode = stitchingFunc->getEncode();
+        const StitchingFunction *stitchingFunc = static_cast<const StitchingFunction*>(func);
+        const double *bounds = stitchingFunc->getBounds();
+        const double *encode = stitchingFunc->getEncode();
         int num_funcs = stitchingFunc->getNumFuncs();
 
         // Add stops from all the stitched functions
@@ -1911,7 +1911,7 @@ bool SvgBuilder::_addGradientStops(Inkscape::XML::Node *gradient, GfxShading *sh
             svgGetShadingColorRGB(shading, bounds[i + 1], &color);
             // Add stops
             if (stitchingFunc->getFunc(i)->getType() == 2) {    // process exponential fxn
-                double expE = (static_cast<ExponentialFunction*>(stitchingFunc->getFunc(i)))->getE();
+                double expE = (static_cast<ExponentialFunction*>((ExponentialFunction*)stitchingFunc->getFunc(i)))->getE();
                 if (expE > 1.0) {
                     expE = (bounds[i + 1] - bounds[i])/expE;    // approximate exponential as a single straight line at x=1
                     if (encode[2*i] == 0) {    // normal sequence
@@ -2042,12 +2042,13 @@ void SvgBuilder::updateFont(GfxState *state) {
     GfxFont *font = state->getFont();
     // Store original name
     if (font->getName()) {
-        _font_specification = font->getName()->getCString();
+        _font_specification = g_strdup( font->getName()->c_str() );
         if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
-        		_font_specification = sp_font_default_font_sh;
+        		free(_font_specification);
+        		_font_specification = g_strdup(sp_font_default_font_sh);
         }
     } else {
-        _font_specification = (char*) "Lato";
+        _font_specification = g_strdup("Lato");
     }
 
     // Prune the font name to get the correct font family name
@@ -2062,6 +2063,7 @@ void SvgBuilder::updateFont(GfxState *state) {
     } else {
         font_family = g_strdup(_font_specification);
     }
+    //free(_font_specification);
     char *style_delim = NULL;
     if ( ( style_delim = g_strrstr(font_family, "-") ) ||
          ( style_delim = g_strrstr(font_family, ",") ) ) {
@@ -2072,15 +2074,15 @@ void SvgBuilder::updateFont(GfxState *state) {
 
     // Font family
     if (state->getFont()->getName()) { // if font family is explicitly given use it.
-    	char *fName = prepareFamilyName(font->getName()->getCString(), false);
+    	char *fName = prepareFamilyName(font->getName()->c_str(), false);
 		GooString *fontName2= new GooString(fName);
-		free(fName);
+		//free(fName);
 
         //sp_repr_css_set_property(_font_style, "font-family", font->getFamily()->getCString());
 		if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
 			sp_repr_css_set_property(_font_style, "font-family", sp_font_default_font_sh);
 		} else {
-			sp_repr_css_set_property(_font_style, "font-family", fontName2->getCString());
+			sp_repr_css_set_property(_font_style, "font-family", fontName2->c_str());
 		}
 		delete fontName2;
     } else { 
@@ -2183,7 +2185,7 @@ void SvgBuilder::updateFont(GfxState *state) {
     Inkscape::CSSOStringStream os_font_size;
     double css_font_size = _font_scaling * state->getFontSize();
     if ( font->getType() == fontType3 ) {
-        double *font_matrix = font->getFontMatrix();
+        const double *font_matrix = font->getFontMatrix();
         if ( font_matrix[0] != 0.0 ) {
             css_font_size *= font_matrix[3] / font_matrix[0];
             if (css_font_size < 0) {
@@ -2235,7 +2237,7 @@ void SvgBuilder::updateTextMatrix(GfxState *state) {
 	upTimer(timTEXT_FLUSH);
     _flushText();
     // Update text matrix
-    double *text_matrix = state->getTextMat();
+    const double *text_matrix = state->getTextMat();
     double w_scale = sqrt( text_matrix[0] * text_matrix[0] + text_matrix[2] * text_matrix[2] );
     double h_scale = sqrt( text_matrix[1] * text_matrix[1] + text_matrix[3] * text_matrix[3] );
     double max_scale;
@@ -2327,6 +2329,7 @@ void SvgBuilder::_flushText() {
     }
 
     Inkscape::XML::Node *text_node = _xml_doc->createElement("svg:text");
+
     gchar c[32];
     // add coordinates for end text
     sp_svg_number_write_de(c, sizeof(c), glipEndX, 8, -8);
@@ -2610,7 +2613,7 @@ void SvgBuilder::_flushText() {
     g_free(path_transform);
 }
 
-void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
+void SvgBuilder::beginString(GfxState *state) {
     if (_need_font_update) {
         updateFont(state);
     }
@@ -2628,7 +2631,7 @@ void SvgBuilder::beginString(GfxState *state, GooString * /*s*/) {
 void SvgBuilder::addChar(GfxState *state, double x, double y,
                          double dx, double dy,
                          double originX, double originY,
-                         CharCode code, int /*nBytes*/, Unicode *u, int uLen) {
+                         CharCode code, int /*nBytes*/, const Unicode *u, int uLen) {
 
 
     bool is_space = ( uLen == 1 && u[0] == 32 );
@@ -3049,13 +3052,12 @@ Inkscape::XML::Node *SvgBuilder::_createImage(Stream *str, int width, int height
     bool embed_image = ( attr_value != 0 );
     // Decide whether use PNG render branch or save original JPEG stream
     bool isJpeg = FALSE;
-    Object o;
-    str->getDict()->lookup("Filter", &o);
+    Object o = str->getDict()->lookup("Filter");
     if (o.getType() == objName) {
-		char *gStr = o.getName();
+		const char *gStr = o.getName();
 		isJpeg = strcmp(gStr,"DCTDecode") == 0;
     }
-    o.free();
+
 	bool makeOriginalImage = ( sp_try_origin_jpeg_sp && //CLI option
 			                   isJpeg &&
 			                   (! embed_image) && ((color_map == 0) || (color_map->getNumPixelComps() == 3)) &&
@@ -3590,6 +3592,7 @@ void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainN
 			currNode->updateRepr(SP_OBJECT_WRITE_EXT);
 			nodeBBox = currNode->geometricBounds(affine);
 		}
+		if (! nodeBBox.is_initialized()) continue;
 		Geom::Rect nodeRect = nodeBBox.get();
 
 		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )

@@ -13,6 +13,8 @@
 #include "xml/node.h"
 #include "shared_opt.h"
 
+bool isTableNode(Inkscape::XML::Node* node);
+
 inline bool approxEqual(const float x, const float y, const float epsilon = 0.05f)
 {
    return (std::fabs(x - y) <= epsilon);

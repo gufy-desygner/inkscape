@@ -34,6 +34,7 @@
 #include "extension/system.h"
 #include "sp-path.h"
 #include "2geom/curve.h"
+#include "TableRecognizeCommon.h"
 
 namespace Inkscape {
 namespace Extension {
@@ -2140,7 +2141,7 @@ bool objStreamToFile(Object* obj, const char* fileName)
 		  str->fillGooString(&gooStr);
 		  int length = gooStr.getLength();
 		  FILE* strFile = fopen(fileName, "w");
-		  fwrite(gooStr.getCString(), length, 1, strFile);
+		  fwrite(gooStr.c_str(), length, 1, strFile);
 		  fclose(strFile);
 		  return true;
 	  }

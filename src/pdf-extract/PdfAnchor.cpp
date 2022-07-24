@@ -10,9 +10,9 @@
 #include "tools.h"
 
 PdfAnchor::PdfAnchor(Object rootAnchor) :
-	OutlineItem(rootAnchor.getDict(), rootAnchor.getDict()->getXRef())
+	OutlineItem(rootAnchor.getDict(), rootAnchor.getRefNum(), nullptr, rootAnchor.getDict()->getXRef())
 {
-	anchor = rootAnchor;
+	anchor = rootAnchor.copy();
 };
 
 PdfAnchor* PdfAnchor::next()
@@ -24,9 +24,8 @@ PdfAnchor* PdfAnchor::next()
 		Dict* anchorDict = anchor.getDict();
 		if(anchorDict->hasKey("Next"))
 		{
-			Object obj;
-			anchorDict->lookup("Next", &obj);
-			result = new PdfAnchor(obj);
+			//Object obj = ;
+			result = new PdfAnchor(anchorDict->lookup("Next"));
 		}
 	}
 
@@ -42,9 +41,7 @@ PdfAnchor* PdfAnchor::firstChild()
 		Dict* anchorDict = anchor.getDict();
 		if(anchorDict->hasKey("First"))
 		{
-			Object obj;
-			anchorDict->lookup("First", &obj);
-			result = new PdfAnchor(obj);
+			result = new PdfAnchor(anchorDict->lookup("First"));
 		}
 	}
 
@@ -56,13 +53,13 @@ int PdfAnchor::getKind()
 	return this->getAction()->getKind();
 }
 
-char* PdfAnchor::getDestName()
+const char* PdfAnchor::getDestName()
 {
 	Object nameObj;
 	getObjectByPath("A/D", &anchor, &nameObj);
 	if (nameObj.isString())
 	{
-		return nameObj.getString()->getCString();
+		return nameObj.getString()->c_str();
 	}
 
 	return nullptr;

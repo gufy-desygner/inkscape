@@ -39,9 +39,9 @@ Object* getObjectByPath(const char* path, Object* srcObj, Object* destObj, bool 
 				if (loopObj == srcObj) loopObj = destObj;
 
 				if ((i == (segmentsCount - 1)) && getRef)
-					loopDict->lookupNF(arrPath[i].c_str(), loopObj);
+					*loopObj = loopDict->lookupNF(arrPath[i].c_str()).copy();
 				else
-					loopDict->lookup(arrPath[i].c_str(), loopObj);
+					*loopObj = loopDict->lookup(arrPath[i].c_str()).copy();
 			}
 		} else
 			return &nullObj;
