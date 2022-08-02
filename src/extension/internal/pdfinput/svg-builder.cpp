@@ -2042,7 +2042,9 @@ void SvgBuilder::updateFont(GfxState *state) {
     GfxFont *font = state->getFont();
     // Store original name
     if (font->getName()) {
-        _font_specification = font->getName()->getCString();
+		char *embFontName = font->getEmbeddedFontName()->getCString();
+        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
+		_font_specification = fullFontName;
         if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
         		_font_specification = sp_font_default_font_sh;
         }
@@ -2072,7 +2074,10 @@ void SvgBuilder::updateFont(GfxState *state) {
 
     // Font family
     if (state->getFont()->getName()) { // if font family is explicitly given use it.
-    	char *fName = prepareFamilyName(font->getName()->getCString(), false);
+		char *embFontName = font->getEmbeddedFontName()->getCString();
+        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
+		
+    	char *fName = prepareFamilyName(fullFontName, false);
 		GooString *fontName2= new GooString(fName);
 		free(fName);
 
