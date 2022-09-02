@@ -3597,7 +3597,7 @@ void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainN
 		}
 		Geom::Rect nodeRect = nodeBBox.get();
 
-		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
+		if ( ( rectIntersect(clipBox.get(), nodeRect, true) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
 		{
 			Inkscape::XML::Node* hiddenNode = currNode->getRepr();
 			hiddenNode->parent()->removeChild(hiddenNode);
@@ -3672,7 +3672,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		return USELESS_CLIP;
 	}
 
-	if ( rectIntersect(clipBBox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
+	if ( rectIntersect(clipBBox.get(), nodeBBox.get(), true) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
 	} else {
