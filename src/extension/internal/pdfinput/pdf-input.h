@@ -16,6 +16,18 @@
 
 #ifdef HAVE_POPPLER
 
+#undef GTK_DISABLE_DEPRECATED
+#include <gtk/gtk.h>
+/*struct _GtkBoxChild
+{
+  GtkWidget *widget;
+  guint16 padding;
+  guint expand : 1;
+  guint fill : 1;
+  guint pack : 1;
+  guint is_secondary : 1;
+};*/
+
 #include <gtkmm/dialog.h>
 
 #include "../../implementation/implementation.h"
