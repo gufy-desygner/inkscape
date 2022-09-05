@@ -2042,7 +2042,9 @@ void SvgBuilder::updateFont(GfxState *state) {
     GfxFont *font = state->getFont();
     // Store original name
     if (font->getName()) {
-        _font_specification = font->getName()->getCString();
+		char *embFontName = font->getEmbeddedFontName()->getCString();
+        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
+		_font_specification = fullFontName;
         if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
         		_font_specification = sp_font_default_font_sh;
         }
@@ -2072,7 +2074,10 @@ void SvgBuilder::updateFont(GfxState *state) {
 
     // Font family
     if (state->getFont()->getName()) { // if font family is explicitly given use it.
-    	char *fName = prepareFamilyName(font->getName()->getCString(), false);
+		char *embFontName = font->getEmbeddedFontName()->getCString();
+        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
+		
+    	char *fName = prepareFamilyName(fullFontName, false);
 		GooString *fontName2= new GooString(fName);
 		free(fName);
 
@@ -3592,7 +3597,7 @@ void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainN
 		}
 		Geom::Rect nodeRect = nodeBBox.get();
 
-		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
+		if ( ( rectIntersect(clipBox.get(), nodeRect, true) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
 		{
 			Inkscape::XML::Node* hiddenNode = currNode->getRepr();
 			hiddenNode->parent()->removeChild(hiddenNode);
@@ -3667,7 +3672,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		return USELESS_CLIP;
 	}
 
-	if ( rectIntersect(clipBBox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
+	if ( rectIntersect(clipBBox.get(), nodeBBox.get(), true) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
 	} else {
@@ -3785,10 +3790,10 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     		for(int colIdx = x1 * 4; colIdx < x2 * 4; colIdx += 4)
     		{
     			uint32_t pointIdx = rowIdx * stride + colIdx;
-    			r += px[pointIdx];
-				g += px[pointIdx+1];
-				b += px[pointIdx+2];
-				a += px[pointIdx+3];
+    			b += px[pointIdx];
+    			g += px[pointIdx+1];
+    			r += px[pointIdx+2];
+    			a += px[pointIdx+3];
     		}
     	}
 
