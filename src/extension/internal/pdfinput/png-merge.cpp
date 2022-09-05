@@ -155,6 +155,14 @@ Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
 	return findAttrNode(node);
 }
 
+Inkscape::XML::Node *MergeBuilder::findFirstAttrNodeWithPattern(void) {
+	return findAttrNodeWithPattern(_sourceSubVisual->firstChild());
+}
+
+Inkscape::XML::Node *MergeBuilder::findNextAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	return findAttrNodeWithPattern(node);
+}
+
 void MergeBuilder::clearMerge(void) {
     while(_mainSubVisual->firstChild()){
     	Inkscape::XML::Node *tmpNode = _mainSubVisual->firstChild();
@@ -215,6 +223,19 @@ void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Ink
 		}
 		tmpNode = tmpNode->next();
 	}
+}
+
+Inkscape::XML::Node *MergeBuilder::findAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode = NULL;
+	tmpNode = node;
+	while(tmpNode) {
+		if (haveTagAttrPattern(tmpNode)) {
+			return tmpNode;
+		}
+		tmpNode = tmpNode->next();
+	}
+	return resNode;
 }
 
 Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
@@ -2003,7 +2024,7 @@ void mergePatternToLayer(SvgBuilder *builder) {
 		  std::vector<Inkscape::XML::Node *> remNodes;
 
 		  // merge images with patterns
-		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNode();
+		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNodeWithPattern();
 		  //Inkscape::XML::Node *remNode;
 		  Inkscape::XML::Node *visualNode;
 		  if (mergeNode) visualNode = mergeNode->parent();
@@ -2017,7 +2038,7 @@ void mergePatternToLayer(SvgBuilder *builder) {
 			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
 			remNodes.push_back(mergeNode);
 
-			if ( ! mergeBuilder->haveTagAttrPattern(mergeNode->next())) {
+			{
 				// generate name of new image
 				tmpName = mergeNode->attribute("id");
 				char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
@@ -2029,11 +2050,9 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				mergeBuilder->clearMerge();
 				mergeNode = sumNode->next();
 				free(fName);
-			} else {
-				mergeNode = mergeNode->next();
 			}
 
-			mergeNode = mergeBuilder->findNextAttrNode(mergeNode);
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeNode);
 		  }
 
 		  if (remNodes.size() > 1)

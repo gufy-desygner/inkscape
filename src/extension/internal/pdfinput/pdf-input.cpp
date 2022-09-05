@@ -1054,8 +1054,8 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					logTime("Start merge mask");
 					mergeMaskToImage(builder);
 					logTime("Start merge gradients");
-                    mergePatternToLayer(builder);
                     mergeMaskGradientToLayer(builder);
+                    mergePatternToLayer(builder);
 					logTime("Start merge patch or to one layer");
 					uint nodeMergeCount = 0, regionMergeCount = 0;
 
