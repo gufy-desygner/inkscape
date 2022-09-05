@@ -54,6 +54,7 @@ enum mark_line_style {
 void createPrintingMarks(SvgBuilder *builder);
 void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve = nullptr);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
+void mergePatternToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
 void enumerationTags(Inkscape::XML::Node *inNode);
@@ -123,6 +124,7 @@ public:
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
 	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0, bool excludeTable=true);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
+	bool haveTagAttrPattern(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);
 	Inkscape::XML::Node *findFirstAttrNode(void);
