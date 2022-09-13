@@ -155,6 +155,14 @@ Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
 	return findAttrNode(node);
 }
 
+Inkscape::XML::Node *MergeBuilder::findFirstAttrNodeWithPattern(void) {
+	return findAttrNodeWithPattern(_sourceSubVisual->firstChild());
+}
+
+Inkscape::XML::Node *MergeBuilder::findNextAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	return findAttrNodeWithPattern(node);
+}
+
 void MergeBuilder::clearMerge(void) {
     while(_mainSubVisual->firstChild()){
     	Inkscape::XML::Node *tmpNode = _mainSubVisual->firstChild();
@@ -217,12 +225,25 @@ void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Ink
 	}
 }
 
+Inkscape::XML::Node *MergeBuilder::findAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode = NULL;
+	tmpNode = node;
+	while(tmpNode) {
+		if (haveTagAttrPattern(tmpNode)) {
+			return tmpNode;
+		}
+		tmpNode = tmpNode->next();
+	}
+	return resNode;
+}
+
 Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode;
 	Inkscape::XML::Node *resNode = NULL;
 	tmpNode = node;
 	while(tmpNode) {
-		if (haveTagAttrFormList(tmpNode)) {
+		if (haveTagAttrFormList(tmpNode) || haveTagAttrPattern(tmpNode)) {
 			return tmpNode;
 		}
 		tmpNode = tmpNode->next();
@@ -342,6 +363,83 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  }
 					  if (strcmp(attrName, "fill") == 0) {
 						  additionCond = (strstr("url(#linearGradient", styleValue) > 0);
+					  }
+					  const char *begin = strstr(styleValue, "url(#");
+					  const char *end;
+					  if (begin) {
+						  begin += 5;
+						  end = strstr(begin, ")");
+					  }
+					  if (begin && end) {
+						  memcpy(linkedID, begin, end - begin);
+						  linkedID[end-begin] = 0;
+						  attr = additionCond;
+					  }
+				  }
+			  }
+			  attrList++;
+		  }
+
+		  if (tmpNode->childCount() > 0)
+		  {
+			  if(haveTagAttrFormList(tmpNode->firstChild()))
+			  	  return true;
+		  }
+
+		  if (/*(tmpNode->childCount() == 0) && */tmpNode->next()) {
+			  //tmpNode = tmpNode->next();
+			  coun--;
+		  } else {
+		      //tmpNode = tmpNode->firstChild();
+		  }
+		  tmpNode = tmpNode->next();
+		  // if empty <g> tag - exit
+		  if (! tmpNode ) break;
+	  }
+
+	  tmpNode = tmpNode2;
+
+	  if (tmpNode == 0) return false;
+
+	  // if in list of tag
+	  for(int i = 0; i < _sizeListMergeTag; i++) {
+		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
+			  tag = TRUE;
+		  }
+	  }
+
+	  return tag && attr;
+}
+
+bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode = node;
+	  if (tmpNode == 0) return false;
+	  Inkscape::XML::Node *tmpNode2 = NULL;
+	  bool tag = FALSE;
+	  bool attr = FALSE;
+	  bool haveMask = FALSE;
+	  uint coun = 0;
+	  // print_node(node, 3);
+	  // Calculate count of right svg:g before other tag
+	  while((coun < 15) &&  (tmpNode != NULL)) {
+		  if (strcmp(tmpNode->name(), "svg:g") != 0 && (! tmpNode2)) {
+			  tmpNode2 = tmpNode; // node for check tags list
+		  }
+		  coun++;
+		  // Check in attribs list
+		  Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
+		  while( attrList ) {
+			  const char *attrName = g_quark_to_string(attrList->key);
+			  for(int i = 0; i < _sizeListMergeAttr; i++) {
+				  if (strcmp(attrName, _listMergeAttr[i]) == 0 && (! attr)) {
+					  bool additionCond = TRUE;
+					  const char *styleValue = tmpNode->attribute(attrName);
+					  // style tag is right only if it have some parametrs
+					  if (strcmp(attrName, "style") == 0) {
+						additionCond = (strstr(styleValue, "url(#pattern") > 0);
+					  }
+					  if (strcmp(attrName, "fill") == 0) {
+						  additionCond = (strstr("url(#pattern", styleValue) > 0);
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;
@@ -1907,6 +2005,69 @@ void mergeMaskToImage(SvgBuilder *builder) {
 
 		  delete mergeBuilder;
 	  }
+}
+
+void mergePatternToLayer(SvgBuilder *builder) {
+	  //================== merge images with patterns =================
+	  if (sp_merge_mask_sh) {
+		  // init MergeBuilder
+		  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+				  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:rect"));
+
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "fill"));
+		  // queue for delete
+		  std::vector<Inkscape::XML::Node *> remNodes;
+
+		  // merge images with patterns
+		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNodeWithPattern();
+		  //Inkscape::XML::Node *remNode;
+		  Inkscape::XML::Node *visualNode;
+		  if (mergeNode) visualNode = mergeNode->parent();
+		  const gchar *tmpName;
+		  mergeBuilder->clearMerge();
+		  while(mergeNode) {
+			// find text nodes and save it
+			moveTextNode(builder, mergeNode);
+
+			// merge
+			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			remNodes.push_back(mergeNode);
+
+			{
+				// generate name of new image
+				tmpName = mergeNode->attribute("id");
+				char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
+
+				// Save merged image
+				double resultDpi;
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, true, resultDpi);
+				visualNode->addChild(sumNode, mergeNode);
+				mergeBuilder->clearMerge();
+				mergeNode = sumNode->next();
+				free(fName);
+			}
+
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeNode);
+		  }
+
+		  if (remNodes.size() > 1)
+		      warning2wasRasterized = TRUE;
+
+		  // remove old nodes
+		  for(int i = 0; i < remNodes.size(); i++) {
+			  remNodes[i]->parent()->removeChild(remNodes[i]);
+			  mergeBuilder->removeRelateDefNodes(remNodes[i]);
+			  delete remNodes[i];
+		  }
+
+		  delete mergeBuilder;
+	  }
+
 }
 
 void mergeMaskGradientToLayer(SvgBuilder *builder) {
