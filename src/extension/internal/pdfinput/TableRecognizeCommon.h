@@ -25,7 +25,8 @@ inline float getDpiCoff()
 
 }
 
-double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind);
+/* bool allowLine  - IMRE-418 */
+double rectIntersect(const Geom::Rect& main, const Geom::Rect& kind,  bool allowLine = false /* line can has zero square */);
 std::string doubleToCss(double num);
 bool isNotTable(Inkscape::XML::Node *node);
 bool isTableNode(Inkscape::XML::Node* node);
