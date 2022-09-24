@@ -118,6 +118,8 @@ public:
 	void removeOldImagesEx(Inkscape::XML::Node *startNode);
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *AddClipPathToMyDefs(Inkscape::XML::Node *originalNode, SvgBuilder *builder, char* patternId, gchar *rebasePath);
+	//bool AddClipPathToMyDefs(Inkscape::XML::Node *clipPathNode, gchar *rebasePath);
 	void removeGFromNode(Inkscape::XML::Node *node); // remove graph objects from node
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
