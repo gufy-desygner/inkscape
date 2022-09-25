@@ -109,7 +109,7 @@ public:
 	Inkscape::XML::Node *fillTreeOfParents(Inkscape::XML::Node *fromNode);
 	Inkscape::XML::Node *findNodeById(Inkscape::XML::Node *fromNode, const char* id);
 	void mergeAll(char* rebasePath);
-	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
+	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath, Inkscape::XML::Document *doc = nullptr);
 	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
 	void getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Affine &innerAffine);
 	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
@@ -118,6 +118,8 @@ public:
 	void removeOldImagesEx(Inkscape::XML::Node *startNode);
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *AddClipPathToMyDefs(Inkscape::XML::Node *originalNode, SvgBuilder *builder, char* patternId, gchar *rebasePath);
+	//bool AddClipPathToMyDefs(Inkscape::XML::Node *clipPathNode, gchar *rebasePath);
 	void removeGFromNode(Inkscape::XML::Node *node); // remove graph objects from node
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
