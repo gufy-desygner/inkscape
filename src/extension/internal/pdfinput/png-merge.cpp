@@ -707,8 +707,9 @@ std::vector<Geom::Rect> MergeBuilder::getRegions()
 	return result;
 }
 
-Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
-	Inkscape::XML::Node *tempNode = destNode->document()->createElement(childNode->name());
+Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath, Inkscape::XML::Document *doc) {
+	if (doc == nullptr) doc = _xml_doc;
+	Inkscape::XML::Node *tempNode = doc->createElement(childNode->name());
     //print_node(childNode, 1);
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
@@ -2006,9 +2007,11 @@ Inkscape::XML::Node *MergeBuilder::AddClipPathToMyDefs(Inkscape::XML::Node *orig
 	addImageNode(newRect, sp_export_svg_path_sh);
 
 	Inkscape::XML::Node * newClipPath = builder->createElement("svg:clipPath");
-	copyAsChild(newClipPath, originalNode, rebasePath);
+	copyAsChild(newClipPath, originalNode, rebasePath, builder->getSpDocument()->getReprDoc());
 
-	return copyAsChild(((SPObject*) builder->getSpDocument()->getDefs())->getRepr(), newClipPath, rebasePath);
+	Inkscape::XML::Node *defsNode = ((SPObject*) builder->getSpDocument()->getDefs())->getRepr();
+	defsNode->appendChild(newClipPath);
+	return newClipPath;
 }
 
 char *removePatternFromStyle(char *style, char *pattern) {
