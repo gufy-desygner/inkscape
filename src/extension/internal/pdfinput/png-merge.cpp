@@ -379,9 +379,36 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 			  }
 			  attrList++;
 		  }
+
+		  if (tmpNode->childCount() > 0)
+		  {
+			  if(haveTagAttrFormList(tmpNode->firstChild()))
+			  	  return true;
+		  }
+
+		  if (/*(tmpNode->childCount() == 0) && */tmpNode->next()) {
+			  //tmpNode = tmpNode->next();
+			  coun--;
+		  } else {
+		      //tmpNode = tmpNode->firstChild();
+		  }
+		  tmpNode = tmpNode->next();
+		  // if empty <g> tag - exit
+		  if (! tmpNode ) break;
 	  }
 
-	  return attr;
+	  tmpNode = tmpNode2;
+
+	  if (tmpNode == 0) return false;
+
+	  // if in list of tag
+	  for(int i = 0; i < _sizeListMergeTag; i++) {
+		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
+			  tag = TRUE;
+		  }
+	  }
+
+	  return tag && attr;
 }
 
 bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
@@ -429,36 +456,9 @@ bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
 			  }
 			  attrList++;
 		  }
-
-		  if (tmpNode->childCount() > 0)
-		  {
-			  if(haveTagAttrFormList(tmpNode->firstChild()))
-			  	  return true;
-		  }
-
-		  if (/*(tmpNode->childCount() == 0) && */tmpNode->next()) {
-			  //tmpNode = tmpNode->next();
-			  coun--;
-		  } else {
-		      //tmpNode = tmpNode->firstChild();
-		  }
-		  tmpNode = tmpNode->next();
-		  // if empty <g> tag - exit
-		  if (! tmpNode ) break;
 	  }
 
-	  tmpNode = tmpNode2;
-
-	  if (tmpNode == 0) return false;
-
-	  // if in list of tag
-	  for(int i = 0; i < _sizeListMergeTag; i++) {
-		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
-			  tag = TRUE;
-		  }
-	  }
-
-	  return tag && attr;
+	  return attr;
 }
 
 Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
