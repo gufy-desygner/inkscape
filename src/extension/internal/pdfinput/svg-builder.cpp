@@ -3666,6 +3666,9 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 
 	if (firstChild == nullptr || clipBBox.contains(nodeBBox))
 	{
+		// Check if the the two boxes are not the same, otherwise skip cause the clip can be a path that is not rectangle
+		if (clipBBox.contains(clipBBox.get().corner(0)) && clipBBox.contains(clipBBox.get().corner(2))) return KEEP_CLIP;
+	
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
