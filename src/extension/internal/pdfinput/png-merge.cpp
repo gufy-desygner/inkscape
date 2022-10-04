@@ -456,36 +456,9 @@ bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
 			  }
 			  attrList++;
 		  }
-
-		  if (tmpNode->childCount() > 0)
-		  {
-			  if(haveTagAttrFormList(tmpNode->firstChild()))
-			  	  return true;
-		  }
-
-		  if (/*(tmpNode->childCount() == 0) && */tmpNode->next()) {
-			  //tmpNode = tmpNode->next();
-			  coun--;
-		  } else {
-		      //tmpNode = tmpNode->firstChild();
-		  }
-		  tmpNode = tmpNode->next();
-		  // if empty <g> tag - exit
-		  if (! tmpNode ) break;
 	  }
 
-	  tmpNode = tmpNode2;
-
-	  if (tmpNode == 0) return false;
-
-	  // if in list of tag
-	  for(int i = 0; i < _sizeListMergeTag; i++) {
-		  if ((coun >= 0) && (strcmp(tmpNode->name(), _listMergeTags[i]) == 0) && (tmpNode->childCount() == 0)) {
-			  tag = TRUE;
-		  }
-	  }
-
-	  return tag && attr;
+	  return attr;
 }
 
 Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
@@ -509,7 +482,7 @@ Inkscape::XML::Node *MergeBuilder::findNodeById(Inkscape::XML::Node *fromNode, c
 	Inkscape::XML::Node *tmpNode = fromNode;
 	Inkscape::XML::Node *tmpResult;
 	while(tmpNode) {
-		if (strcmp(tmpNode->attribute("id"), id) == 0) {
+		if (tmpNode->attribute("id") && strcmp(tmpNode->attribute("id"), id) == 0) {
 			return tmpNode;
 		}
 		if (tmpNode->childCount()) {
@@ -733,8 +706,9 @@ std::vector<Geom::Rect> MergeBuilder::getRegions()
 	return result;
 }
 
-Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
-	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
+Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath, Inkscape::XML::Document *doc) {
+	if (doc == nullptr) doc = _xml_doc;
+	Inkscape::XML::Node *tempNode = doc->createElement(childNode->name());
     //print_node(childNode, 1);
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
@@ -2007,6 +1981,49 @@ void mergeMaskToImage(SvgBuilder *builder) {
 	  }
 }
 
+Inkscape::XML::Node *MergeBuilder::AddClipPathToMyDefs(Inkscape::XML::Node *originalNode, SvgBuilder *builder, char* patternId, gchar *rebasePath) {
+	
+	SPObject *obj = builder->getSpDocument()->getObjectById(originalNode->attribute("id"));
+	Geom::OptRect visualBound(SP_ITEM(obj)->visualBounds());
+
+	Geom::Rect sq = Geom::Rect();
+	double x1, x2, y1, y2;
+
+	sq = visualBound.get();
+	x1 = sq[Geom::X][0];
+	x2 = sq[Geom::X][1];
+	y1 = sq[Geom::Y][0];
+	y2 = sq[Geom::Y][1];
+
+	char dMatrix[500];
+	memset((void*)dMatrix, 0, 500);
+	snprintf(dMatrix, 500, "m %d,%d h %d v %d h -%d z", int(x1), int(y1), int(abs(x2 - x1)), int(abs(y2 - y1)), int(abs(x2 - x1)));
+
+	Inkscape::XML::Node * newRect = builder->createElement("svg:path");
+	newRect->setAttribute("fill", patternId);
+	newRect->setAttribute("d", dMatrix);
+
+	addImageNode(newRect, sp_export_svg_path_sh);
+
+	Inkscape::XML::Node * newClipPath = builder->createElement("svg:clipPath");
+	copyAsChild(newClipPath, originalNode, rebasePath, builder->getSpDocument()->getReprDoc());
+
+	Inkscape::XML::Node *defsNode = ((SPObject*) builder->getSpDocument()->getDefs())->getRepr();
+	defsNode->appendChild(newClipPath);
+	return newClipPath;
+}
+
+char *removePatternFromStyle(char *style, char *pattern) {
+    size_t len = strlen(pattern);
+    if (len > 0) {
+        char *p = style;
+        while ((p = strstr(p, pattern)) != NULL) {
+            memmove(p, p + len, strlen(p + len) + 1);
+        }
+    }
+    return style;
+}
+
 void mergePatternToLayer(SvgBuilder *builder) {
 	  //================== merge images with patterns =================
 	  if (sp_merge_mask_sh) {
@@ -2031,11 +2048,47 @@ void mergePatternToLayer(SvgBuilder *builder) {
 		  const gchar *tmpName;
 		  mergeBuilder->clearMerge();
 		  while(mergeNode) {
+
+		  	if (! mergeBuilder->haveTagAttrPattern(mergeNode)) {
+				mergeNode = mergeNode->next();
+				continue;
+			}
+
 			// find text nodes and save it
 			moveTextNode(builder, mergeNode);
 
-			// merge
-			mergeBuilder->addImageNode(mergeNode, sp_export_svg_path_sh);
+			Inkscape::XML::Node *clipPathNode = nullptr;
+			char patternId[100];
+			{
+				// check if the pattern itself has a clip path
+				char* patternId = (char*)(mergeNode->attribute((char*)"fill"));
+				if (patternId == nullptr) {
+					// style tag 
+					char* styleValue =  (char*)(mergeNode->attribute((char*)"style"));
+					if (styleValue && (strstr(styleValue, "url(#pattern") > 0)) {
+						const char *grIdStart = strstr(styleValue, "url(#pattern");
+						const char *grIdEnd;
+						if (grIdStart) {
+							grIdEnd = strstr(grIdStart, ")");
+							if (grIdStart && grIdEnd) {
+								char patternNodeId[100];
+								grIdEnd += 1;
+								memcpy(patternNodeId, grIdStart, grIdEnd + 1 - grIdStart);
+								patternNodeId[grIdEnd - grIdStart] = 0;
+								styleValue = removePatternFromStyle(styleValue, patternNodeId);
+								mergeNode->setAttribute("style", styleValue);
+								
+								clipPathNode = mergeBuilder->AddClipPathToMyDefs(mergeNode, builder, patternNodeId, sp_export_svg_path_sh);
+							}
+						}
+					}
+				} else {
+					mergeNode->setAttribute("fill", nullptr);
+					clipPathNode = mergeBuilder->AddClipPathToMyDefs(mergeNode, builder, patternId, sp_export_svg_path_sh);
+				}
+				
+			}
+
 			remNodes.push_back(mergeNode);
 
 			{
@@ -2046,9 +2099,19 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				// Save merged image
 				double resultDpi;
 				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, true, resultDpi);
-				visualNode->addChild(sumNode, mergeNode);
+
+				Inkscape::XML::Node * newParent = builder->createElement("svg:g");
+
+				if (clipPathNode) {
+					char clipPathUrl[50];
+					memset((void*)clipPathUrl, 0, 50);
+					snprintf(clipPathUrl, 50, "url(#%s)", clipPathNode->attribute("id"));
+					newParent->setAttribute("clip-path", clipPathUrl);
+				}
+				newParent->appendChild(sumNode);
+				visualNode->addChild(newParent, mergeNode);
 				mergeBuilder->clearMerge();
-				mergeNode = sumNode->next();
+				mergeNode = newParent->next();
 				free(fName);
 			}
 
