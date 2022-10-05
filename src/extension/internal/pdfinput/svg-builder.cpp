@@ -3650,6 +3650,9 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	clip_path_id[strlen(clipUrl) - 6] = 0;
 	SPDocument* spDoc = this->getSpDocument();
 	SPClipPath* spClipPath = (SPClipPath*)spDoc->getObjectById(clip_path_id);
+
+	if (spClipPath->getRepr()->attribute("id") && strstr(clipPathNode->getRepr()->attribute("id"), "pattern_"))return KEEP_CLIP;
+
 	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
@@ -3661,9 +3664,6 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 
 	if (firstChild == nullptr || clipBBox.contains(nodeBBox))
 	{
-		// Check if the the two boxes are not the same, otherwise skip cause the clip can be a path that is not rectangle
-		if (clipBBox.contains(clipBBox.get().corner(0)) && clipBBox.contains(clipBBox.get().corner(2))) return KEEP_CLIP;
-	
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();
 		clipNode->parent()->removeChild(clipNode);
