@@ -2010,6 +2010,10 @@ Inkscape::XML::Node *MergeBuilder::AddClipPathToMyDefs(Inkscape::XML::Node *orig
 
 	Inkscape::XML::Node *defsNode = ((SPObject*) builder->getSpDocument()->getDefs())->getRepr();
 	defsNode->appendChild(newClipPath);
+	char clipPathCustomeId[50];
+	memset((void*)clipPathCustomeId, 0, 50);
+	snprintf(clipPathCustomeId, 50, "pattern_%s", newClipPath->attribute("id"));
+	newClipPath->setAttribute("id", clipPathCustomeId);
 	return newClipPath;
 }
 
