@@ -3651,7 +3651,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	SPDocument* spDoc = this->getSpDocument();
 	SPClipPath* spClipPath = (SPClipPath*)spDoc->getObjectById(clip_path_id);
 
-	if (spClipPath->getRepr()->attribute("id") && strstr(clipPathNode->getRepr()->attribute("id"), "pattern_"))return KEEP_CLIP;
+	if (spClipPath->getRepr()->attribute("id") && strstr(spClipPath->getRepr()->attribute("id"), "pattern_"))return KEEP_CLIP;
 
 	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
