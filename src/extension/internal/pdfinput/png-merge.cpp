@@ -2085,7 +2085,6 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				}
 				
 			}
-
 			remNodes.push_back(mergeNode);
 
 			{
@@ -2108,10 +2107,10 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				newParent->appendChild(sumNode);
 				visualNode->addChild(newParent, mergeNode);
 				mergeBuilder->clearMerge();
-				mergeNode = newParent->next();
+				//mergeNode = newParent->next();
 				free(fName);
 			}
-			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeBuilder->getSourceSubVisual()); //
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeBuilder->getSourceSubVisual()->next()); //
 		  }
 
 		  if (remNodes.size() > 1)
