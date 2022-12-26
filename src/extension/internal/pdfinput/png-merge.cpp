@@ -2042,13 +2042,14 @@ void mergePatternToLayer(SvgBuilder *builder) {
 		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNodeWithPattern();
 		  //Inkscape::XML::Node *remNode;
 		  Inkscape::XML::Node *visualNode;
+		  Inkscape::XML::Node *indexNode = mergeBuilder->getSourceSubVisual()->firstChild();
 		  if (mergeNode) visualNode = mergeNode->parent();
 		  const gchar *tmpName;
 		  mergeBuilder->clearMerge();
 		  while(mergeNode) {
 
 			if (! mergeBuilder->haveTagAttrPattern(mergeNode)) {
-				mergeNode = mergeNode->next();
+				mergeNode = mergeBuilder->findNextAttrNodeWithPattern(indexNode->next());
 				continue;
 			}
 			// find text nodes and save it
@@ -2105,12 +2106,11 @@ void mergePatternToLayer(SvgBuilder *builder) {
 					newParent->setAttribute("clip-path", clipPathUrl);
 				}
 				newParent->appendChild(sumNode);
-				visualNode->addChild(newParent, mergeNode);
+				mergeNode->parent()->addChild(newParent, mergeNode);
 				mergeBuilder->clearMerge();
-				//mergeNode = newParent->next();
 				free(fName);
 			}
-			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeBuilder->getSourceSubVisual()->next()); //
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(indexNode->next()); //
 		  }
 
 		  if (remNodes.size() > 1)
