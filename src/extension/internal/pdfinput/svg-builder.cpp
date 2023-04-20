@@ -2971,7 +2971,7 @@ Inkscape::XML::Node *SvgBuilder::_createMaskedImage(Stream *str, int width, int 
 		image_stream = new ImageStream(str, width,
 									   color_map->getNumPixelComps(),
 									   color_map->getBits());
-		//str->reset();
+		str->reset();
 		// Convert RGB values
 		unsigned int *buffer = new unsigned int[width];
 
