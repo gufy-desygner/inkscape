@@ -520,14 +520,14 @@ void stripUnicode(std::string & str)
 void SvgBuilder::setAsLayer(char *layer_name) {
     _container->setAttribute("inkscape:groupmode", "layer");
     if (layer_name) {std::string strAttribute(layer_name);
-		stripUnicode(&strAttribute);
+		stripUnicode(strAttribute);
         _container->setAttribute("inkscape:label", strAttribute.c_str());
     }
 }
 void SvgBuilder::setLayoutName(char *layout_name) {
 	if (layout_name) {
 		std::string strAttribute(layout_name);
-		stripUnicode(&strAttribute);
+		stripUnicode(strAttribute);
 		_container->setAttribute("data-layoutname", strAttribute.c_str());
 	}
 }
