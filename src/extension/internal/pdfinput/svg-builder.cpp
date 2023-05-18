@@ -506,16 +506,29 @@ void SvgBuilder::setDocumentSize(double width, double height) {
 /**
  * \brief Sets groupmode of the current container to 'layer' and sets its label if given
  */
-void SvgBuilder::setAsLayer(char *layer_name) {
-    _container->setAttribute("inkscape:groupmode", "layer");
-    if (layer_name) {
-        _container->setAttribute("inkscape:label", layer_name);
-    }
+
+bool invalidChar (char c) 
+{  
+    return !(c>=0 && c <128);   
 }
 
+void stripUnicode(string & str) 
+{ 
+    str.erase(remove_if(str.begin(),str.end(), invalidChar), str.end());  
+}
+
+void SvgBuilder::setAsLayer(char *layer_name) {
+    _container->setAttribute("inkscape:groupmode", "layer");
+    if (layer_name) {std::string strAttribute(layer_name);
+		stripUnicode(&strAttribute);
+        _container->setAttribute("inkscape:label", strAttribute.c_str());
+    }
+}
 void SvgBuilder::setLayoutName(char *layout_name) {
 	if (layout_name) {
-		_container->setAttribute("data-layoutname", layout_name);
+		std::string strAttribute(layout_name);
+		stripUnicode(&strAttribute);
+		_container->setAttribute("data-layoutname", strAttribute.c_str());
 	}
 }
 
