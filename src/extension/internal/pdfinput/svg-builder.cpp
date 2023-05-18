@@ -512,7 +512,7 @@ bool invalidChar (char c)
     return !(c>=0 && c <128);   
 }
 
-void stripUnicode(string & str) 
+void stripUnicode(std::string & str) 
 { 
     str.erase(remove_if(str.begin(),str.end(), invalidChar), str.end());  
 }
