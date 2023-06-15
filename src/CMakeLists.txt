@@ -554,11 +554,29 @@ set(INKSCAPE_TARGET_LIBS
         depixelize_LIB
         util_LIB
         gc_LIB
+        curl
         curlpp
         jsoncpp
-	poppler
+	      poppler
+        ${CMAKE_DL_LIBS}
         ${INKSCAPE_LIBS}
 )
+
+# Adding Sentry if static library file is present
+if(EXISTS "${CMAKE_SOURCE_DIR}/build/lib/libsentry.a")
+  add_library(sentry STATIC IMPORTED)
+  set_target_properties(sentry PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/build/lib/libsentry.a")
+  target_link_libraries(inkscape sentry)
+  add_definitions(-DSENTRY_INSTALLED)
+endif()
+
+# Adding Breakpad if static library file is present
+if(EXISTS "${CMAKE_SOURCE_DIR}/build/lib/libbreakpad_client.a")
+  add_library(breakpad STATIC IMPORTED)
+  set_target_properties(breakpad PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/build/lib/libbreakpad_client.a")
+  target_link_libraries(inkscape breakpad)
+  add_definitions(-DBREAKPAD_INSTALLED)
+endif()
 
 if (NOT "${WITH_EXT_GDL}")
     # Insert it at the beginning of the list as the windows build fails otherwise
