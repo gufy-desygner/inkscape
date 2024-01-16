@@ -225,24 +225,17 @@ void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Ink
 	}
 }
 
-Inkscape::XML::Node *MergeBuilder::findAttrNodeWithPattern(Inkscape::XML::Node *node) {// add list here: , std::vector<Inkscape::XML::Node *> *listNodes
+Inkscape::XML::Node *MergeBuilder::findAttrNodeWithPattern(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode;
 	Inkscape::XML::Node *resNode = NULL;
 	tmpNode = node;
 	while(tmpNode) {
 		if (haveTagAttrPattern(tmpNode)) {
 			return tmpNode;
-		} else if (tmpNode->childCount() > 0) {
-			Inkscape::XML::Node *ch = tmpNode->firstChild();
-			while(ch) {
-				resNode = findAttrNodeWithPattern(ch);
-				if (resNode != NULL) return resNode;
-				ch = ch->next();
-			}
 		}
 		tmpNode = tmpNode->next();
 	}
-	return NULL;
+	return resNode;
 }
 
 Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
@@ -421,29 +414,43 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode = node;
 	  if (tmpNode == 0) return false;
-	  {
+	  Inkscape::XML::Node *tmpNode2 = NULL;
+	  bool tag = FALSE;
+	  bool attr = FALSE;
+	  bool haveMask = FALSE;
+	  uint coun = 0;
+	  // print_node(node, 3);
+	  // Calculate count of right svg:g before other tag
+	  while((coun < 15) &&  (tmpNode != NULL)) {
+		  if (strcmp(tmpNode->name(), "svg:g") != 0 && (! tmpNode2)) {
+			  tmpNode2 = tmpNode; // node for check tags list
+		  }
+		  coun++;
 		  // Check in attribs list
 		  Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
 		  while( attrList ) {
 			  const char *attrName = g_quark_to_string(attrList->key);
 			  for(int i = 0; i < _sizeListMergeAttr; i++) {
-				  if (strcmp(attrName, _listMergeAttr[i]) == 0) {
-					  bool havePatternTag = FALSE;
+				  if (strcmp(attrName, _listMergeAttr[i]) == 0 && (! attr)) {
+					  bool additionCond = TRUE;
 					  const char *styleValue = tmpNode->attribute(attrName);
 					  // style tag is right only if it have some parametrs
-					  if ((strcmp(attrName, "style") == 0) || (strcmp(attrName, "fill") == 0)) {
-						havePatternTag = (strstr(styleValue, "url(#pattern") > 0);
+					  if (strcmp(attrName, "style") == 0) {
+						additionCond = (strstr(styleValue, "url(#pattern") > 0);
 					  }
-					  if (havePatternTag) {
-					  	const char *begin = strstr(styleValue, "url(#pattern");
-						const char *end;
-						if (begin) {
-							begin += 5;
-							end = strstr(begin, ")");
-						}
-						if (begin && end) {
-							return TRUE;
-						}
+					  if (strcmp(attrName, "fill") == 0) {
+						  additionCond = (strstr("url(#pattern", styleValue) > 0);
+					  }
+					  const char *begin = strstr(styleValue, "url(#");
+					  const char *end;
+					  if (begin) {
+						  begin += 5;
+						  end = strstr(begin, ")");
+					  }
+					  if (begin && end) {
+						  memcpy(linkedID, begin, end - begin);
+						  linkedID[end-begin] = 0;
+						  attr = additionCond;
 					  }
 				  }
 			  }
@@ -451,8 +458,7 @@ bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
 		  }
 	  }
 
-
-	  return FALSE;
+	  return attr;
 }
 
 Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
@@ -2031,8 +2037,8 @@ void mergePatternToLayer(SvgBuilder *builder) {
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
 		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:rect"));
-		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:g"));
 
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
 		  mergeBuilder->addAttrName(g_strdup_printf("%s", "fill"));
 		  // queue for delete
@@ -2042,16 +2048,16 @@ void mergePatternToLayer(SvgBuilder *builder) {
 		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNodeWithPattern();
 		  //Inkscape::XML::Node *remNode;
 		  Inkscape::XML::Node *visualNode;
-		  Inkscape::XML::Node *indexNode = mergeBuilder->getSourceSubVisual()->firstChild();
 		  if (mergeNode) visualNode = mergeNode->parent();
 		  const gchar *tmpName;
 		  mergeBuilder->clearMerge();
 		  while(mergeNode) {
 
-			if (! mergeBuilder->haveTagAttrPattern(mergeNode)) {
-				mergeNode = mergeBuilder->findNextAttrNodeWithPattern(indexNode->next());
+		  	if (! mergeBuilder->haveTagAttrPattern(mergeNode)) {
+				mergeNode = mergeNode->next();
 				continue;
 			}
+
 			// find text nodes and save it
 			moveTextNode(builder, mergeNode);
 
@@ -2086,6 +2092,7 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				}
 				
 			}
+
 			remNodes.push_back(mergeNode);
 
 			{
@@ -2106,11 +2113,13 @@ void mergePatternToLayer(SvgBuilder *builder) {
 					newParent->setAttribute("clip-path", clipPathUrl);
 				}
 				newParent->appendChild(sumNode);
-				mergeNode->parent()->addChild(newParent, mergeNode);
+				visualNode->addChild(newParent, mergeNode);
 				mergeBuilder->clearMerge();
+				mergeNode = newParent->next();
 				free(fName);
 			}
-			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(indexNode->next()); //
+
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeNode);
 		  }
 
 		  if (remNodes.size() > 1)

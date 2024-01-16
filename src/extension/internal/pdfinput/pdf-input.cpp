@@ -1051,14 +1051,13 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 
             	} else {
 					compressGtag(builder); // removing empty <g> around <text> and <path>
-                    logTime("Start merge patterns");
+					logTime("Start merge mask");
+					mergeMaskToImage(builder);
+					logTime("Start merge gradients");
                     mergePatternToLayer(builder);
-                    logTime("Start merge mask");
-                    //mergeMaskToImage(builder);
-                    logTime("Start merge gradients");
-                    //mergeMaskGradientToLayer(builder);
-                    logTime("Start merge patch or to one layer");
-                    uint nodeMergeCount = 0, regionMergeCount = 0;
+                    mergeMaskGradientToLayer(builder);
+					logTime("Start merge patch or to one layer");
+					uint nodeMergeCount = 0, regionMergeCount = 0;
 
 					nodeMergeCount = mergeImagePathToLayerSave(builder, true, true, &regionMergeCount);
 					if ((sp_merge_jpeg_sp && sp_merge_limit_sh && builder->getCountOfImages() > sp_merge_limit_sh) ||

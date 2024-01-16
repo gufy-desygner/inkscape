@@ -517,15 +517,20 @@ void stripUnicode(std::string & str)
     str.erase(remove_if(str.begin(),str.end(), invalidChar), str.end());  
 }
 
-void SvgBuilder::setAsLayer(char *layer_name) {
+void SvgBuilder::setAsLayer(char *layer_name)
+{
     _container->setAttribute("inkscape:groupmode", "layer");
-    if (layer_name) {std::string strAttribute(layer_name);
+    if (layer_name)
+    {
+    	std::string strAttribute(layer_name);
 		stripUnicode(strAttribute);
-        _container->setAttribute("inkscape:label", strAttribute.c_str());
+		_container->setAttribute("inkscape:label", strAttribute.c_str());
     }
 }
+
 void SvgBuilder::setLayoutName(char *layout_name) {
-	if (layout_name) {
+	if (layout_name)
+	{
 		std::string strAttribute(layout_name);
 		stripUnicode(strAttribute);
 		_container->setAttribute("data-layoutname", strAttribute.c_str());
@@ -2055,9 +2060,7 @@ void SvgBuilder::updateFont(GfxState *state) {
     GfxFont *font = state->getFont();
     // Store original name
     if (font->getName()) {
-		char *embFontName = font->getEmbeddedFontName()->getCString();
-        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
-		_font_specification = fullFontName;
+        _font_specification = font->getName()->getCString();
         if (font->getType() == fontCIDType2 && font->getToUnicode() && sp_font_default_font_sh) {
         		_font_specification = sp_font_default_font_sh;
         }
@@ -2087,10 +2090,7 @@ void SvgBuilder::updateFont(GfxState *state) {
 
     // Font family
     if (state->getFont()->getName()) { // if font family is explicitly given use it.
-		char *embFontName = font->getEmbeddedFontName()->getCString();
-        char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
-		
-    	char *fName = prepareFamilyName(fullFontName, false);
+    	char *fName = prepareFamilyName(font->getName()->getCString(), false);
 		GooString *fontName2= new GooString(fName);
 		free(fName);
 
@@ -2984,7 +2984,8 @@ Inkscape::XML::Node *SvgBuilder::_createMaskedImage(Stream *str, int width, int 
 		image_stream = new ImageStream(str, width,
 									   color_map->getNumPixelComps(),
 									   color_map->getBits());
-		str->reset();
+		image_stream->reset();
+
 		// Convert RGB values
 		unsigned int *buffer = new unsigned int[width];
 
@@ -3805,10 +3806,10 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     		for(int colIdx = x1 * 4; colIdx < x2 * 4; colIdx += 4)
     		{
     			uint32_t pointIdx = rowIdx * stride + colIdx;
-    			b += px[pointIdx];
-    			g += px[pointIdx+1];
-    			r += px[pointIdx+2];
-    			a += px[pointIdx+3];
+    			r += px[pointIdx];
+				g += px[pointIdx+1];
+				b += px[pointIdx+2];
+				a += px[pointIdx+3];
     		}
     	}
 
@@ -3965,6 +3966,7 @@ void SvgBuilder::addImage(GfxState * /*state*/, Stream *str, int width, int heig
 
 void SvgBuilder::addImageMask(GfxState *state, Stream *str, int width, int height,
                               bool invert, bool interpolate) {
+
     // Create a rectangle
     Inkscape::XML::Node *rect = _xml_doc->createElement("svg:rect");
     sp_repr_set_svg_double(rect, "x", 0.0);
@@ -3984,7 +3986,7 @@ void SvgBuilder::addImageMask(GfxState *state, Stream *str, int width, int heigh
             _createImage(str, width, height, NULL, interpolate, NULL, true, invert);
         if (mask_image_node) {
             // Create the mask
-            Inkscape::XML::Node *mask_node = _createMask(width, height);
+            Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
             // Remove unnecessary transformation from the mask image
             mask_image_node->setAttribute("transform", NULL);
             mask_node->appendChild(mask_image_node);
@@ -4006,6 +4008,7 @@ void SvgBuilder::addMaskedImage(GfxState * /*state*/, Stream *str, int width, in
                                 GfxImageColorMap *color_map, bool interpolate,
                                 Stream *mask_str, int mask_width, int mask_height,
                                 bool invert_mask, bool mask_interpolate) {
+
     Inkscape::XML::Node *mask_image_node = _createImage(mask_str, mask_width, mask_height,
                                           NULL, mask_interpolate, NULL, true, invert_mask);
     Inkscape::XML::Node *image_node = _createImage(str, width, height, color_map, interpolate, NULL);
@@ -4038,7 +4041,6 @@ void SvgBuilder::addSoftMaskedImage(GfxState * /*state*/, Stream *str, int width
                                     GfxImageColorMap *color_map, bool interpolate,
                                     Stream *mask_str, int mask_width, int mask_height,
                                     GfxImageColorMap *mask_color_map, bool mask_interpolate) {
-	
 	if (sp_preserve_dpi_sp) {
 		unsigned char* alphaChanel = _encodeImageAlphaMask(mask_str, mask_width, mask_height, mask_color_map, mask_interpolate);
 	    Inkscape::XML::Node *image_node = _createMaskedImage(str, width, height, color_map, interpolate, alphaChanel, mask_width, mask_height);
@@ -4055,7 +4057,7 @@ void SvgBuilder::addSoftMaskedImage(GfxState * /*state*/, Stream *str, int width
 
 		if ( mask_image_node && image_node ) {
 			// Create mask for the image
-			Inkscape::XML::Node *mask_node = _createMask(mask_width, mask_height);
+			Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
 			// Remove unnecessary transformation from the mask image
 			mask_image_node->setAttribute("transform", NULL);
 			mask_node->appendChild(mask_image_node);
@@ -4120,17 +4122,11 @@ void SvgBuilder::paintTransparencyGroup(GfxState * /*state*/, double * /*bbox*/)
 /**
  * \brief Creates a mask using the current transparency group as its content
  */
-void SvgBuilder::setSoftMask(GfxState * /*state*/, double * bbox, bool /*alpha*/,
+void SvgBuilder::setSoftMask(GfxState * /*state*/, double * /*bbox*/, bool /*alpha*/,
                              Function * /*transfer_func*/, GfxColor * /*backdrop_color*/) {
+
     // Create mask
-    Inkscape::XML::Node *mask_node = _createMask(fabs(bbox[2] - bbox[0]), fabs(bbox[3] - bbox[1]));
-    char buff[10]; 
-    memset(buff, 0, 10);
-    snprintf(buff, 10, "%lf", bbox[0]);
-    mask_node->setAttribute("x", buff);
-    memset(buff, 0, 10);
-    snprintf(buff, 10, "%lf", bbox[1]);
-    mask_node->setAttribute("y", buff);
+    Inkscape::XML::Node *mask_node = _createMask(1.0, 1.0);
     // Add the softmask content to it
     SvgTransparencyGroup *transpGroup = _transp_group_stack;
     mask_node->appendChild(transpGroup->container);

@@ -2385,9 +2385,7 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 		  g_ptr_array_add(exportFontThreads, params);
 		  params->parser = this;
 		  params->font = font;
-	      char *embFontName = font->getEmbeddedFontName()->getCString();
-          char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
-		  params->fontName = fullFontName;
+		  params->fontName = g_strdup(font->getName()->getCString());
 		  params->isCIDFont = font->isCIDFont();
 		  params->buf = font->readEmbFontFile(xref, &params->len);
 		  params->ctu = font->getToUnicode();
@@ -2403,9 +2401,7 @@ void PdfParser::exportFontAsync(GfxFont *font, bool async)
 
 inline bool isExistFile (const std::string& name) {
   struct stat buffer;
-  memset(&buffer, 0, sizeof(struct stat));
-  int rez = stat (name.c_str(), &buffer);
-  return (buffer.st_size > 0);
+  return (stat (name.c_str(), &buffer) == 0);
 }
 
 void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
@@ -2413,9 +2409,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 	int len;
 	char *fname;
 	static int num = 0;
-	char *embFontName = font->getEmbeddedFontName()->getCString();
-	char *fullFontName = strlen(embFontName) ? embFontName : font->getName()->getCString();
-	char *fontName = args ? args->fontName : fullFontName;
+	char *fontName = args ? args->fontName : font->getName()->getCString();
 	bool isCIDFont = args ? args->isCIDFont : font->isCIDFont();
 	char *buf = args ? args->buf : font->readEmbFontFile(xref, &len);
 	if (args) len = args->len;
