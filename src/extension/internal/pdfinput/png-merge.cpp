@@ -1654,7 +1654,7 @@ void compressGtag(SvgBuilder *builder, int maxdep){
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
 			new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
 
-	scanGtagForCompress(mergeBuilder->getSourceSubVisual(), builder, maxdep);
+	scanGtagForCompress(mergeBuilder->getSourceVisual(), builder, maxdep);
 
 	delete mergeBuilder;
 }
