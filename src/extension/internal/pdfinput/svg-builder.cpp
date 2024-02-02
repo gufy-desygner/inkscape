@@ -3680,8 +3680,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	spGNode->updateRepr(SP_OBJECT_WRITE_EXT);
 	Geom::OptRect nodeBBox = spGNode->geometricBounds(affine);
 
-   // clipped group do not contain childs || childs fully inside clip || 99.999% of child inside clip
-	if (firstChild == nullptr || clipBBox.contains(nodeBBox) || rectIntersect(clipBBox.get(), nodeBBox.get()) > 99.999)
+	if (firstChild == nullptr || clipBBox.contains(nodeBBox))
 	{
 		gNode->setAttribute("clip-path", nullptr);
 		Inkscape::XML::Node* clipNode = spClipPath->getRepr();

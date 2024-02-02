@@ -61,7 +61,7 @@ void enumerationTags(Inkscape::XML::Node *inNode);
 uint mergeImagePathToLayerSave(SvgBuilder *builder, bool splitRegions = true, bool simulate=false, uint* regionsCount = nullptr);
 void mergeTspan (SvgBuilder *builder);
 void mergeNearestTextToOnetag(SvgBuilder *builder);
-void compressGtag(SvgBuilder *builder, int maxdep = 1000);
+void compressGtag(SvgBuilder *builder);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode, Geom::Affine aff, ApproveNode* approve);
 void moveTextNode(SvgBuilder *builder, Inkscape::XML::Node *mainNode, Inkscape::XML::Node *currNode=0, ApproveNode* approve = nullptr);
 int64_t svg_get_number_of_objects(Inkscape::XML::Node *node, ApproveNode* approve);

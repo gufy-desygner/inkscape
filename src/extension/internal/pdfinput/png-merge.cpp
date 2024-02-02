@@ -611,6 +611,7 @@ std::vector<Geom::Rect> MergeBuilder::getRegions()
    	SPDocument *spDoc = _doc;
 	SPRoot* spRoot = spDoc->getRoot();
 	te_update_layout_now_recursive(spRoot);
+
 	Inkscape::XML::Node *mainNode = _mainVisual;// getMainNode();
 	Inkscape::XML::Document *currentDocument = mainNode->document();
 	SPObject* spMainNode = spDoc->getObjectByRepr(mainNode);
@@ -1569,9 +1570,7 @@ Inkscape::XML::Node *MergeBuilder::compressGNode(Inkscape::XML::Node *gNode){
 	return 0;
 }
 
-void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder, int &maxDepth) {
-	if ( (--maxDepth) < 0 ) return;
-
+void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder) {
 	Inkscape::XML::Node *tmpNode = mainNode->firstChild();
 	Inkscape::XML::Node *posNode;
 	while(tmpNode) {
@@ -1579,7 +1578,7 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder, int
 		posNode = tmpNode;
 		// repeat all for children nodes
 		if (tmpNode && tmpNode->childCount()) {
-			scanGtagForCompress(tmpNode, builder, maxDepth);
+			scanGtagForCompress(tmpNode, builder);
 		}
 		if (strcmp(tmpNode->name(), "svg:g") == 0) {
 			fl = true;
@@ -1648,13 +1647,13 @@ void scanGtagForCompress(Inkscape::XML::Node *mainNode, SvgBuilder *builder, int
 	}
 }
 
-void compressGtag(SvgBuilder *builder, int maxdep){
+void compressGtag(SvgBuilder *builder){
 	// init variables
 	Inkscape::XML::Node *root = builder->getRoot();
 	Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
 			new Inkscape::Extension::Internal::MergeBuilder(root, sp_export_svg_path_sh);
 
-	scanGtagForCompress(mergeBuilder->getSourceVisual(), builder, maxdep);
+	scanGtagForCompress(mergeBuilder->getSourceSubVisual(), builder);
 
 	delete mergeBuilder;
 }

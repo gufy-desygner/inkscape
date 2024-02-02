@@ -77,8 +77,7 @@ def main(font_file):
     # if we have ttf already - try merge it
     isNewTTF = 1
     try:
-       fontTTF = fontforge.open("%s%s" % (path, ttf_name))
-       fontTTF.mergeFont("%s%s.sfd" % (path, ttf_name))
+       fontTTF = fontforge.open("%s%s.sfd" % (path, ttf_name))
        isNewTTF = 0
     except:
        if isNewTTF == 1 :

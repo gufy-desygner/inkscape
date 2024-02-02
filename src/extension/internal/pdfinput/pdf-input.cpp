@@ -1050,7 +1050,7 @@ PdfInput::open(::Inkscape::Extension::Input * /*mod*/, const gchar * uri) {
 					mergeTspan(builder);
 
             	} else {
-					compressGtag(builder, 10); // removing empty <g> around <text> and <path>
+					compressGtag(builder); // removing empty <g> around <text> and <path>
 					logTime("Start merge mask");
 					mergeMaskToImage(builder);
 					logTime("Start merge gradients");
