@@ -156,6 +156,14 @@ Inkscape::XML::Node *MergeBuilder::findNextAttrNode(Inkscape::XML::Node *node) {
 	return findAttrNode(node);
 }
 
+Inkscape::XML::Node *MergeBuilder::findFirstAttrNodeWithPattern(void) {
+	return findAttrNodeWithPattern(_sourceSubVisual->firstChild());
+}
+
+Inkscape::XML::Node *MergeBuilder::findNextAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	return findAttrNodeWithPattern(node);
+}
+
 void MergeBuilder::clearMerge(void) {
     while(_mainSubVisual->firstChild()){
     	Inkscape::XML::Node *tmpNode = _mainSubVisual->firstChild();
@@ -218,12 +226,25 @@ void MergeBuilder::findImageMaskNode(Inkscape::XML::Node * node, std::vector<Ink
 	}
 }
 
+Inkscape::XML::Node *MergeBuilder::findAttrNodeWithPattern(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode;
+	Inkscape::XML::Node *resNode = NULL;
+	tmpNode = node;
+	while(tmpNode) {
+		if (haveTagAttrPattern(tmpNode)) {
+			return tmpNode;
+		}
+		tmpNode = tmpNode->next();
+	}
+	return resNode;
+}
+
 Inkscape::XML::Node *MergeBuilder::findAttrNode(Inkscape::XML::Node *node) {
 	Inkscape::XML::Node *tmpNode;
 	Inkscape::XML::Node *resNode = NULL;
 	tmpNode = node;
 	while(tmpNode) {
-		if (haveTagAttrFormList(tmpNode)) {
+		if (haveTagAttrFormList(tmpNode) || haveTagAttrPattern(tmpNode)) {
 			return tmpNode;
 		}
 		tmpNode = tmpNode->next();
@@ -391,6 +412,56 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 	  return tag && attr;
 }
 
+bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
+	Inkscape::XML::Node *tmpNode = node;
+	  if (tmpNode == 0) return false;
+	  Inkscape::XML::Node *tmpNode2 = NULL;
+	  bool tag = FALSE;
+	  bool attr = FALSE;
+	  bool haveMask = FALSE;
+	  uint coun = 0;
+	  // print_node(node, 3);
+	  // Calculate count of right svg:g before other tag
+	  while((coun < 15) &&  (tmpNode != NULL)) {
+		  if (strcmp(tmpNode->name(), "svg:g") != 0 && (! tmpNode2)) {
+			  tmpNode2 = tmpNode; // node for check tags list
+		  }
+		  coun++;
+		  // Check in attribs list
+		  Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = tmpNode->attributeList();
+		  while( attrList ) {
+			  const char *attrName = g_quark_to_string(attrList->key);
+			  for(int i = 0; i < _sizeListMergeAttr; i++) {
+				  if (strcmp(attrName, _listMergeAttr[i]) == 0 && (! attr)) {
+					  bool additionCond = TRUE;
+					  const char *styleValue = tmpNode->attribute(attrName);
+					  // style tag is right only if it have some parametrs
+					  if (strcmp(attrName, "style") == 0) {
+						additionCond = (strstr(styleValue, "url(#pattern") > 0);
+					  }
+					  if (strcmp(attrName, "fill") == 0) {
+						  additionCond = (strstr("url(#pattern", styleValue) > 0);
+					  }
+					  const char *begin = strstr(styleValue, "url(#");
+					  const char *end;
+					  if (begin) {
+						  begin += 5;
+						  end = strstr(begin, ")");
+					  }
+					  if (begin && end) {
+						  memcpy(linkedID, begin, end - begin);
+						  linkedID[end-begin] = 0;
+						  attr = additionCond;
+					  }
+				  }
+			  }
+			  attrList++;
+		  }
+	  }
+
+	  return attr;
+}
+
 Geom::Affine MergeBuilder::getAffine(Inkscape::XML::Node *fromNode) {
 	Inkscape::XML::Node *tmpNode = fromNode;
 	Geom::Affine rezult;
@@ -412,7 +483,7 @@ Inkscape::XML::Node *MergeBuilder::findNodeById(Inkscape::XML::Node *fromNode, c
 	Inkscape::XML::Node *tmpNode = fromNode;
 	Inkscape::XML::Node *tmpResult;
 	while(tmpNode) {
-		if (strcmp(tmpNode->attribute("id"), id) == 0) {
+		if (tmpNode->attribute("id") && strcmp(tmpNode->attribute("id"), id) == 0) {
 			return tmpNode;
 		}
 		if (tmpNode->childCount()) {
@@ -636,8 +707,9 @@ std::vector<Geom::Rect> MergeBuilder::getRegions()
 	return result;
 }
 
-Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath) {
-	Inkscape::XML::Node *tempNode = _xml_doc->createElement(childNode->name());
+Inkscape::XML::Node *MergeBuilder::copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath, Inkscape::XML::Document *doc) {
+	if (doc == nullptr) doc = _xml_doc;
+	Inkscape::XML::Node *tempNode = doc->createElement(childNode->name());
     //print_node(childNode, 1);
 	// copy all attributes
 	Inkscape::Util::List<const Inkscape::XML::AttributeRecord > attrList = childNode->attributeList();
@@ -1908,6 +1980,162 @@ void mergeMaskToImage(SvgBuilder *builder) {
 
 		  delete mergeBuilder;
 	  }
+}
+
+Inkscape::XML::Node *MergeBuilder::AddClipPathToMyDefs(Inkscape::XML::Node *originalNode, SvgBuilder *builder, char* patternId, gchar *rebasePath) {
+	
+	SPObject *obj = builder->getSpDocument()->getObjectById(originalNode->attribute("id"));
+	Geom::OptRect visualBound(SP_ITEM(obj)->visualBounds());
+
+	Geom::Rect sq = Geom::Rect();
+	double x1, x2, y1, y2;
+
+	sq = visualBound.get();
+	x1 = sq[Geom::X][0];
+	x2 = sq[Geom::X][1];
+	y1 = sq[Geom::Y][0];
+	y2 = sq[Geom::Y][1];
+
+	char dMatrix[500];
+	memset((void*)dMatrix, 0, 500);
+	snprintf(dMatrix, 500, "m %d,%d h %d v %d h -%d z", int(x1), int(y1), int(abs(x2 - x1)), int(abs(y2 - y1)), int(abs(x2 - x1)));
+
+	Inkscape::XML::Node * newRect = builder->createElement("svg:path");
+	newRect->setAttribute("fill", patternId);
+	newRect->setAttribute("d", dMatrix);
+
+	addImageNode(newRect, sp_export_svg_path_sh);
+
+	Inkscape::XML::Node * newClipPath = builder->createElement("svg:clipPath");
+	copyAsChild(newClipPath, originalNode, rebasePath, builder->getSpDocument()->getReprDoc());
+
+	Inkscape::XML::Node *defsNode = ((SPObject*) builder->getSpDocument()->getDefs())->getRepr();
+	defsNode->appendChild(newClipPath);
+	char clipPathCustomeId[50];
+	memset((void*)clipPathCustomeId, 0, 50);
+	snprintf(clipPathCustomeId, 50, "pattern_%s", newClipPath->attribute("id"));
+	newClipPath->setAttribute("id", clipPathCustomeId);
+	return newClipPath;
+}
+
+char *removePatternFromStyle(char *style, char *pattern) {
+    size_t len = strlen(pattern);
+    if (len > 0) {
+        char *p = style;
+        while ((p = strstr(p, pattern)) != NULL) {
+            memmove(p, p + len, strlen(p + len) + 1);
+        }
+    }
+    return style;
+}
+
+void mergePatternToLayer(SvgBuilder *builder) {
+	  //================== merge images with patterns =================
+	  if (sp_merge_mask_sh) {
+		  // init MergeBuilder
+		  Inkscape::Extension::Internal::MergeBuilder *mergeBuilder =
+				  new Inkscape::Extension::Internal::MergeBuilder(builder->getRoot(), sp_export_svg_path_sh);
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:image"));
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:path"));
+		  mergeBuilder->addTagName(g_strdup_printf("%s", "svg:rect"));
+
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "mask"));
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "style"));
+		  mergeBuilder->addAttrName(g_strdup_printf("%s", "fill"));
+		  // queue for delete
+		  std::vector<Inkscape::XML::Node *> remNodes;
+
+		  // merge images with patterns
+		  Inkscape::XML::Node *mergeNode = mergeBuilder->findFirstAttrNodeWithPattern();
+		  //Inkscape::XML::Node *remNode;
+		  Inkscape::XML::Node *visualNode;
+		  if (mergeNode) visualNode = mergeNode->parent();
+		  const gchar *tmpName;
+		  mergeBuilder->clearMerge();
+		  while(mergeNode) {
+
+		  	if (! mergeBuilder->haveTagAttrPattern(mergeNode)) {
+				mergeNode = mergeNode->next();
+				continue;
+			}
+
+			// find text nodes and save it
+			moveTextNode(builder, mergeNode);
+
+			Inkscape::XML::Node *clipPathNode = nullptr;
+			char patternId[100];
+			{
+				// check if the pattern itself has a clip path
+				char* patternId = (char*)(mergeNode->attribute((char*)"fill"));
+				if (patternId == nullptr) {
+					// style tag 
+					char* styleValue =  (char*)(mergeNode->attribute((char*)"style"));
+					if (styleValue && (strstr(styleValue, "url(#pattern") > 0)) {
+						const char *grIdStart = strstr(styleValue, "url(#pattern");
+						const char *grIdEnd;
+						if (grIdStart) {
+							grIdEnd = strstr(grIdStart, ")");
+							if (grIdStart && grIdEnd) {
+								char patternNodeId[100];
+								grIdEnd += 1;
+								memcpy(patternNodeId, grIdStart, grIdEnd + 1 - grIdStart);
+								patternNodeId[grIdEnd - grIdStart] = 0;
+								styleValue = removePatternFromStyle(styleValue, patternNodeId);
+								mergeNode->setAttribute("style", styleValue);
+								
+								clipPathNode = mergeBuilder->AddClipPathToMyDefs(mergeNode, builder, patternNodeId, sp_export_svg_path_sh);
+							}
+						}
+					}
+				} else {
+					mergeNode->setAttribute("fill", nullptr);
+					clipPathNode = mergeBuilder->AddClipPathToMyDefs(mergeNode, builder, patternId, sp_export_svg_path_sh);
+				}
+				
+			}
+
+			remNodes.push_back(mergeNode);
+
+			{
+				// generate name of new image
+				tmpName = mergeNode->attribute("id");
+				char *fName = g_strdup_printf("%s_img%s", builder->getDocName(), tmpName);
+
+				// Save merged image
+				double resultDpi;
+				Inkscape::XML::Node *sumNode = mergeBuilder->saveImage(fName, builder, true, resultDpi);
+
+				Inkscape::XML::Node * newParent = builder->createElement("svg:g");
+
+				if (clipPathNode) {
+					char clipPathUrl[50];
+					memset((void*)clipPathUrl, 0, 50);
+					snprintf(clipPathUrl, 50, "url(#%s)", clipPathNode->attribute("id"));
+					newParent->setAttribute("clip-path", clipPathUrl);
+				}
+				newParent->appendChild(sumNode);
+				visualNode->addChild(newParent, mergeNode);
+				mergeBuilder->clearMerge();
+				mergeNode = newParent->next();
+				free(fName);
+			}
+
+			mergeNode = mergeBuilder->findNextAttrNodeWithPattern(mergeNode);
+		  }
+
+		  if (remNodes.size() > 1)
+		      warning2wasRasterized = TRUE;
+
+		  // remove old nodes
+		  for(int i = 0; i < remNodes.size(); i++) {
+			  remNodes[i]->parent()->removeChild(remNodes[i]);
+			  mergeBuilder->removeRelateDefNodes(remNodes[i]);
+			  delete remNodes[i];
+		  }
+
+		  delete mergeBuilder;
+	  }
+
 }
 
 void mergeMaskGradientToLayer(SvgBuilder *builder) {

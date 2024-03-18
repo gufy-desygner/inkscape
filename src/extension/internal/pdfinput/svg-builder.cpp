@@ -506,16 +506,34 @@ void SvgBuilder::setDocumentSize(double width, double height) {
 /**
  * \brief Sets groupmode of the current container to 'layer' and sets its label if given
  */
-void SvgBuilder::setAsLayer(char *layer_name) {
+
+bool invalidChar (char c) 
+{  
+    return !(c>=0 && c <128);   
+}
+
+void stripUnicode(std::string & str) 
+{ 
+    str.erase(remove_if(str.begin(),str.end(), invalidChar), str.end());  
+}
+
+void SvgBuilder::setAsLayer(char *layer_name)
+{
     _container->setAttribute("inkscape:groupmode", "layer");
-    if (layer_name) {
-        _container->setAttribute("inkscape:label", layer_name);
+    if (layer_name)
+    {
+    	std::string strAttribute(layer_name);
+		stripUnicode(strAttribute);
+		_container->setAttribute("inkscape:label", strAttribute.c_str());
     }
 }
 
-void SvgBuilder::setLayoutName(const char *layout_name) {
-	if (layout_name) {
-		_container->setAttribute("data-layoutname", layout_name);
+void SvgBuilder::setLayoutName(char *layout_name) {
+	if (layout_name)
+	{
+		std::string strAttribute(layout_name);
+		stripUnicode(strAttribute);
+		_container->setAttribute("data-layoutname", strAttribute.c_str());
 	}
 }
 
@@ -3595,7 +3613,7 @@ void SvgBuilder::removeHiddenObjects(const Geom::OptRect& clipBox, SPItem* mainN
 		if (! nodeBBox.is_initialized()) continue;
 		Geom::Rect nodeRect = nodeBBox.get();
 
-		if ( ( rectIntersect(clipBox.get(), nodeRect) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
+		if ( ( rectIntersect(clipBox.get(), nodeRect, true) < 5 && rectIntersect(nodeRect, clipBox.get()) < 5) )
 		{
 			Inkscape::XML::Node* hiddenNode = currNode->getRepr();
 			hiddenNode->parent()->removeChild(hiddenNode);
@@ -3653,6 +3671,9 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 	clip_path_id[strlen(clipUrl) - 6] = 0;
 	SPDocument* spDoc = this->getSpDocument();
 	SPClipPath* spClipPath = (SPClipPath*)spDoc->getObjectById(clip_path_id);
+
+	if (spClipPath->getRepr()->attribute("id") && strstr(spClipPath->getRepr()->attribute("id"), "pattern_"))return KEEP_CLIP;
+
 	SPItem* spGNode = (SPItem*)spDoc->getObjectByRepr(gNode);
 	Geom::Affine affine = spGNode->getRelativeTransform(spDoc->getRoot());
 
@@ -3670,7 +3691,7 @@ SvgBuilder::todoRemoveClip SvgBuilder::checkClipAroundText(Inkscape::XML::Node *
 		return USELESS_CLIP;
 	}
 
-	if ( rectIntersect(clipBBox.get(), nodeBBox.get()) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
+	if ( rectIntersect(clipBBox.get(), nodeBBox.get(), true) < 5 && rectIntersect(nodeBBox.get(), clipBBox.get()) < 5)
 	{
 		return OUT_OF_CLIP;
 	} else {
@@ -3788,10 +3809,10 @@ double SvgBuilder::fetchAverageColor(Inkscape::XML::Node *container, Inkscape::X
     		for(int colIdx = x1 * 4; colIdx < x2 * 4; colIdx += 4)
     		{
     			uint32_t pointIdx = rowIdx * stride + colIdx;
-    			b += px[pointIdx];
-    			g += px[pointIdx+1];
-    			r += px[pointIdx+2];
-    			a += px[pointIdx+3];
+    			r += px[pointIdx];
+				g += px[pointIdx+1];
+				b += px[pointIdx+2];
+				a += px[pointIdx+3];
     		}
     	}
 

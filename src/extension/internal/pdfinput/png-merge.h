@@ -54,6 +54,7 @@ enum mark_line_style {
 void createPrintingMarks(SvgBuilder *builder);
 void mergeImagePathToOneLayer(SvgBuilder *builder, ApproveNode* approve = nullptr);
 void mergeMaskGradientToLayer(SvgBuilder *builder);
+void mergePatternToLayer(SvgBuilder *builder);
 void mergeMaskToImage(SvgBuilder *builder);
 void enumerationTagsStart(SvgBuilder *builder);
 void enumerationTags(Inkscape::XML::Node *inNode);
@@ -108,7 +109,7 @@ public:
 	Inkscape::XML::Node *fillTreeOfParents(Inkscape::XML::Node *fromNode);
 	Inkscape::XML::Node *findNodeById(Inkscape::XML::Node *fromNode, const char* id);
 	void mergeAll(char* rebasePath);
-	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath);
+	Inkscape::XML::Node *copyAsChild(Inkscape::XML::Node *destNode, Inkscape::XML::Node *childNode, char *rebasePath, Inkscape::XML::Document *doc = nullptr);
 	Inkscape::XML::Node *saveImage(gchar *name, SvgBuilder *builder, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
 	void getMinMaxDpi(SPItem* node, double &min, double &max, Geom::Affine &innerAffine);
 	Geom::Rect save(gchar const *filename, bool visualBound, double &resultDpi, Geom::Rect* rect = nullptr);
@@ -117,19 +118,24 @@ public:
 	void removeOldImagesEx(Inkscape::XML::Node *startNode);
 	void removeOldImages(void);
 	void removeRelateDefNodes(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *AddClipPathToMyDefs(Inkscape::XML::Node *originalNode, SvgBuilder *builder, char* patternId, gchar *rebasePath);
 	void removeGFromNode(Inkscape::XML::Node *node); // remove graph objects from node
 	void addTagName(char *tagName);
 	Inkscape::XML::Node *findNode(Inkscape::XML::Node *node, int level, int *count=0);
 	Inkscape::XML::Node *findAttrNode(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *findAttrNodeWithPattern(Inkscape::XML::Node *node);
 	bool haveTagFormList(Inkscape::XML::Node *node, int *count=0, int level = 0, bool excludeTable=true);
 	bool haveTagAttrFormList(Inkscape::XML::Node *node);
+	bool haveTagAttrPattern(Inkscape::XML::Node *node);
 	void clearMerge(void);
 	Inkscape::XML::Node *findFirstNode(int *count=0);
 	Inkscape::XML::Node *findFirstAttrNode(void);
+	Inkscape::XML::Node *findFirstAttrNodeWithPattern(void);
 	void findImageMaskNode(Inkscape::XML::Node *node, std::vector<Inkscape::XML::Node *> *listNodes);
 	Geom::Affine getAffine(Inkscape::XML::Node *node);
 	Inkscape::XML::Node *findNextNode(Inkscape::XML::Node *node, int level);
 	Inkscape::XML::Node *findNextAttrNode(Inkscape::XML::Node *node);
+	Inkscape::XML::Node *findNextAttrNodeWithPattern(Inkscape::XML::Node *node);
 	static Inkscape::XML::Node *generateNode(const char* imgPath, SvgBuilder *builder, Geom::Rect *rt, Geom::Affine affine);
 	void addAttrName(char *attrName); // attr name for sersch
 	bool haveContent(Inkscape::XML::Node *node);
