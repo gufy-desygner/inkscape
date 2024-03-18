@@ -437,10 +437,10 @@ bool MergeBuilder::haveTagAttrPattern(Inkscape::XML::Node *node) {
 					  const char *styleValue = tmpNode->attribute(attrName);
 					  // style tag is right only if it have some parametrs
 					  if (strcmp(attrName, "style") == 0) {
-						additionCond = (strstr(styleValue, "url(#pattern") > 0);
+						additionCond = (strstr(styleValue, "url(#pattern") != nullptr);
 					  }
 					  if (strcmp(attrName, "fill") == 0) {
-						  additionCond = (strstr("url(#pattern", styleValue) > 0);
+						  additionCond = (strstr("url(#pattern", styleValue) != nullptr);
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;
@@ -2070,7 +2070,7 @@ void mergePatternToLayer(SvgBuilder *builder) {
 				if (patternId == nullptr) {
 					// style tag 
 					char* styleValue =  (char*)(mergeNode->attribute((char*)"style"));
-					if (styleValue && (strstr(styleValue, "url(#pattern") > 0)) {
+					if (styleValue && (strstr(styleValue, "url(#pattern") != nullptr)) {
 						const char *grIdStart = strstr(styleValue, "url(#pattern");
 						const char *grIdEnd;
 						if (grIdStart) {

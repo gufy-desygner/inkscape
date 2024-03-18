@@ -2407,7 +2407,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 	int len;
 	const char *fname;
 	static int num = 0;
-	char *fontName = args ? args->fontName : font->getName()->getCString();
+	const char *fontName = args ? args->fontName : font->getName()->getCString();
 	bool isCIDFont = args ? args->isCIDFont : font->isCIDFont();
 	char *buf = args ? args->buf : font->readEmbFontFile(xref, &len);
 	if (args) len = args->len;

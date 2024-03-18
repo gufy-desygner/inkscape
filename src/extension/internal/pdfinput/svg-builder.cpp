@@ -528,7 +528,7 @@ void SvgBuilder::setAsLayer(char *layer_name)
     }
 }
 
-void SvgBuilder::setLayoutName(char *layout_name) {
+void SvgBuilder::setLayoutName(const char *layout_name) {
 	if (layout_name)
 	{
 		std::string strAttribute(layout_name);
