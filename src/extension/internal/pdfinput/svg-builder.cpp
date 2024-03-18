@@ -2794,7 +2794,7 @@ void spoolOriginalToFile(Stream *str, gchar *fileName) {
 
     // read image stream to memory
     strImg->reset();
-    strLen = strImg->doGetChars(strLen, (Guchar*)buffer);
+    strLen = strImg->doGetChars(strLen, (guchar*)buffer);
 
     // JPEG data has to start with 0xFF 0xD8
     // but some pdf like the one on

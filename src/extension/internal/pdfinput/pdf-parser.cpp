@@ -2515,7 +2515,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 
 				  bool jsonArrayStarted = false;
 				  for(int i = 0; i < mapLen; i++) {
-					  if (ctu->mapToUnicode(i, (const unsigned int**)&u)) {
+					  /*if (ctu->mapToUnicode((CharCode)i, (Unicode const **)&u)) {
 						 if (jsonArrayStarted) {
 							buff[0] = ','; buff[1] = 0;
 							fwrite(buff, 1, strlen(buff), fMap);
@@ -2537,7 +2537,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 		                     fwrite(buff, 1, strlen(buff), fMap);
 					     }
 						 write_map_file(fMap, "} }\n");
-					  }
+					  }*/
 				  };
 
 				  sprintf(buff, "]\n");
@@ -2570,7 +2570,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 			  FILE *f = popen(fontForgeCmd,"r");
 			  static int errcount = 0;
 
-			  while ( f && (inBuff = readLineFromFile(f)) > 0 ) {
+			  while ( f && (inBuff = readLineFromFile(f)) != nullptr ) {
 				  if (sp_log_font_sh) {
 					  // if it formated message
 					  if (strncmp(inBuff, "FFE-", 4) == 0) {
@@ -2619,7 +2619,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   }
   if (printCommands) {
     printf("  font: tag=%s name='%s' %g\n",
-	   font->getTag()->c_str(),
+	   font->getTag().c_str(),
 	   font->getName() ? font->getName()->c_str() : "???",
 	   args[1].getNum());
     fflush(stdout);
@@ -2633,8 +2633,8 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   if (ctu) {
 	  builder->spaceWidth = 0;
 	  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
-		  Unicode *u;
-		  ctu->mapToUnicode(i, (const unsigned int**)&u);
+		 /* Unicode *u;
+		  ctu->mapToUnicode((CharCode)i, (Unicode const **)&u);
 		  if (*u == 32) {
 			  if (font->isCIDFont()) {
 				  builder->spaceWidth = ((GfxCIDFont *)font)->getWidth((char *)&i, 1) * state->getFontSize();
@@ -2642,7 +2642,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 				  builder->spaceWidth = ((Gfx8BitFont *)font)->getWidth(i) *  state->getFontSize();
 			  }
 
-		  }
+		  }*/
 	  }
   } else {
 	  builder->spaceWidth = 0.3 * state->getFontSize();

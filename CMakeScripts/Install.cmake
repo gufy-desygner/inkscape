@@ -3,7 +3,7 @@ if(UNIX)
       ${CMAKE_SOURCE_DIR}/fontForge/chageFontName.pe
       ${CMAKE_SOURCE_DIR}/fontForge/cidConvertor.py
       ${CMAKE_SOURCE_DIR}/fontForge/fontAdapter.py
-      ${CMAKE_BINARY_DIR}/bin/pdf-extractor
+      #${CMAKE_BINARY_DIR}/bin/pdf-extractor
       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/
       PERMISSIONS 
       OWNER_EXECUTE

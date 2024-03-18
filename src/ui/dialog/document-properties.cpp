@@ -559,6 +559,9 @@ struct _cmp {
   }
 };
 
+template <typename From, typename To>
+struct static_caster { To * operator () (From * value) const { return static_cast<To *>(value); } };
+
 void DocumentProperties::populate_linked_profiles_box()
 {
     _LinkedProfilesListStore->clear();
@@ -566,12 +569,16 @@ void DocumentProperties::populate_linked_profiles_box()
     if (! current.empty()) {
         _emb_profiles_observer.set((*(current.begin()))->parent);
     }
-    std::set<SPObject *, _cmp> _current (current.begin(), current.end());
-    for (std::set<SPObject *, _cmp>::const_iterator it = _current.begin(); it != _current.end(); ++it) {
-        SPObject* obj = *it;
-        Inkscape::ColorProfile* prof = reinterpret_cast<Inkscape::ColorProfile*>(obj);
+
+    std::set<Inkscape::ColorProfile *> _current;
+    std::transform(current.begin(),
+                   current.end(),
+                   std::inserter(_current, _current.begin()),
+                   static_caster<SPObject, Inkscape::ColorProfile>());
+
+    for (auto &profile: _current) {
         Gtk::TreeModel::Row row = *(_LinkedProfilesListStore->append());
-        row[_LinkedProfilesListColumns.nameColumn] = prof->name;
+        row[_LinkedProfilesListColumns.nameColumn] = profile->name;
 //        row[_LinkedProfilesListColumns.previewColumn] = "Color Preview";
     }
 }

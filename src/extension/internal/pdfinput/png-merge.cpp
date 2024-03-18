@@ -330,10 +330,10 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  const char *styleValue = tmpNode->attribute(attrName);
 					  // style tag is right only if it have some parametrs
 					  if (strcmp(attrName, "style") == 0) {
-						  additionCond = (strstr(styleValue, "Gradient") > 0) ||
+						  additionCond = (strstr(styleValue, "Gradient") != nullptr) ||
 								  // Don't merge gradients with pattern
 								  /*(strstr(styleValue, "url(#pattern") > 0) ||*/
-								  (strstr(styleValue, "fill:url(#linearGradient") > 0);
+								  (strstr(styleValue, "fill:url(#linearGradient") != nullptr);
 						  //printf("style=%s\n",styleValue);
 						  //printf("id=%s\n",tmpNode->attribute("id"));
 						  //printf("%s\n", additionCond ? "true" : "false");
@@ -342,7 +342,7 @@ bool MergeBuilder::haveTagAttrFormList(Inkscape::XML::Node *node) {
 					  	  return true;
 					  }
 					  if (strcmp(attrName, "fill") == 0) {
-						  additionCond = (strstr("url(#linearGradient", styleValue) > 0);
+						  additionCond = (strstr("url(#linearGradient", styleValue) != nullptr);
 					  }
 					  const char *begin = strstr(styleValue, "url(#");
 					  const char *end;

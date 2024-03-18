@@ -9,6 +9,7 @@
 #define PDF_PARSER_H
 
 #ifdef HAVE_POPPLER
+#include "poppler-transition-api.h"
 
 #ifdef USE_GCC_PRAGMAS
 #pragma interface
@@ -27,7 +28,8 @@ namespace Inkscape {
 // TODO clean up and remove using:
 using Inkscape::Extension::Internal::SvgBuilder;
 
-#include "goo/gtypes.h"
+#include "goo/gmem.h"
+#include "goo/GooString.h"
 #include "Object.h"
 
 class GooString;

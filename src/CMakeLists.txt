@@ -449,7 +449,7 @@ list(APPEND inkscape_SRC
 # -----------------------------------------------------------------------------
 
 #Custom desygner projects
-add_subdirectory(pdf-extract)
+#add_subdirectory(pdf-extract)
 
 # All folders for internal inkscape
 # these call add_inkscape_source
@@ -537,7 +537,12 @@ if(WITH_DBUS)
     add_dependencies(inkscape_base inkscape_dbus)
 endif()
 
+pkg_check_modules( POPPLER REQUIRED poppler-glib )
+include_directories( ${POPPLER_INCLUDE_DIRS} )
+link_directories( ${POPPLER_LIBRARY_DIRS} )
+
 set(INKSCAPE_TARGET_LIBS
+        poppler
         # order from automake
         #sp_LIB
         #nrtype_LIB
@@ -557,7 +562,6 @@ set(INKSCAPE_TARGET_LIBS
         curlpp
         curl
         jsoncpp
-	poppler
         ${INKSCAPE_LIBS}
 )
 
