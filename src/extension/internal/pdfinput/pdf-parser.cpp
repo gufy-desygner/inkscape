@@ -2390,6 +2390,43 @@ inline bool isExistFile (const std::string& name) {
   return (stat (name.c_str(), &buffer) == 0);
 }
 
+// THIS PART IS INAPPRIATE FOR HARDCODE - but I can't fund better solution
+// Linker can't find this function  CharCodeToUnicode::mapToUnicode in libpoppler
+// so i implement it here
+struct CharCodeToUnicodeString
+{
+    CharCode c;
+    Unicode *u;
+    int len;
+};
+
+int CharCodeToUnicode::mapToUnicode(CharCode c, Unicode const **u) const
+{
+    int i;
+
+    if (isIdentity) {
+        map[0] = (Unicode)c;
+        *u = map;
+        return 1;
+    }
+    if (c >= mapLen) {
+        return 0;
+    }
+    if (map[c]) {
+        *u = &map[c];
+        return 1;
+    }
+    for (i = sMapLen - 1; i >= 0; --i) { // in reverse so CMap takes precedence
+        if (sMap[i].c == c) {
+            *u = sMap[i].u;
+            return sMap[i].len;
+        }
+    }
+    return 0;
+}
+
+// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 {
 	int len;
@@ -2464,7 +2501,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 			 if (ctu) {
 
 				  int mapLen = ctu->getLength();
-				  Unicode *u;
+				  const Unicode *u;
 				  //make JSON map file
 				  char * mapFileName = g_strdup_printf("%s.map", fname);
 				  FILE *fMap = fopen(mapFileName, "w");
@@ -2497,7 +2534,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 
 				  bool jsonArrayStarted = false;
 				  for(int i = 0; i < mapLen; i++) {
-					  /*if (ctu->mapToUnicode((CharCode)i, (Unicode const **)&u)) {
+					  if (ctu->mapToUnicode((CharCode)i, (Unicode const **)&u)) {
 						 if (jsonArrayStarted) {
 							buff[0] = ','; buff[1] = 0;
 							fwrite(buff, 1, strlen(buff), fMap);
@@ -2519,7 +2556,7 @@ void PdfParser::exportFont(GfxFont *font, RecExportFont *args)
 		                     fwrite(buff, 1, strlen(buff), fMap);
 					     }
 						 write_map_file(fMap, "} }\n");
-					  }*/
+					  }
 				  };
 
 				  sprintf(buff, "]\n");
@@ -2615,7 +2652,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
   if (ctu) {
 	  builder->spaceWidth = 0;
 	  for(unsigned char i = 1; i < ctu->getLength() && i != 0 && builder->spaceWidth == 0; i++) {
-		 /* Unicode *u;
+		  Unicode *u;
 		  ctu->mapToUnicode((CharCode)i, (Unicode const **)&u);
 		  if (*u == 32) {
 			  if (font->isCIDFont()) {
@@ -2624,7 +2661,7 @@ void PdfParser::opSetFont(Object args[], int /*numArgs*/)
 				  builder->spaceWidth = ((Gfx8BitFont *)font)->getWidth(i) *  state->getFontSize();
 			  }
 
-		  }*/
+		  }
 	  }
   } else {
 	  builder->spaceWidth = 0.3 * state->getFontSize();
