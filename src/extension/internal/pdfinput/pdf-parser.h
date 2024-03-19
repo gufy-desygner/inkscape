@@ -217,6 +217,10 @@ private:
   ClipHistoryEntry *clipHistory;    // clip path stack
   OpHistoryEntry *operatorHistory;  // list containing the last N operators
 
+  GfxColorSpace *lookupColorSpaceCopy(Object &);
+    //! Caches color spaces by name
+  std::map<std::string, std::unique_ptr<GfxColorSpace>> colorSpacesCache;
+
   void setDefaultApproximationPrecision();  // init color deltas
   void pushOperator(const char *name);
   OpHistoryEntry *popOperator();
